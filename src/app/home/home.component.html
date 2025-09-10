@@ -1,19 +1,69 @@
 <div class="container">
   <aside class="sidebar">
     <div class="welcome">
-      <h3>Welcome, {{ username }}</h3>
+      <h3><i class="fas fa-user-circle"></i> Welcome, {{ username }}</h3>
     </div>
     <ul>
-      <li><a routerLink="dashboard">Dashboard</a></li>
-      <li><a routerLink="new-shipment">New Shipment</a></li>
-      <li><a routerLink="shipments">Shipments</a></li>
-      <li><a routerLink="admin">Admin</a></li>
-      <li><a routerLink="settings">Settings</a></li>
-      <li><a routerLink="profile">Profile</a></li>
-      <li><a routerLink="notifications">Notification</a></li>
-      <li><a routerLink="/">Logout</a></li>
+      <li><a routerLink="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+      <li><a routerLink="new-shipment"><i class="fas fa-plus-circle"></i> New Shipment</a></li>
+
+      <!-- Shipments -->
+      <li class="menu-item" (click)="toggleMenu('shipments')">
+        <span><i class="fas fa-truck"></i> Shipments</span>
+        <i class="fas fa-caret-down"></i>
+      </li>
+      <ul *ngIf="showShipments" class="submenu">
+        <li><a routerLink="shipments">View Shipments</a></li>
+        <li><a href="#">Stocks</a></li>
+        <li><a href="#">Manifest</a></li>
+        <li><a href="#">Invoice</a></li>
+        <li><a href="#">Reports</a></li>
+      </ul>
+
+      <!-- Admin -->
+      <li class="menu-item" (click)="toggleMenu('admin')">
+        <span><i class="fas fa-user-shield"></i> Admin</span>
+        <i class="fas fa-caret-down"></i>
+      </li>
+      <ul *ngIf="showAdmin" class="submenu">
+        <li><a href="#">Clients</a></li>
+        <li><a href="#">Guests</a></li>
+        <li><a href="#">Branches</a></li>
+        <li><a href="#">Hubs</a></li>
+        <li><a href="#">Users</a></li>
+        <li><a href="#">Categories</a></li>
+        <li><a href="#">Packages</a></li>
+        <li><a href="#">Products</a></li>
+        <li><a href="#">Roles Settings</a></li>
+      </ul>
+
+      <!-- Settings -->
+      <li class="menu-item" (click)="toggleMenu('settings')">
+        <span><i class="fas fa-cog"></i> Settings</span>
+        <i class="fas fa-caret-down"></i>
+      </li>
+      <ul *ngIf="showSettings" class="submenu">
+        <li><a href="#">Configuration</a></li>
+        <li><a href="#">Logs</a></li>
+        <li><a href="#">Locations</a></li>
+      </ul>
+
+      <!-- Profile -->
+      <li class="menu-item" (click)="toggleMenu('profile')">
+        <span><i class="fas fa-id-badge"></i> Profile</span>
+        <i class="fas fa-caret-down"></i>
+      </li>
+      <ul *ngIf="showProfile" class="submenu">
+        <li><a href="#">My Profile</a></li>
+        <li><a href="#">Change Password</a></li>
+        <li><a href="#">Roles</a></li>
+      </ul>
+
+      <li><a routerLink="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
+      <li><a routerLink="/"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>
   </aside>
+
   <main class="content">
     <router-outlet></router-outlet>
   </main>
