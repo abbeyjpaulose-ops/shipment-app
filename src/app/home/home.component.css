@@ -26,3 +26,11 @@
   flex: 1;
   padding: 20px;
 }
+.welcome {
+  margin-bottom: 20px;
+  padding: 10px;
+  font-weight: bold;
+  color: #fff;
+  border-bottom: 1px solid rgba(255,255,255,0.3);
+}
+

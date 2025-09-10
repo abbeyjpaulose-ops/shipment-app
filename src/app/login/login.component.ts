@@ -15,7 +15,8 @@ export class LoginComponent {
 
   login() {
     if (this.email === 'admin@example.com' && this.password === 'admin') {
-      window.location.href = '/home';
+      localStorage.setItem('username', this.email); // store username
+      window.location.href = '/home/dashboard';
     } else {
       alert('Invalid credentials');
     }

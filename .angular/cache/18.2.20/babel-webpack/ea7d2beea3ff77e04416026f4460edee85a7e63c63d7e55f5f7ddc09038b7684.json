@@ -1,0 +1,1 @@
+{"ast":null,"code":"\"use strict\";\n\nlogin();\n{\n  if (this.email === 'admin@example.com' && this.password === 'admin') {\n    localStorage.setItem('username', 'Admin User'); // 👈 store user name\n    window.location.href = '/home/dashboard';\n  } else {\n    alert('Invalid credentials');\n  }\n}","map":null,"metadata":{},"sourceType":"script","externalDependencies":[]}
