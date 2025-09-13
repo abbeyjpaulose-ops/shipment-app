@@ -26,6 +26,7 @@ export class NewShipmentComponent {
   consigneeGST: string = '';
   paymentMode: string = 'Account Credit';
   externalRefId: string = '';
+  hubs = [{ number: '', value: 0 }];
 
   // Section 3: Invoice Details
   invoices = [{ number: '', value: 0 }];
@@ -43,6 +44,13 @@ export class NewShipmentComponent {
   }
   deleteInvoice(index: number) {
     this.invoices.splice(index, 1);
+  }
+
+  addHub() {
+    this.hubs.push({ number: '', value: 0 });
+  }
+  deleteHub(index: number) {
+    this.hubs.splice(index, 1);
   }
 
   addPackage() {

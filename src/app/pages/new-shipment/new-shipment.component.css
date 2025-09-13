@@ -67,3 +67,14 @@ button:hover {
   flex-wrap: wrap;
   margin-top: 15px;
 }
+.hub-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.hub-row input {
+  flex: 1;
+  padding: 6px;
+}

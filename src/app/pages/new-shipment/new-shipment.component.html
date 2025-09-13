@@ -27,7 +27,16 @@
       <input placeholder="District" [(ngModel)]="destinationBranch.district">
       <input placeholder="Pincode" [(ngModel)]="destinationBranch.pincode">
     </div>
+
+    <!-- Hubs Section -->
+    <h3>Hubs</h3>
+    <div *ngFor="let hub of hubs; let i = index" class="hub-row">
+      <input placeholder="Enter Hub Name/Location" [(ngModel)]="hub.number">
+      <button type="button" (click)="deleteHub(i)">🗑️ Delete</button>
+    </div>
+    <button type="button" (click)="addHub()">+ Add Hub</button>
   </section>
+
 
   <!-- 2. Consignment & Payment Mode -->
   <section>
