@@ -1,1 +1,95 @@
-h2 { color: #1976d2; }
+.profile-container {
+  max-width: 900px;
+  margin: auto;
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Side by side layout */
+.profile-main {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+}
+
+/* Photo section */
+.photo-section {
+  flex: 1;
+  text-align: center;
+}
+
+.photo-frame {
+  width: 150px;
+  height: 150px;
+  border: 2px solid #ccc;
+  border-radius: 50%;
+  margin: auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eee;
+}
+
+.photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-section input {
+  margin-top: 10px;
+}
+
+/* Form section */
+.form-section {
+  flex: 2;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 15px 20px;
+}
+
+.form-row {
+  display: contents; /* allows label and input to align in grid */
+}
+
+.form-section label {
+  font-weight: bold;
+  align-self: center;
+}
+
+.form-section input,
+.form-section textarea {
+  padding: 8px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  width: 100%;
+}
+
+/* Buttons */
+.button-section {
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+}
+
+.button-section button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.button-section button:first-child {
+  background: #2c3e50;
+  color: white;
+}
+
+.button-section button:last-child {
+  background: #e74c3c;
+  color: white;
+}

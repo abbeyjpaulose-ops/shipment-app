@@ -1,1 +1,51 @@
-<h2>Profile</h2>
+<div class="profile-container">
+  <div class="profile-main">
+    <!-- Profile Photo Section -->
+    <div class="photo-section">
+      <div class="photo-frame">
+        <img *ngIf="profile.photo" [src]="profile.photo" alt="Profile Photo" />
+        <span *ngIf="!profile.photo">No Photo</span>
+      </div>
+      <input type="file" (change)="onFileSelected($event)" />
+    </div>
+
+    <!-- Profile Form -->
+    <div class="form-section">
+      <div class="form-row">
+        <label>Name:</label>
+        <input type="text" [(ngModel)]="profile.name" placeholder="Enter name" />
+      </div>
+
+      <div class="form-row">
+        <label>Address:</label>
+        <textarea [(ngModel)]="profile.address" placeholder="Enter address"></textarea>
+      </div>
+
+      <div class="form-row">
+        <label>Company Name:</label>
+        <input type="text" [(ngModel)]="profile.company" placeholder="Enter company name" />
+      </div>
+
+      <div class="form-row">
+        <label>Mobile Number:</label>
+        <input type="text" [(ngModel)]="profile.mobile" placeholder="Enter mobile number" />
+      </div>
+
+      <div class="form-row">
+        <label>Email:</label>
+        <input type="email" [(ngModel)]="profile.email" placeholder="Enter email" />
+      </div>
+
+      <div class="form-row">
+        <label>Role:</label>
+        <input type="text" [(ngModel)]="profile.role" placeholder="Enter role" />
+      </div>
+    </div>
+  </div>
+
+  <!-- Buttons at bottom -->
+  <div class="button-section">
+    <button (click)="saveProfile()">Save</button>
+    <button (click)="clearProfile()">Clear</button>
+  </div>
+</div>
