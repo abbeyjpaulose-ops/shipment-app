@@ -11,19 +11,19 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
   styleUrls: ['./login.component.css']
 })
 export class LoginComponent {
-  email: string = '';
+  username: string = '';
   password: string = '';
 
   constructor(private http: HttpClient) {}
 
   login() {
     this.http.post('http://localhost:3000/api/auth/login', {
-      email: this.email,
+      username: this.username,
       password: this.password
     }).subscribe({
       next: (res: any) => {
         console.log('Login success:', res);
-        localStorage.setItem('username', res.email);
+        localStorage.setItem('username', res.username);
         localStorage.setItem('token', res.token);
         window.location.href = '/home/dashboard';
       },
