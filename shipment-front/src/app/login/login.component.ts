@@ -23,9 +23,12 @@ export class LoginComponent {
     }).subscribe({
       next: (res: any) => {
         console.log('Login success:', res);
+        localStorage.setItem('email', res.email);
         localStorage.setItem('username', res.username);
         localStorage.setItem('token', res.token);
+        console.error(res.username);
         window.location.href = '/home/dashboard';
+        
       },
       error: (err) => {
         console.error(err);

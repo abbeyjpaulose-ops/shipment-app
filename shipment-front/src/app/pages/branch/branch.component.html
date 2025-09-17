@@ -1,0 +1,49 @@
+<div class="branches-container">
+  <h2>Manage Branches</h2>
+
+  <!-- Add Branch Form -->
+  <div class="add-branch-form">
+    <input [(ngModel)]="newBranch.branchName" placeholder="Branch Name" required>
+    <input [(ngModel)]="newBranch.address" placeholder="Address" required>
+    <input [(ngModel)]="newBranch.city" placeholder="City">
+    <input [(ngModel)]="newBranch.state" placeholder="State">
+    <input [(ngModel)]="newBranch.pinCode" placeholder="Pin Code">
+    <input [(ngModel)]="newBranch.GSTIN" placeholder="GSTIN" required>
+    <button (click)="addBranch()">+ Add Branch</button>
+  </div>
+
+  <!-- Branches List -->
+  <table>
+    <tr>
+      <th>Branch Name</th>
+      <th>Address</th>
+      <th>City</th>
+      <th>State</th>
+      <th>Pin</th>
+      <th>GSTIN</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+    <tr *ngFor="let b of branches">
+      <td *ngIf="editingBranch?._id !== branch._id">{{ branch.branchName }}</td>
+      <td *ngIf="editingBranch?._id === branch._id"><input [(ngModel)]="editingBranch.branchName"></td>
+
+      <td *ngIf="editingBranch?._id !== branch._id">{{ branch.address }}</td>
+      <td *ngIf="editingBranch?._id === branch._id"><input [(ngModel)]="editingBranch.address"></td>
+
+      <td>{{ branch.city }}</td>
+      <td>{{ branch.state }}</td>
+      <td>{{ branch.pinCode }}</td>
+      <td>{{ branch.GSTIN }}</td>
+      <td>
+        <button (click)="toggleStatus(b)">
+          {{ branch.status === 'active' ? 'Deactivate' : 'Activate' }}
+        </button>
+      </td>
+      <td>
+        <button *ngIf="editingBranch?._id !== branch._id" (click)="editBranch(b)">Edit</button>
+        <button *ngIf="editingBranch?._id === branch._id" (click)="saveEdit()">Save</button>
+      </td>
+    </tr>
+  </table>
+</div>

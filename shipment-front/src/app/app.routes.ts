@@ -7,6 +7,7 @@ import { ShipmentsComponent } from './pages/shipments/shipments.component';
 import { AdminComponent } from './pages/admin/admin.component';
 import { SettingsComponent } from './pages/settings/settings.component';
 import { ProfileComponent } from './pages/profile/profile.component';
+import { BranchComponent } from './pages/branch/branch.component';
 import { NotificationsComponent } from './pages/notifications/notifications.component';
 
 export const routes: Routes = [
@@ -19,6 +20,7 @@ export const routes: Routes = [
       { path: 'new-shipment', component: NewShipmentComponent },
       { path: 'shipments', component: ShipmentsComponent },
       { path: 'admin', component: AdminComponent },
+      { path: 'Branches', component:  BranchComponent},
       { path: 'settings', component: SettingsComponent },
       { path: 'profile', component: ProfileComponent },
       { path: 'notifications', component: NotificationsComponent }

@@ -28,13 +28,13 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, username: user.username, role: user.role },
+      { id: user._id, username: user.username, role: user.role, email: user.email },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '1h' }
     );
-    console.log('🎫 JWT generated successfully for:', username);
+    console.log('🎫 JWT generated successfully for:', username, user.email);
 
-    return res.json({ token, username: user.username, role: user.role });
+    return res.json({ token, username: user.username, role: user.role, email: user.email });
   } catch (err) {
     console.error('❌ Error in /login route:', err);
     res.status(500).json({ message: 'Server error' });
