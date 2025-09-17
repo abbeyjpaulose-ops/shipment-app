@@ -33,9 +33,16 @@ export class BranchComponent implements OnInit {
   }
 
   loadBranches() {
-    this.http.get<any[]>('http://localhost:3000/api/branches')
-      .subscribe(data => this.branches = data);
-  }
+    const email = localStorage.getItem('email'); // set during login
+    this.http.get<any[]>(`http://localhost:3000/api/branches?email=${email}`)
+    .subscribe({
+      next: (data) => {
+        console.log("Branches loaded:", data); // 👈 log to browser console
+        this.branches = data;
+      },
+      error: (err) => console.error("Error loading branches:", err)
+    });
+}
 
   addBranch() {
     console.log('📤 Sending branch data:', this.newBranch);

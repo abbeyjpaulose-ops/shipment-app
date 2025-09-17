@@ -25,24 +25,32 @@
       <th>Actions</th>
     </tr>
     <tr *ngFor="let b of branches">
-      <td *ngIf="editingBranch?._id !== branch._id">{{ branch.branchName }}</td>
-      <td *ngIf="editingBranch?._id === branch._id"><input [(ngModel)]="editingBranch.branchName"></td>
+      <td *ngIf="editingBranch?._id !== b._id">{{ b.branchName }}</td>
+      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.branchName"></td>
 
-      <td *ngIf="editingBranch?._id !== branch._id">{{ branch.address }}</td>
-      <td *ngIf="editingBranch?._id === branch._id"><input [(ngModel)]="editingBranch.address"></td>
+      <td *ngIf="editingBranch?._id !== b._id">{{ b.address }}</td>
+      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.address"></td>
+ 
+      <td *ngIf="editingBranch?._id !== b._id">{{ b.city }}</td>
+      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.city"></td>
 
-      <td>{{ branch.city }}</td>
-      <td>{{ branch.state }}</td>
-      <td>{{ branch.pinCode }}</td>
-      <td>{{ branch.GSTIN }}</td>
+      <td *ngIf="editingBranch?._id !== b._id">{{ b.state }}</td>
+      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.state"></td>
+
+      <td *ngIf="editingBranch?._id !== b._id">{{ b.pinCode }}</td>
+      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.pinCode"></td>
+
+      <td *ngIf="editingBranch?._id !== b._id">{{ b.GSTIN }}</td>
+      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.GSTIN"></td>
+
       <td>
         <button (click)="toggleStatus(b)">
-          {{ branch.status === 'active' ? 'Deactivate' : 'Activate' }}
+          {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
         </button>
       </td>
       <td>
-        <button *ngIf="editingBranch?._id !== branch._id" (click)="editBranch(b)">Edit</button>
-        <button *ngIf="editingBranch?._id === branch._id" (click)="saveEdit()">Save</button>
+        <button *ngIf="editingBranch?._id !== b._id" (click)="editBranch(b)">Edit</button>
+        <button *ngIf="editingBranch?._id === b._id" (click)="saveEdit()">Save</button>
       </td>
     </tr>
   </table>

@@ -18,10 +18,16 @@ router.post('/add', async (req, res) => {
   }
 });
 
-// Get all branches
+// Get branches for a specific user
 router.get('/', async (req, res) => {
-  const branches = await Branch.find().sort({ createdAt: -1 });
-  res.json(branches);
+  try {
+    const email = req.query.email;  // frontend will send ?email=user@example.com
+    const query = email ? { email } : {};
+    const branches = await Branch.find(query).sort({ createdAt: -1 });
+    res.json(branches);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
 });
 
 // Update branch
