@@ -53,4 +53,23 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+// Get branches by user
+router.get('/by-user/:username', async (req, res) => {
+  try {
+    const branches = await Branch.find({
+      $or: [
+        { username: req.params.username },
+        { email: req.query.email }
+      ]
+    }).sort({ createdAt: -1 });
+
+    console.log('📥 Branch:', typeof branches);
+
+    res.json(branches);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+
 export default router;
