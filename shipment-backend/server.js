@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.js';  // now works
 import User from './models/User.js';
 
 import branchRoutes from './routes/branch.js';
+import hubRoutes from './routes/hub.js';
 
 
 
@@ -22,5 +23,6 @@ mongoose.connect(MONGO_URI)
 
 app.use('/api/auth', authRoutes);
 app.use('/api/branches', branchRoutes);
+app.use('/api/hubs', hubRoutes);
 
 app.listen(3000, () => console.log('🚀 Server running on port 3000'));

@@ -8,6 +8,7 @@ import { AdminComponent } from './pages/admin/admin.component';
 import { SettingsComponent } from './pages/settings/settings.component';
 import { ProfileComponent } from './pages/profile/profile.component';
 import { BranchComponent } from './pages/branch/branch.component';
+import { HubComponent } from './pages/hub/hub.component';
 import { NotificationsComponent } from './pages/notifications/notifications.component';
 
 export const routes: Routes = [
@@ -21,6 +22,7 @@ export const routes: Routes = [
       { path: 'shipments', component: ShipmentsComponent },
       { path: 'admin', component: AdminComponent },
       { path: 'Branches', component:  BranchComponent},
+      { path: 'Hubs', component:  HubComponent},
       { path: 'settings', component: SettingsComponent },
       { path: 'profile', component: ProfileComponent },
       { path: 'notifications', component: NotificationsComponent }

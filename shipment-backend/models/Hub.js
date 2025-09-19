@@ -2,20 +2,19 @@
 import mongoose from 'mongoose';
 
 const HubSchema = new mongoose.Schema({
-  companyName: { type: String, required: true },
+  hubName: { type: String, required: true },
   address: { type: String, required: true },
-  city: { type: String, required: true },
-  state: { type: String, required: true },
-  pincode: { type: String, required: true },
-  gstin: { type: String, required: true }, // mandatory but repeatable 
-  perRev: { type: String, required: true }, // percentage of revenue
+  city: { type: String },
+  state: { type: String },
+  pinCode: { type: String },
+  GSTIN: { type: String, required: true },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  username: { type: String, required: true }, // logged-in user
-  email: { type: String, required: true },    // logged-in email
+  email: { type: String, required: true },     // from logged-in user
+  username: { type: String, required: true },  // from logged-in user
   createdAt: { type: Date, default: Date.now }
 });
 
-// Prevent duplicate companyName + address
-HubSchema.index({ companyName: 1, address: 1 }, { unique: true });
+// Unique combo: hubName + address
+HubSchema.index({ hubName: 1, address: 1 }, { unique: true });
 
 export default mongoose.models.Hub || mongoose.model('Hub', HubSchema);

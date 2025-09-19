@@ -59,9 +59,7 @@ router.get('/by-user/:username', async (req, res) => {
     const branches = await Branch.find({
       email: req.query.email
     }).sort({ createdAt: -1 });
-
-    console.log('📥 Branch:', req.query.email, branches);
-
+    
     res.json(branches);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
