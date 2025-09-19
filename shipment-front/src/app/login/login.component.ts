@@ -23,7 +23,7 @@ export class LoginComponent {
     }).subscribe({
       next: (res: any) => {
         localStorage.setItem('username', res.username);
-        localStorage.setItem('usernameEmail', res.email);
+        localStorage.setItem('email', res.email);
 
         this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${res.username}?email=${res.email}`)
           .subscribe(branches => {

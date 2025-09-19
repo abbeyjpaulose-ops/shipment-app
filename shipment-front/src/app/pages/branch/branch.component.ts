@@ -45,8 +45,7 @@ export class BranchComponent implements OnInit {
 }
 
   addBranch() {
-    console.log('📤 Sending branch data:', this.newBranch);
-
+    console.log('📤 Sending branch data:');
     this.http.post('http://localhost:3000/api/branches/add', this.newBranch, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({

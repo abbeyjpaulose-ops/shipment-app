@@ -55,15 +55,12 @@ router.patch('/:id/status', async (req, res) => {
 
 // Get branches by user
 router.get('/by-user/:username', async (req, res) => {
-  try {
+  try {   
     const branches = await Branch.find({
-      $or: [
-        { username: req.params.username },
-        { email: req.query.email }
-      ]
+      email: req.query.email
     }).sort({ createdAt: -1 });
 
-    console.log('📥 Branch:', typeof branches);
+    console.log('📥 Branch:', req.query.email, branches);
 
     res.json(branches);
   } catch (err) {

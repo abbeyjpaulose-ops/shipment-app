@@ -13,7 +13,7 @@ import { HttpClient } from '@angular/common/http';
 })
 export class HomeComponent implements OnInit {
   username: string | null = localStorage.getItem('username');
-  email: string | null = localStorage.getItem('usernameEmail');
+  email: string | null = localStorage.getItem('email');
 
   // Dropdown states
   showShipments = false;

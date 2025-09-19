@@ -1,0 +1,59 @@
+<h2>Manage Hubs</h2>
+
+<!-- Add Hub Form -->
+<div class="hub-form">
+  <input placeholder="Company Name" [(ngModel)]="newHub.companyName">
+  <input placeholder="Address" [(ngModel)]="newHub.address">
+  <input placeholder="City" [(ngModel)]="newHub.city">
+  <input placeholder="State" [(ngModel)]="newHub.state">
+  <input placeholder="Pincode" [(ngModel)]="newHub.pincode">
+  <input placeholder="GSTIN" [(ngModel)]="newHub.gstin">
+  <input placeholder="Percentage of Revenue" [(ngModel)]="newHub.perRev">
+  <button (click)="addHub()">+ Add Hub</button>
+</div>
+
+<!-- Hubs List -->
+<table class="hub-form">
+  <tr>
+    <th>Company</th>
+    <th>Address</th>
+    <th>City</th>
+    <th>State</th>
+    <th>Pincode</th>
+    <th>GSTIN</th>
+    <th>Percentage of Revenue</th>
+    <th>Status</th>
+    <th>Actions</th>
+  </tr>
+  <tr *ngFor="let h of hubs">
+    <td *ngIf="editingHub?._id !== h._id">{{ h.companyName }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.companyName"></td>
+    <td *ngIf="editingHub?._id !== h._id">{{ h.address }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.address"></td>
+    <td *ngIf="editingHub?._id !== h._id">{{ h.city }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.city"></td>
+    <td *ngIf="editingHub?._id !== h._id">{{ h.state }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.state"></td>
+    <td *ngIf="editingHub?._id !== h._id">{{ h.pinCode }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.pinCode"></td>
+    <td *ngIf="editingHub?._id !== h._id">{{ h.GSTIN }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.GSTIN"></td>
+    <td *ngIf="editingHub?._id !== h._id">{{ h.perRev }}</td>
+    <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.perRev"></td>
+    <td>
+    
+      <button (click)="toggleStatus(hub)">
+        {{ h.status === 'active' ? 'Deactivate' : 'Activate' }}
+      </button>
+    </td>
+    
+    <td>
+    
+      <button *ngIf="editingHub?._id !== h._id" (click)="editHub(b)">Edit</button>
+    
+      <button *ngIf="editingHub?._id === h._id" (click)="saveEdit()">Save</button>
+    
+    </td>
+    
+  </tr>  
+</table>

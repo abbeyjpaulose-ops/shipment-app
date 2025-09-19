@@ -1,7 +1,7 @@
 <div class="container">
   <aside class="sidebar">
     <div class="welcome">
-      <h3><i class="fas fa-user-circle"></i> Welcome, {{ username }}</h3>
+      <h3><i class="fas fa-user-circle"></i> Welcome, {{ username }}, {{ email }}</h3>
  
       <!-- Branch Dropdown --> 
       <select [(ngModel)]="selectedBranch" (change)="onBranchChange($event)"> 
