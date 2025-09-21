@@ -27,7 +27,7 @@
       <th>Actions</th>
     </tr>
     <tr *ngFor="let h of hubs">
-      <td *ngIf="editingHub?._id !== h._id">{{ h.hubName }}</td>
+      <td *ngIf="editingHub?._id !== h._id">{{ h.perRev }}</td>
       <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.branchName"></td>
 
       <td *ngIf="editingHub?._id !== h._id">{{ h.address }}</td>
@@ -49,12 +49,12 @@
       <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.perRev"></td>
 
       <td>
-        <button (click)="toggleStatus(b)">
+        <button (click)="toggleStatus(h)">
           {{ h.status === 'active' ? 'Deactivate' : 'Activate' }}
         </button>
       </td>
       <td>
-        <button *ngIf="editingHub?._id !== h._id" (click)="editHub(b)">Edit</button>
+        <button *ngIf="editingHub?._id !== h._id" (click)="editHub(h)">Edit</button>
         <button *ngIf="editingHub?._id === h._id" (click)="saveEdit()">Save</button>
       </td>
     </tr>

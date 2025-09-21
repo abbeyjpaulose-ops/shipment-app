@@ -8,6 +8,7 @@ const HubSchema = new mongoose.Schema({
   state: { type: String },
   pinCode: { type: String },
   GSTIN: { type: String, required: true },
+  perRev: { type: Number, required: true }, // percentage revenue share
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   email: { type: String, required: true },     // from logged-in user
   username: { type: String, required: true },  // from logged-in user

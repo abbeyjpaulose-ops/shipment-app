@@ -2,12 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';   // 👈 import this
 
 @Component({
   selector: 'app-branch',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],  // 👈 add here
+  imports: [CommonModule, FormsModule],  // 👈 add here
   templateUrl: './branch.component.html',
   styleUrls: ['./branch.component.css']
 })

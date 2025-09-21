@@ -2,12 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClientModule } from '@angular/common/http';   // 👈 import this
 
 @Component({
   selector: 'app-hub',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],  // 👈 add here
+  imports: [CommonModule, FormsModule],  // 👈 add here
   templateUrl: './hub.component.html',
   styleUrls: ['./hub.component.css']
 })
@@ -55,7 +54,7 @@ export class HubComponent implements OnInit {
       },
       error: (err) => {
         console.error('❌ Error saving hub:', err);
-        alert('Error12: ' + err.message);
+        alert('Error12: ' + err.error.message);
       }
     });
   }
