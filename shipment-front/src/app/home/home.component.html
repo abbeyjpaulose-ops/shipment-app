@@ -21,10 +21,10 @@
       </li>
       <ul *ngIf="showShipments" class="submenu">
         <li><a routerLink="shipments">View Shipments</a></li>
-        <li><a href="#">Stocks</a></li>
-        <li><a href="#">Manifest</a></li>
-        <li><a href="#">Invoice</a></li>
-        <li><a href="#">Reports</a></li>
+        <li><a routerLink="Stocks">Stocks</a></li>
+        <li><a routerLink="Manifest">Manifest</a></li>
+        <li><a routerLink="Invoice">Invoice</a></li>
+        <li><a routerLink="Reports">Reports</a></li>
       </ul>
 
       <!-- Admin -->
@@ -33,15 +33,15 @@
         <i class="fas fa-caret-down"></i>
       </li>
       <ul *ngIf="showAdmin" class="submenu">
-        <li><a href="#">Clients</a></li>
-        <li><a href="#">Guests</a></li>
+        <li><a routerLink="Clients">Clients</a></li>
+        <li><a routerLink="Guests">Guests</a></li>
         <li><a routerLink="Branches">Branches</a></li>
         <li><a routerLink="Hubs">Hubs</a></li>
-        <li><a href="#">Users</a></li>
-        <li><a href="#">Categories</a></li>
-        <li><a href="#">Packages</a></li>
-        <li><a href="#">Products</a></li>
-        <li><a href="#">Roles Settings</a></li>
+        <li><a routerLink="Users">Users</a></li>
+        <li><a routerLink="Categories">Categories</a></li>
+        <li><a routerLink="Packages">Packages</a></li>
+        <li><a routerLink="Products">Products</a></li>
+        <li><a routerLink="RoleSettings">Roles Settings</a></li>
       </ul>
 
       <!-- Settings -->
@@ -50,9 +50,9 @@
         <i class="fas fa-caret-down"></i>
       </li>
       <ul *ngIf="showSettings" class="submenu">
-        <li><a href="#">Configuration</a></li>
-        <li><a href="#">Logs</a></li>
-        <li><a href="#">Locations</a></li>
+        <li><a routerLink="Configuration">Configuration</a></li>
+        <li><a routerLink="Logs">Logs</a></li>
+        <li><a routerLink="Locations">Locations</a></li>
       </ul>
 
       <!-- Profile -->
@@ -62,8 +62,8 @@
       </li>
       <ul *ngIf="showProfile" class="submenu">
         <li><a routerLink="profile">My Profile</a></li>
-        <li><a href="#">Change Password</a></li>
-        <li><a href="#">Roles</a></li>
+        <li><a routerLink="changePass">Change Password</a></li>
+        <li><a routerLink="roles">Roles</a></li>
       </ul>
 
       <li><a routerLink="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
