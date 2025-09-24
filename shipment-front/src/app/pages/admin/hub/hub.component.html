@@ -27,7 +27,7 @@
       <th>Actions</th>
     </tr>
     <tr *ngFor="let h of hubs">
-      <td *ngIf="editingHub?._id !== h._id">{{ h.perRev }}</td>
+      <td *ngIf="editingHub?._id !== h._id">{{ h.hubName }}</td>
       <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.branchName"></td>
 
       <td *ngIf="editingHub?._id !== h._id">{{ h.address }}</td>

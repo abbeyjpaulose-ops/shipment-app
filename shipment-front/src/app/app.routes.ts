@@ -10,8 +10,8 @@ import { ProfileComponent } from './pages/profile/profile.component';
 import { BranchComponent } from './pages/admin/branch/branch.component';
 import { HubComponent } from './pages/admin/hub/hub.component';
 import { NotificationsComponent } from './pages/notifications/notifications.component';
-import { ClientsComponent } from './pages/admin/clients/clients.component';
-import { GuestsComponent } from './pages/admin/guests/guests.component';
+import { ClientComponent } from './pages/admin/client/client.component';
+import { GuestsComponent } from './pages/admin/guest/guest.component';
 import { CategoriesComponent } from './pages/admin/categories/categories.component';
 import { PackagesComponent } from './pages/admin/packages/packages.component';
 import { ProductsComponent } from './pages/admin/products/products.component';
@@ -40,7 +40,7 @@ export const routes: Routes = [
       { path: 'shipments', component: ShipmentsComponent },
       { path: 'admin', component: AdminComponent },
       { path: 'Branches', component:  BranchComponent},
-      { path: 'Clients', component:  ClientsComponent},
+      { path: 'Clients', component:  ClientComponent},
       { path: 'Guests', component:  GuestsComponent},
       { path: 'Categories', component:  CategoriesComponent},
       { path: 'Packages', component:  PackagesComponent},

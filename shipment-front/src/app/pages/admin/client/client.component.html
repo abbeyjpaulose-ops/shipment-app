@@ -1,0 +1,62 @@
+<div class="clients-container">
+  <h2>Manage Clients</h2>
+
+  <!-- Add Client Form -->
+  <div class="add-client-form">
+    <input [(ngModel)]="newClient.clientName" placeholder="Client Name" required>
+    <input [(ngModel)]="newClient.address" placeholder="Address" required>
+    <input [(ngModel)]="newClient.city" placeholder="City">
+    <input [(ngModel)]="newClient.state" placeholder="State">
+    <input [(ngModel)]="newClient.pinCode" placeholder="Pin Code">
+    <input [(ngModel)]="newClient.GSTIN" placeholder="GSTIN" required>
+    <input [(ngModel)]="newClient.perDis" placeholder="% of Discount" required>
+    <button (click)="addClient()">+ Add Client</button>
+  </div>
+
+  <!-- Clients List -->
+  <table>
+    <tr>
+      <th>Client Name</th>
+      <th>Address</th>
+      <th>City</th>
+      <th>State</th>
+      <th>Pin</th>
+      <th>GSTIN</th>
+      <th>% of Discount</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+    <tr *ngFor="let b of clients">
+      <td *ngIf="editingClient?._id !== b._id">{{ b.clientName }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.clientName"></td>
+
+      <td *ngIf="editingClient?._id !== b._id">{{ b.address }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.address"></td>
+ 
+      <td *ngIf="editingClient?._id !== b._id">{{ b.city }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.city"></td>
+
+      <td *ngIf="editingClient?._id !== b._id">{{ b.state }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.state"></td>
+
+      <td *ngIf="editingClient?._id !== b._id">{{ b.pinCode }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.pinCode"></td>
+
+      <td *ngIf="editingClient?._id !== b._id">{{ b.GSTIN }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.GSTIN"></td>
+
+      <td *ngIf="editingClient?._id !== b._id">{{ b.perDis }}</td>
+      <td *ngIf="editingClient?._id === b._id"><input [(ngModel)]="editingClient.perDis"></td>
+
+      <td>
+        <button (click)="toggleStatus(b)">
+          {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
+        </button>
+      </td>
+      <td>
+        <button *ngIf="editingClient?._id !== b._id" (click)="editClient(b)">Edit</button>
+        <button *ngIf="editingClient?._id === b._id" (click)="saveEdit()">Save</button>
+      </td>
+    </tr>
+  </table>
+</div>

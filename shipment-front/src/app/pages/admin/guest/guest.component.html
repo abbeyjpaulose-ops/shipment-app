@@ -1,0 +1,62 @@
+<div class="guests-container">
+  <h2>Manage Guests</h2>
+
+  <!-- Add Guest Form -->
+  <div class="add-guest-form">
+    <input [(ngModel)]="newGuest.guestName" placeholder="Guest Name" required>
+    <input [(ngModel)]="newGuest.address" placeholder="Address" required>
+    <input [(ngModel)]="newGuest.city" placeholder="City">
+    <input [(ngModel)]="newGuest.state" placeholder="State">
+    <input [(ngModel)]="newGuest.pinCode" placeholder="Pin Code">
+    <input [(ngModel)]="newGuest.GSTIN" placeholder="GSTIN" required>
+    <input [(ngModel)]="newGuest.perDis" placeholder="% of Discount" required>
+    <button (click)="addGuest()">+ Add Guest</button>
+  </div>
+
+  <!-- Guests List -->
+  <table>
+    <tr>
+      <th>Guest Name</th>
+      <th>Address</th>
+      <th>City</th>
+      <th>State</th>
+      <th>Pin</th>
+      <th>GSTIN</th>
+      <th>% of Discount</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+    <tr *ngFor="let b of guests">
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.guestName }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.guestName"></td>
+
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.address }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.address"></td>
+ 
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.city }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.city"></td>
+
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.state }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.state"></td>
+
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.pinCode }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.pinCode"></td>
+
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.GSTIN }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.GSTIN"></td>
+
+      <td *ngIf="editingGuest?._id !== b._id">{{ b.perDis }}</td>
+      <td *ngIf="editingGuest?._id === b._id"><input [(ngModel)]="editingGuest.perDis"></td>
+
+      <td>
+        <button (click)="toggleStatus(b)">
+          {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
+        </button>
+      </td>
+      <td>
+        <button *ngIf="editingGuest?._id !== b._id" (click)="editGuest(b)">Edit</button>
+        <button *ngIf="editingGuest?._id === b._id" (click)="saveEdit()">Save</button>
+      </td>
+    </tr>
+  </table>
+</div>
