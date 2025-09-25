@@ -13,7 +13,7 @@ import { NotificationsComponent } from './pages/notifications/notifications.comp
 import { ClientComponent } from './pages/admin/client/client.component';
 import { GuestsComponent } from './pages/admin/guest/guest.component';
 import { CategoriesComponent } from './pages/admin/categories/categories.component';
-import { PackagesComponent } from './pages/admin/packages/packages.component';
+import { PkgComponent } from './pages/admin/pkg/pkg.component';
 import { ProductsComponent } from './pages/admin/products/products.component';
 import { RoleSettingsComponent } from './pages/admin/roleSettings/roleSettings.component';
 import { UsersComponent } from './pages/admin/users/users.component';
@@ -43,7 +43,7 @@ export const routes: Routes = [
       { path: 'Clients', component:  ClientComponent},
       { path: 'Guests', component:  GuestsComponent},
       { path: 'Categories', component:  CategoriesComponent},
-      { path: 'Packages', component:  PackagesComponent},
+      { path: 'Pkgs', component:  PkgComponent},
       { path: 'Hubs', component:  HubComponent},
       { path: 'Logs', component:  LogsComponent},
       { path: 'Reports', component:  ReportsComponent},

@@ -1,0 +1,42 @@
+<div class="pkgs-container">
+  <h2>Manage Packages</h2>
+
+  <!-- Add Pkg Form -->
+  <div class="add-pkg-form">
+    <input [(ngModel)]="newPkg.pkgName" placeholder="Package Type" required>
+    <button (click)="addPkg()">+ Add Package</button>
+  </div>
+
+  <!-- Pkgs List -->
+  <div class="pkgs-table-wrapper">
+    <table>
+      <tr>
+        <th>Package Type</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+      <tr *ngFor="let b of pkgs">
+        <!-- Pkg Name -->
+        <td>
+          <span *ngIf="editingPkg?._id !== b._id">{{ b.pkgName }}</span>
+          <div *ngIf="editingPkg?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingPkg.pkgName">
+          </div>
+        </td>
+
+        <!-- Status -->
+        <td>
+          <button (click)="toggleStatus(b)">
+            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
+          </button>
+        </td>
+
+        <!-- Actions -->
+        <td>
+          <button *ngIf="editingPkg?._id !== b._id" (click)="editPkg(b)">Edit</button>
+          <button *ngIf="editingPkg?._id === b._id" (click)="saveEdit()">Save</button>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>
