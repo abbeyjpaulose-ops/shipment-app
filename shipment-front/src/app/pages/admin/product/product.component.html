@@ -1,0 +1,53 @@
+<div class="products-container">
+  <h2>Manage Products</h2>
+
+  <!-- Add Product Form -->
+  <div class="add-product-form">
+    <input [(ngModel)]="newProduct.hsnNum" placeholder="HSN number" required>
+    <input [(ngModel)]="newProduct.productName" placeholder="Product Type" required>
+    <button (click)="addProduct()">+ Add Product</button>
+  </div>
+
+  <!-- Products List -->
+  <div class="products-table-wrapper">
+    <table>
+      <tr>
+        <th>HSN number</th>
+        <th>Product Type</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+      <tr *ngFor="let b of products">
+
+        <!-- HSN number -->
+        <td>
+          <span *ngIf="editingProduct?._id !== b._id">{{ b.hsnNum }}</span>
+          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingProduct.hsnNum">
+          </div>
+        </td>
+
+        <!-- Product Name -->
+        <td>
+          <span *ngIf="editingProduct?._id !== b._id">{{ b.productName }}</span>
+          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingProduct.productName">
+          </div>
+        </td>
+
+        <!-- Status -->
+        <td>
+          <button (click)="toggleStatus(b)">
+            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
+          </button>
+        </td>
+
+        <!-- Actions -->
+        <td>
+          <button *ngIf="editingProduct?._id !== b._id" (click)="editProduct(b)">Edit</button>
+          <button *ngIf="editingProduct?._id === b._id" (click)="saveEdit()">Save</button>
+        </td>
+      </tr>
+    </table>
+  </div>
+</div>

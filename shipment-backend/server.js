@@ -10,6 +10,7 @@ import pkgRoutes from './routes/pkg.js';
 import hubRoutes from './routes/hub.js';
 import clientsRoutes from './routes/clients.js';
 import guestsRoutes from './routes/guests.js';
+import productRoutes from './routes/product.js';
 
 
 
@@ -30,5 +31,6 @@ app.use('/api/hubs', hubRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/guests', guestsRoutes);
 app.use('/api/pkgs', pkgRoutes);
+app.use('/api/products', productRoutes);
 
 app.listen(3000, () => console.log('🚀 Server running on port 3000'));

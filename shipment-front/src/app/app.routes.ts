@@ -14,7 +14,7 @@ import { ClientComponent } from './pages/admin/client/client.component';
 import { GuestsComponent } from './pages/admin/guest/guest.component';
 import { CategoriesComponent } from './pages/admin/categories/categories.component';
 import { PkgComponent } from './pages/admin/pkg/pkg.component';
-import { ProductsComponent } from './pages/admin/products/products.component';
+import { ProductComponent } from './pages/admin/product/product.component';
 import { RoleSettingsComponent } from './pages/admin/roleSettings/roleSettings.component';
 import { UsersComponent } from './pages/admin/users/users.component';
 import { StocksComponent } from './pages/shipments/stocks/stocks.component';
@@ -54,7 +54,7 @@ export const routes: Routes = [
       { path: 'Users', component:  UsersComponent},
       { path: 'Locations', component:  LocationsComponent},
       { path: 'Configuration', component:  ConfigurationComponent},
-      { path: 'Products', component:  ProductsComponent},
+      { path: 'Products', component:  ProductComponent},
       { path: 'settings', component: SettingsComponent },
       { path: 'profile', component: ProfileComponent },
       { path: 'roles', component: RolesComponent },
