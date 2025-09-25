@@ -13,45 +13,80 @@
   </div>
 
   <!-- Branches List -->
-  <table>
-    <tr>
-      <th>Branch Name</th>
-      <th>Address</th>
-      <th>City</th>
-      <th>State</th>
-      <th>Pin</th>
-      <th>GSTIN</th>
-      <th>Status</th>
-      <th>Actions</th>
-    </tr>
-    <tr *ngFor="let b of branches">
-      <td *ngIf="editingBranch?._id !== b._id">{{ b.branchName }}</td>
-      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.branchName"></td>
+  <div class="branches-table-wrapper">
+    <table>
+      <tr>
+        <th>Branch Name</th>
+        <th>Address</th>
+        <th>City</th>
+        <th>State</th>
+        <th>Pin</th>
+        <th>GSTIN</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+      <tr *ngFor="let b of branches">
+        <!-- Branch Name -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.branchName }}</span>
+          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingBranch.branchName">
+          </div>
+        </td>
 
-      <td *ngIf="editingBranch?._id !== b._id">{{ b.address }}</td>
-      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.address"></td>
- 
-      <td *ngIf="editingBranch?._id !== b._id">{{ b.city }}</td>
-      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.city"></td>
+        <!-- Address -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.address }}</span>
+          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingBranch.address">
+          </div>
+        </td>
 
-      <td *ngIf="editingBranch?._id !== b._id">{{ b.state }}</td>
-      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.state"></td>
+        <!-- City -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.city }}</span>
+          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingBranch.city">
+          </div>
+        </td>
 
-      <td *ngIf="editingBranch?._id !== b._id">{{ b.pinCode }}</td>
-      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.pinCode"></td>
+        <!-- State -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.state }}</span>
+          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingBranch.state">
+          </div>
+        </td>
 
-      <td *ngIf="editingBranch?._id !== b._id">{{ b.GSTIN }}</td>
-      <td *ngIf="editingBranch?._id === b._id"><input [(ngModel)]="editingBranch.GSTIN"></td>
+        <!-- Pin Code -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.pinCode }}</span>
+          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingBranch.pinCode">
+          </div>
+        </td>
 
-      <td>
-        <button (click)="toggleStatus(b)">
-          {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
-        </button>
-      </td>
-      <td>
-        <button *ngIf="editingBranch?._id !== b._id" (click)="editBranch(b)">Edit</button>
-        <button *ngIf="editingBranch?._id === b._id" (click)="saveEdit()">Save</button>
-      </td>
-    </tr>
-  </table>
+        <!-- GSTIN -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.GSTIN }}</span>
+          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingBranch.GSTIN">
+          </div>
+        </td>
+
+        <!-- Status -->
+        <td>
+          <button (click)="toggleStatus(b)">
+            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
+          </button>
+        </td>
+
+        <!-- Actions -->
+        <td>
+          <button *ngIf="editingBranch?._id !== b._id" (click)="editBranch(b)">Edit</button>
+          <button *ngIf="editingBranch?._id === b._id" (click)="saveEdit()">Save</button>
+        </td>
+      </tr>
+    </table>
+  </div>
 </div>

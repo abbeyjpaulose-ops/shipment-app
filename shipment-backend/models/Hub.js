@@ -15,7 +15,7 @@ const HubSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Unique combo: hubName + address
-HubSchema.index({ hubName: 1, address: 1 }, { unique: true });
+// Unique combo: hubName + address + email
+HubSchema.index({ hubName: 1, address: 1, email: 1 }, { unique: true });
 
 export default mongoose.models.Hub || mongoose.model('Hub', HubSchema);

@@ -55,7 +55,7 @@ export class ClientComponent implements OnInit {
       },
       error: (err) => {
         console.error('❌ Error saving client:', err);
-        alert('Error: ' + err.message);
+        alert('Error: ' + err.error.message);
       }
     });
   }

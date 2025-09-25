@@ -15,7 +15,7 @@ const GuestSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Unique combo: guestName + address
-GuestSchema.index({ guestName: 1, address: 1 }, { unique: true });
+// Unique combo: guestName + address + email
+GuestSchema.index({ guestName: 1, address: 1, email: 1 }, { unique: true });
 
 export default mongoose.models.Guest || mongoose.model('Guest', GuestSchema);

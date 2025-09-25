@@ -14,7 +14,7 @@ const BranchSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Unique combo: branchName + address
-BranchSchema.index({ branchName: 1, address: 1 }, { unique: true });
+// Unique combo: branchName + address + email
+BranchSchema.index({ branchName: 1, address: 1, email: 1 }, { unique: true });
 
 export default mongoose.models.Branch || mongoose.model('Branch', BranchSchema);

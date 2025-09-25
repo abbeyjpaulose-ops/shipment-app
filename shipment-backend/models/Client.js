@@ -15,7 +15,8 @@ const ClientSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// Unique combo: clientName + address
-ClientSchema.index({ clientName: 1, address: 1 }, { unique: true });
+// Unique combo: clientName + address +email
+ClientSchema.index({ clientName: 1, address: 1, email: 1 }, { unique: true });
+
 
 export default mongoose.models.Client || mongoose.model('Client', ClientSchema);

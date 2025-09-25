@@ -14,49 +14,89 @@
   </div>
 
   <!-- Hubs List -->
-  <table>
-    <tr>
-      <th>Hub Name</th>
-      <th>Address</th>
-      <th>City</th>
-      <th>State</th>
-      <th>Pin</th>
-      <th>GSTIN</th>
-      <th>% of revenue</th>
-      <th>Status</th>
-      <th>Actions</th>
-    </tr>
-    <tr *ngFor="let h of hubs">
-      <td *ngIf="editingHub?._id !== h._id">{{ h.hubName }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.branchName"></td>
+  <div class="hubs-table-wrapper">
+    <table>
+      <tr>
+        <th>Hub Name</th>
+        <th>Address</th>
+        <th>City</th>
+        <th>State</th>
+        <th>Pin</th>
+        <th>GSTIN</th>
+        <th>% of revenue</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+      <tr *ngFor="let h of hubs">
+        <!-- Hub Name -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.hubName }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.hubName">
+          </div>
+        </td>
 
-      <td *ngIf="editingHub?._id !== h._id">{{ h.address }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.address"></td>
- 
-      <td *ngIf="editingHub?._id !== h._id">{{ h.city }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.city"></td>
+        <!-- Address -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.address }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.address">
+          </div>
+        </td>
 
-      <td *ngIf="editingHub?._id !== h._id">{{ h.state }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.state"></td>
+        <!-- City -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.city }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.city">
+          </div>
+        </td>
 
-      <td *ngIf="editingHub?._id !== h._id">{{ h.pinCode }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.pinCode"></td>
+        <!-- State -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.state }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.state">
+          </div>
+        </td>
 
-      <td *ngIf="editingHub?._id !== h._id">{{ h.GSTIN }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.GSTIN"></td>
+        <!-- Pin Code -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.pinCode }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.pinCode">
+          </div>
+        </td>
 
-      <td *ngIf="editingHub?._id !== h._id">{{ h.perRev }}</td>
-      <td *ngIf="editingHub?._id === h._id"><input [(ngModel)]="editingHub.perRev"></td>
+        <!-- GSTIN -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.GSTIN }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.GSTIN">
+          </div>
+        </td>
 
-      <td>
-        <button (click)="toggleStatus(h)">
-          {{ h.status === 'active' ? 'Deactivate' : 'Activate' }}
-        </button>
-      </td>
-      <td>
-        <button *ngIf="editingHub?._id !== h._id" (click)="editHub(h)">Edit</button>
-        <button *ngIf="editingHub?._id === h._id" (click)="saveEdit()">Save</button>
-      </td>
-    </tr>
-  </table>
+        <!-- % of Revenue -->
+        <td>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.perRev }}</span>
+          <div *ngIf="editingHub?._id === h._id" class="edit-field">
+            <input [(ngModel)]="editingHub.perRev">
+          </div>
+        </td>
+
+        <!-- Status -->
+        <td>
+          <button (click)="toggleStatus(h)">
+            {{ h.status === 'active' ? 'Deactivate' : 'Activate' }}
+          </button>
+        </td>
+
+        <!-- Actions -->
+        <td>
+          <button *ngIf="editingHub?._id !== h._id" (click)="editHub(h)">Edit</button>
+          <button *ngIf="editingHub?._id === h._id" (click)="saveEdit()">Save</button>
+        </td>
+      </tr>
+    </table>
+  </div>
 </div>

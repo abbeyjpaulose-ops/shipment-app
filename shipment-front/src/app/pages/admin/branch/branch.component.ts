@@ -54,7 +54,7 @@ export class BranchComponent implements OnInit {
       },
       error: (err) => {
         console.error('❌ Error saving branch:', err);
-        alert('Error: ' + err.message);
+        alert('Error: ' + err.error.message);
       }
     });
   }

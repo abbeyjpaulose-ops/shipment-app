@@ -1,1 +1,32 @@
-h2 { color: #1976d2; }
+.clients-container {
+  padding: 15px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.clients-table-wrapper {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 8px;
+  border: 1px solid #ddd;
+  vertical-align: top;
+}
+
+.edit-field {
+  display: flex;
+  flex-direction: column; /* stack input fields vertically */
+}
+
+.edit-field input {
+  width: 100%;       /* fit inside the cell */
+  max-width: 200px;  /* prevent pushing sidebar */
+  margin-bottom: 5px;
+  box-sizing: border-box;
+}

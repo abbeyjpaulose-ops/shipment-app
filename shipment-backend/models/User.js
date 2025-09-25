@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-// ✅ Compound unique index on (email, username)
-UserSchema.index({ email: 1, username: 1 }, { unique: true });
+// ✅ Compound unique index on (email, username) +email
+UserSchema.index({ email: 1, address: 1, email: 1 }, { unique: true });
 
 export default mongoose.models.User || mongoose.model('User', UserSchema);

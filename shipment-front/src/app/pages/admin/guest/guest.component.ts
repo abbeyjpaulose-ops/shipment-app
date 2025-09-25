@@ -56,7 +56,7 @@ export class GuestsComponent implements OnInit {
       },
       error: (err) => {
         console.error('❌ Error saving guest:', err);
-        alert('Error12: ' + err.message);
+        alert('Error12: ' + err.error.message);
       }
     });
   }
