@@ -8,7 +8,7 @@
     <input [(ngModel)]="newGuest.city" placeholder="City">
     <input [(ngModel)]="newGuest.state" placeholder="State">
     <input [(ngModel)]="newGuest.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newGuest.GSTIN" placeholder="GSTIN" required>
+    <input [(ngModel)]="newGuest.phoneNum" placeholder="Contact Number" required>
     <input [(ngModel)]="newGuest.perDis" placeholder="% of Discount" required>
     <button (click)="addGuest()">+ Add Guest</button>
   </div>
@@ -22,7 +22,7 @@
         <th>City</th>
         <th>State</th>
         <th>Pin</th>
-        <th>GSTIN</th>
+        <th>Contact Number</th>
         <th>% of Discount</th>
         <th>Status</th>
         <th>Actions</th>
@@ -68,11 +68,11 @@
           </div>
         </td>
 
-        <!-- GSTIN -->
+        <!-- phoneNum -->
         <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.GSTIN }}</span>
+          <span *ngIf="editingGuest?._id !== b._id">{{ b.phoneNum }}</span>
           <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.GSTIN">
+            <input [(ngModel)]="editingGuest.phoneNum">
           </div>
         </td>
 

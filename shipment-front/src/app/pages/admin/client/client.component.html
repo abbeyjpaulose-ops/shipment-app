@@ -9,6 +9,7 @@
     <input [(ngModel)]="newClient.state" placeholder="State">
     <input [(ngModel)]="newClient.pinCode" placeholder="Pin Code">
     <input [(ngModel)]="newClient.GSTIN" placeholder="GSTIN" required>
+    <input [(ngModel)]="newClient.phoneNum" placeholder="Contact Number" required>
     <input [(ngModel)]="newClient.perDis" placeholder="% of Discount" required>
     <button (click)="addClient()">+ Add Client</button>
   </div>
@@ -23,6 +24,7 @@
         <th>State</th>
         <th>Pin</th>
         <th>GSTIN</th>
+        <th>Contact Number</th>
         <th>% of Discount</th>
         <th>Status</th>
         <th>Actions</th>
@@ -73,6 +75,14 @@
           <span *ngIf="editingClient?._id !== b._id">{{ b.GSTIN }}</span>
           <div *ngIf="editingClient?._id === b._id" class="edit-field">
             <input [(ngModel)]="editingClient.GSTIN">
+          </div>
+        </td>
+
+        <!-- phoneNum -->
+        <td>
+          <span *ngIf="editingGuest?._id !== b._id">{{ b.phoneNum }}</span>
+          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingGuest.phoneNum">
           </div>
         </td>
 

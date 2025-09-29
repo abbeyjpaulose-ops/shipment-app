@@ -7,7 +7,7 @@ const GuestSchema = new mongoose.Schema({
   city: { type: String },
   state: { type: String },
   pinCode: { type: String },
-  GSTIN: { type: String, required: true },
+  phoneNum: { type: String, required: true },
   perDis: { type: Number, required: true }, // percentage Discount
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   email: { type: String, required: true },     // from logged-in user

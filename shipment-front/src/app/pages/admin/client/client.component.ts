@@ -19,6 +19,7 @@ export class ClientComponent implements OnInit {
     state: '',
     pinCode: '',
     GSTIN: '',
+    phoneNum: '',
     perDis: '',
     status: 'active',
     email: localStorage.getItem('email'),

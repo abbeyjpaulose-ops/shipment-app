@@ -18,7 +18,7 @@ export class GuestsComponent implements OnInit {
     city: '',
     state: '',
     pinCode: '',
-    GSTIN: '',
+    phoneNum: '',
     perDis: '',
     status: 'active',
     email: localStorage.getItem('email'),
