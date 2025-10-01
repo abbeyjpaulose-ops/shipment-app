@@ -1,6 +1,7 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-new-shipment',
@@ -10,33 +11,45 @@ import { FormsModule } from '@angular/forms';
   styleUrls: ['./new-shipment.component.css']
 })
 export class NewShipmentComponent {
-  // Section 1: Basic Details
-  ewaybillNumber: string = '';
-  consignmentNumber: number = this.getCurrentConsignmentNumber(); // load current only
-  date: string = new Date().toISOString().split('T')[0];
-  origin: string = '';
-  destination: string = '';
-  bookingBranch = { address: '', state: '', district: '', pincode: '' };
-  destinationBranch = { address: '', state: '', district: '', pincode: '' };
+// Billing
+billingType: 'consignor' | 'different' = 'consignor';
+billingName = '';
+billingAddress = '';
+billingGSTIN = '';
+billingPhone = '';
+// Pickup
+pickupType: 'consignor' | 'different' = 'consignor';
+pickupName = '';
+pickupAddress = '';
+pickupPhone = '';
 
-  // Section 2: Consignment & Payment Mode
-  consignor: string = '';
-  consignorGST: string = '';
-  consignee: string = '';
-  consigneeGST: string = '';
-  paymentMode: string = 'Account Credit';
-  externalRefId: string = '';
-  hubs = [{ number: '', value: 0 }];
-
-  // Section 3: Invoice Details
-  invoices = [{ number: '', value: 0 }];
-
-  // Section 4: Package Details
-  packages = [{ quantity: 1, type: '', product: '', actualWeight: 0, chargedWeight: 0, rateType: '', amount: 0 }];
-
-  // Section 5: Charges
-  charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
-  finalAmount: number = 0;
+// Delivery
+deliveryType: 'consignee' | 'different' = 'consignee';
+deliveryName = '';
+deliveryAddress = '';
+deliveryPhone = ''; 
+consignorTab: 'consignor' | 'guest' = 'consignor';
+consigneeTab: 'consignee' | 'guest' = 'consignee';
+email: string = '';
+username: string = '';
+branch: string = localStorage.getItem('branch') || 'All Branches';
+consignmentNumber: number = this.getCurrentConsignmentNumber(); // load current only
+date: string = new Date().toISOString().split('T')[0];
+ewaybillNumber: string = '';
+consignor: string = '';
+consignorGST: string = '';
+consignorAddress: string = '';
+consignorPhone: string = '';
+consignee: string = '';
+consigneeGST: string = '';
+consigneeAddress: string = '';
+consigneePhone: string = '';
+paymentMode: string = 'Account Credit';
+externalRefId: string = '';
+invoices = [{ number: '', value: 0 }];
+packages = [{ type: '', amount: 0 }];
+charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
+finalAmount: number = 0;
 
   // --- Methods ---
   addInvoice() {
@@ -46,15 +59,8 @@ export class NewShipmentComponent {
     this.invoices.splice(index, 1);
   }
 
-  addHub() {
-    this.hubs.push({ number: '', value: 0 });
-  }
-  deleteHub(index: number) {
-    this.hubs.splice(index, 1);
-  }
-
   addPackage() {
-    this.packages.push({ quantity: 1, type: '', product: '', actualWeight: 0, chargedWeight: 0, rateType: '', amount: 0 });
+    this.packages.push({ type: '', amount: 0 });
   }
   deletePackage(index: number) {
     this.packages.splice(index, 1);
@@ -68,20 +74,7 @@ export class NewShipmentComponent {
   }
 
   resetForm() {
-    Object.assign(this, new NewShipmentComponent());
-  }
-
-  saveShipment() {
-    // Save shipment (later we can push to localStorage / backend)
-    console.log('Shipment Data:', this);
-
-    // increment and store for next shipment
-    this.incrementConsignmentNumber();
-
-    alert(`Shipment ${this.consignmentNumber} saved successfully!`);
-
-    // reset form for next entry
-    this.resetForm();
+    Object.assign(this, new NewShipmentComponent(this.http));
   }
 
   // --- Serial Number logic ---
@@ -104,4 +97,106 @@ export class NewShipmentComponent {
     last++;
     localStorage.setItem(key, last.toString());
   }
+
+  saveShipment() {
+    const shipmentData = {
+      email: localStorage.getItem('email'),
+      username: localStorage.getItem('username'),
+      branch: localStorage.getItem('branch'),
+
+      ewaybillNumber: this.ewaybillNumber,
+      consignmentNumber: this.consignmentNumber,
+      date: this.date,
+
+      consignor: this.consignor,
+      consignorGST: this.consignorGST,
+      consignorAddress: this.consignorAddress,
+      consignorPhone: this.consignorPhone,
+
+      consignee: this.consignee,
+      consigneeGST: this.consigneeGST,
+      consigneeAddress: this.consigneeAddress,
+      consigneePhone: this.consigneePhone,
+
+      paymentMode: this.paymentMode,
+      externalRefId: this.externalRefId,
+
+      billingType: this.billingType,
+      billingName: this.billingName,
+      billingGSTIN: this.billingGSTIN,
+      billingAddress: this.billingAddress,
+      billingPhone: this.billingPhone,
+
+      pickupType: this.pickupType,
+      pickupName: this.pickupName,
+      pickupAddress: this.pickupAddress,
+      pickupPhone: this.pickupPhone,
+
+      deliveryType: this.deliveryType,
+      deliveryName: this.deliveryName,
+      deliveryAddress: this.deliveryAddress,
+      deliveryPhone: this.deliveryPhone,
+
+      invoices: this.invoices,
+      packages: this.packages,
+      charges: this.charges,
+      finalAmount: this.finalAmount
+      
+    };
+ 
+    if (this.consignorTab === 'guest') {  
+        shipmentData.consignorGST = 'GUEST';
+      }
+
+    if (this.consigneeTab === 'guest') {  
+        shipmentData.consigneeGST = 'GUEST';
+      }
+
+    if (this.billingType === 'consignor') {
+      shipmentData.billingName = this.consignor;
+      shipmentData.billingAddress = this.consignorAddress;
+      shipmentData.billingGSTIN = this.consignorGST;
+      shipmentData.billingPhone = this.consignorPhone;
+    }
+
+    if (this.pickupType === 'consignor') {
+      shipmentData.pickupName = this.consignor;
+      shipmentData.pickupAddress = this.consignorAddress;
+      shipmentData.pickupPhone = this.consignorPhone;
+    }
+
+    if (this.deliveryType === 'consignee') {
+      shipmentData.deliveryName = this.consignee;
+      shipmentData.deliveryAddress = this.consigneeAddress;
+      shipmentData.deliveryPhone = this.consigneePhone;
+    }
+
+
+    if (shipmentData.branch !== 'All Branches') {
+      this.http.post('http://localhost:3000/api/newshipments/add', shipmentData, {
+        headers: { 'Content-Type': 'application/json' }
+      }).subscribe({
+        next: (res: any) => {
+          // Save shipment (later we can push to localStorage / backend)
+          console.log('Shipment Data:', shipmentData);
+          // increment and store for next shipment
+          this.incrementConsignmentNumber();
+          alert(`Shipment ${this.consignmentNumber} saved successfully!`);
+          // reset form for next entry
+          this.resetForm();
+          console.log('✅ Shipment saved', res);
+          alert('Shipment saved successfully!');
+        },
+        error: (err: any) => {
+          console.error("Error saving shipment:", err.message);
+          alert('Error12: ' + err.message);
+        }
+      });
+
+    }   
+    else {      
+      alert(`Please select a branch before saving or create one if you haven't.`);
+    }
 }
+  constructor(private http: HttpClient) {}
+} 

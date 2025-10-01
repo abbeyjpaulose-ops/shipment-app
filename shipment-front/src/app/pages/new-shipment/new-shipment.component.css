@@ -78,3 +78,49 @@ button:hover {
   flex: 1;
   padding: 6px;
 }
+
+.tabs {
+  display: flex;
+  margin-bottom: 8px;
+}
+
+.tabs button {
+  padding: 6px 12px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  cursor: pointer;
+  color: black;       /* 🔹 inactive tab text stays black */
+}
+
+.tabs button.active {
+  background: #007bff; /* 🔹 active tab blue */
+  color: white;        /* 🔹 active tab white text */
+}
+
+.tab-content {
+  padding: 10px;
+  border: 1px solid #ddd;
+}
+.address-section {
+  border: 1px solid #ccc;
+  padding: 12px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.address-section h4 {
+  margin-top: 0;
+  margin-bottom: 10px;
+}
+
+.address-section label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.address-section textarea {
+  width: 100%;
+  min-height: 60px;
+}
+

@@ -46,6 +46,6 @@ export class HomeComponent implements OnInit {
   onBranchChange(event: any) {
     const branch = event.target.value;
     this.selectedBranch = branch;
-    localStorage.setItem('selectedBranch', branch);
+    localStorage.setItem('branch', branch);
   }
 }
