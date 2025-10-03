@@ -14,7 +14,6 @@ import productRoutes from './routes/product.js';
 import newShipmentRoutes from './routes/newShipments.js';
 
 
-
 const app = express();
 app.use(cors());
 app.use(express.json());

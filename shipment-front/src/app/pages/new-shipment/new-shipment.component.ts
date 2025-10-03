@@ -33,7 +33,7 @@ consigneeTab: 'consignee' | 'guest' = 'consignee';
 email: string = '';
 username: string = '';
 branch: string = localStorage.getItem('branch') || 'All Branches';
-consignmentNumber: number = this.getCurrentConsignmentNumber(); // load current only
+consignmentNumber: string = localStorage.getItem('consignmentNumber')||'-999'; // will be loaded asynchronously
 date: string = new Date().toISOString().split('T')[0];
 ewaybillNumber: string = '';
 consignor: string = '';
@@ -50,6 +50,8 @@ invoices = [{ number: '', value: 0 }];
 packages = [{ type: '', amount: 0 }];
 charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
 finalAmount: number = 0;
+
+
 
   // --- Methods ---
   addInvoice() {
@@ -83,20 +85,20 @@ finalAmount: number = 0;
     return today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
   }
 
-  getCurrentConsignmentNumber(): number {
-    const fiscalYear = this.getFiscalYear();
-    const key = `consignment_${fiscalYear}`;
-    let last = parseInt(localStorage.getItem(key) || '0', 10);
-    return last + 1; // show next available number, but don’t store yet
+
+  getCurrentConsignmentNumber() {      
+    this.http.get<{ nextNumber: number, fiscalYear: string }>(
+      `http://localhost:3000/api/newshipments/nextConsignment?emailId=${this.email}`)
+      .subscribe({
+        next: (res) => {
+          
+          this.consignmentNumber = res.nextNumber.toString();  
+        },
+        error: (err) => console.error('Error fetching consignment number', err)
+   
+      });
   }
 
-  incrementConsignmentNumber() {
-    const fiscalYear = this.getFiscalYear();
-    const key = `consignment_${fiscalYear}`;
-    let last = parseInt(localStorage.getItem(key) || '0', 10);
-    last++;
-    localStorage.setItem(key, last.toString());
-  }
 
   saveShipment() {
     const shipmentData = {
@@ -179,17 +181,21 @@ finalAmount: number = 0;
         next: (res: any) => {
           // Save shipment (later we can push to localStorage / backend)
           console.log('Shipment Data:', shipmentData);
-          // increment and store for next shipment
-          this.incrementConsignmentNumber();
+          
           alert(`Shipment ${this.consignmentNumber} saved successfully!`);
+          this.consignmentNumber = (parseInt(this.consignmentNumber) + 1).toString();
+          localStorage.setItem('consignmentNumber', this.consignmentNumber);
           // reset form for next entry
           this.resetForm();
+          //window.location.reload();
+          
+         
           console.log('✅ Shipment saved', res);
           alert('Shipment saved successfully!');
         },
         error: (err: any) => {
           console.error("Error saving shipment:", err.message);
-          alert('Error12: ' + err.message);
+          alert('Error: ' + err.message);
         }
       });
 
@@ -198,5 +204,13 @@ finalAmount: number = 0;
       alert(`Please select a branch before saving or create one if you haven't.`);
     }
 }
+  
+
+  ngOnInit() {
+    this.email = localStorage.getItem('email') || '';
+    this.username = localStorage.getItem('username') || '';
+    this.branch = localStorage.getItem('branch') || 'All Branches';  
+    this.getCurrentConsignmentNumber();
+  }
   constructor(private http: HttpClient) {}
 } 

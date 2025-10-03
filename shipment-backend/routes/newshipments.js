@@ -8,53 +8,51 @@ const router = express.Router();
 router.post('/add', async (req, res) => {
   try {
     console.log('📥 Incoming New shipment data:', req.body);  // 👈 debug log
-  
-    const shipment = new NewShipment(req.body);
-    await shipment.save();
-    res.status(201).json(shipment);
-  } catch (err) {
+    const newshipments = new NewShipment(req.body);
+    await newshipments.save();
+    res.status(201).json(newshipments);
+  } catch (err) { 
     console.error('❌ Error saving New shipment:', err.message);
     res.status(400).json({ message: err.message });
   }
 });
 
-// Update shipment by ID
-router.put('/:id', async (req, res) => {
+// Get next consignment number for a user (reset on April 1st)
+router.get("/nextConsignment", async (req, res) => {
+  const { emailId } = req.query;
+  if (!emailId) {
+    return res.status(400).json({ message: "Missing emailId in query parameters" });
+  }
   try {
-    const shipment = await NewShipment.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ success: true, shipment });
+    const emailId = req.query.emailId;
+    console.log("Fetching next consignment number for:", req.query.emailId);
+    
+    // Get today's fiscal year (April 1 – March 31)
+    const today = new Date();
+    const year = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+    const fiscalYearStart = new Date(year, 3, 1); // April 1
+    const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59); // March 31
+
+    // Find last shipment in this fiscal year for this user
+    const lastShipment = await NewShipment.findOne({
+      email: emailId,
+      date: { $gte: fiscalYearStart, $lte: fiscalYearEnd }
+    })
+      .sort({ consignmentNumber: -1 }) // highest number
+      .exec();
+    //console.log("Last shipment found:", lastShipment);
+
+    let nextNumber = 1;
+    if (lastShipment && lastShipment.consignmentNumber) {
+      nextNumber = parseInt(lastShipment.consignmentNumber, 10) + 1;
+    }
+    console.log(`Next consignment number for ${emailId} in FY ${year}-${year + 1}:`, nextNumber);
+
+    res.json({ nextNumber, fiscalYear: `${year}-${year + 1}` });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    res.status(500).json({ error: "Failed to get next consignment number", details: err });
   }
 });
 
-// Toggle shipment status
-router.patch('/:id/status', async (req, res) => {
-  try {
-    const shipment = await NewShipment.findById(req.params.id);
-    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
-
-    shipment.status = shipment.status === 'active' ? 'inactive' : 'active';
-    await shipment.save();
-    res.json({ success: true, shipment });
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
-  }
-});
-
-// Get shipments by username
-router.get('/by-user/:username', async (req, res) => {
-  try {
-    const shipments = await NewShipment.find({
-      email: req.query.email
-    }).sort({ createdAt: -1 });
-
-    console.log('📦 Shipments for:', req.query.email, shipments);
-
-    res.json(shipments);
-  } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
-  }
-});
 
 export default router;
