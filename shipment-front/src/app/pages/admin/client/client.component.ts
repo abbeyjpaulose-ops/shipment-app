@@ -45,6 +45,8 @@ export class ClientComponent implements OnInit {
     });
 }
 
+
+
   addClient() {
     console.log('📤 Sending client data:');
     this.http.post('http://localhost:3000/api/clients/add', this.newClient, {
@@ -53,6 +55,7 @@ export class ClientComponent implements OnInit {
       next: (res) => {
         console.log('✅ Client saved', res);
         alert('Client added successfully!');
+        window.location.reload();
       },
       error: (err) => {
         console.error('❌ Error saving client:', err);

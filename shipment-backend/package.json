@@ -8,6 +8,7 @@
     "create-user": "node create-user.js"
   },
   "dependencies": {
+    "@ng-select/ng-select": "^20.2.2",
     "bcrypt": "^5.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",

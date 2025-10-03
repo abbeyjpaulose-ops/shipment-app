@@ -46,6 +46,7 @@ export class ProductComponent implements OnInit {
       next: (res) => {
         console.log('✅ Product type saved', res);
         alert('Product type added successfully!');
+        window.location.reload();
       },
       error: (err) => {
         console.error('❌ Error saving product:', err);

@@ -51,6 +51,7 @@ export class HubComponent implements OnInit {
       next: (res) => {
         console.log('✅ Hub saved', res);
         alert('Hub added successfully!');
+        window.location.reload();
       },
       error: (err) => {
         console.error('❌ Error saving hub:', err);

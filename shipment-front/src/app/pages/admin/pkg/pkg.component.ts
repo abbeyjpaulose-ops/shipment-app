@@ -46,6 +46,7 @@ export class PkgComponent implements OnInit {
       next: (res) => {
         console.log('✅ Package type saved', res);
         alert('Package type added successfully!');
+        window.location.reload();
       },
       error: (err) => {
         console.error('❌ Error saving pkg:', err);

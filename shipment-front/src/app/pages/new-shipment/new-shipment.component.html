@@ -25,17 +25,24 @@
       </div>
 
       <div class="tab-content">
-        <div *ngIf="consignorTab === 'consignor'">
-          <label>Consignor GSTIN <input [(ngModel)]="consignorGST"></label>
-          <label>Consignor <input [(ngModel)]="consignor"></label>
-          <label>Consignor Address <input [(ngModel)]="consignorAddress"></label>
-          <label>Consignor Phone <input [(ngModel)]="consignorPhone"></label>
+        <div *ngIf="consignorTab === 'consignor'">        
+          <label>Consignor 
+            <select [(ngModel)]="consignor" (change)="onConsignorSelect(consignor)">
+              <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+            </select>
+          </label>
+          <label>Consignor GSTIN <input [(ngModel)]="consignorGST" readonly></label>
+          <label>Consignor Address <input [(ngModel)]="consignorAddress" readonly></label>
+          <label>Consignor Phone <input [(ngModel)]="consignorPhone" readonly></label>
         </div>
         <div *ngIf="consignorTab === 'guest'">
-          <label>Guest</label>
-          <label>Phone Number <input [(ngModel)]="consignorPhone"></label>
-          <label>Guest Name <input [(ngModel)]="consignor"></label>
-          <label>Guest Address <input [(ngModel)]="consignorAddress"></label>
+          <label>Guest Sender Name
+            <select [(ngModel)]="consignor" (change)="onConsignorGuestSelect(consignor)">
+              <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+            </select>
+          </label>
+          <label>Sender Address <input [(ngModel)]="consignorAddress" readonly></label>
+          <label>Sender Phone Number <input [(ngModel)]="consignorPhone" readonly></label>
           
         </div>
       </div>
@@ -50,16 +57,23 @@
 
       <div class="tab-content">
         <div *ngIf="consigneeTab === 'consignee'">
-          <label>Consignee GSTIN <input [(ngModel)]="consigneeGST"></label>
-          <label>Consignee <input [(ngModel)]="consignee"></label>
-          <label>Consignee Address <input [(ngModel)]="consigneeAddress"></label>
-          <label>Consignee Phone <input [(ngModel)]="consigneePhone"></label>
+          <label>Consignee 
+            <select [(ngModel)]="consignee" (change)="onConsigneeSelect(consignee)">
+              <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+            </select>
+          </label>
+          <label>Consignee GSTIN <input [(ngModel)]="consigneeGST" readonly></label>
+          <label>Consignee Address <input [(ngModel)]="consigneeAddress" readonly></label>
+          <label>Consignee Phone <input [(ngModel)]="consigneePhone" readonly></label>
         </div>
         <div *ngIf="consigneeTab === 'guest'">
-          <label>Guest</label>
-          <label>Phone Number <input [(ngModel)]="consigneeGuestPhone"></label>
-          <label>Guest Name <input [(ngModel)]="consigneeGuestName"></label>
-          <label>Guest Address <input [(ngModel)]="consigneeGuestAddress"></label>
+          <label>Guest Reciever Name
+            <select [(ngModel)]="consignee" (change)="onConsigneeGuestSelect(consignee)">
+              <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+            </select>
+          </label>
+          <label>Reciever Address <input [(ngModel)]="consigneeAddress" readonly></label>
+          <label>Reciever Phone <input [(ngModel)]="consigneePhone" readonly></label>
         </div>
       </div>
     </div>
@@ -165,15 +179,30 @@
   </section>
 
   <!-- 5. Package Details -->
-  <section>
-    <h3>5. Package Details</h3>
-    <div *ngFor="let pkg of packages; let i=index" class="grid-4">
-      <input placeholder="Package Type" [(ngModel)]="pkg.type">
-      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount">
-      <button type="button" (click)="deletePackage(i)">🗑️ Delete</button>
-    </div>
-    <button type="button" (click)="addPackage()">+ Add Package</button>
-  </section>
+<section>
+  <h3>5. Package Details</h3>
+  <div *ngFor="let pkg of packages; let i = index" class="grid-4">
+    <select [(ngModel)]="pkg.pkgName" (change)="onPackageList(pkg.pkgName)">
+      <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
+    </select>
+    <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount">
+    <button type="button" (click)="deletePackage(i)">🗑️ Delete</button>
+  </div>
+  <button type="button" (click)="addPackage()">+ Add Package</button>
+</section>
+
+<!-- 6. Product Details -->
+<section>
+  <h3>5. Product Details</h3>
+  <div *ngFor="let product of products; let i = index" class="grid-4">
+    <select [(ngModel)]="product.productName" (change)="onPackageList(product.productName)">
+      <option *ngFor="let productItem of productList" [value]="productItem.productName">{{ productItem.hsnNum }}-{{ productItem.productName }}</option>
+    </select>
+    <input placeholder="Amount*" type="number" [(ngModel)]="product.amount">
+    <button type="button" (click)="deleteProduct(i)">🗑️ Delete</button>
+  </div>
+  <button type="button" (click)="addProduct()">+ Add Product</button>
+</section>
 
   <!-- 6. Charges -->
   <section>

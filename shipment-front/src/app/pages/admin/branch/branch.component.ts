@@ -51,6 +51,7 @@ export class BranchComponent implements OnInit {
       next: (res) => {
         console.log('✅ Branch saved', res);
         alert('Branch added successfully!');
+        window.location.reload();
       },
       error: (err) => {
         console.error('❌ Error saving branch:', err);

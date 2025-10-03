@@ -66,5 +66,17 @@ router.get('/by-user/:username', async (req, res) => {
   }
 });
 
+// GET active guests for dropdown
+router.get('/guestslist', async (req, res) => {
+  try {
+    const email = req.query.emailId; // frontend sends ?email=user@example.com
+    const query = email ? { email, status: 'active' } : { status: 'active' };
+    const guests = await Guest.find(query).select('guestName address phoneNum');
+    res.json(guests);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 export default router;

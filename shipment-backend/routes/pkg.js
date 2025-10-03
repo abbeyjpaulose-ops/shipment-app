@@ -66,5 +66,16 @@ router.get('/by-user/:username', async (req, res) => {
   }
 });
 
+// GET active package for dropdown
+router.get('/pkglist', async (req, res) => {
+  try {
+    const email = req.query.emailId; // frontend sends ?email=user@example.com
+    const query = email ? { email, status: 'active' } : { status: 'active' };
+    const pkg = await Pkg.find(query).sort({ createdAt: -1 });
+    res.json(pkg);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 export default router;

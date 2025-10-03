@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit  } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -11,12 +11,18 @@ import { HttpClient } from '@angular/common/http';
   styleUrls: ['./new-shipment.component.css']
 })
 export class NewShipmentComponent {
+  
 // Billing
 billingType: 'consignor' | 'different' = 'consignor';
 billingName = '';
 billingAddress = '';
 billingGSTIN = '';
 billingPhone = '';
+
+clientList: any[] = [];
+guestList: any[] = [];
+pkgList: any[] = [];
+productList: any[] = [];
 // Pickup
 pickupType: 'consignor' | 'different' = 'consignor';
 pickupName = '';
@@ -47,7 +53,8 @@ consigneePhone: string = '';
 paymentMode: string = 'Account Credit';
 externalRefId: string = '';
 invoices = [{ number: '', value: 0 }];
-packages = [{ type: '', amount: 0 }];
+packages = [{ type: '', amount: 1 }];
+products = [{ type: '', amount: 1 }];
 charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
 finalAmount: number = 0;
 
@@ -62,10 +69,16 @@ finalAmount: number = 0;
   }
 
   addPackage() {
-    this.packages.push({ type: '', amount: 0 });
+    this.packages.push({ type: '', amount: 1 });
   }
   deletePackage(index: number) {
     this.packages.splice(index, 1);
+  }
+  addProduct() {
+    this.products.push({ type: '', amount: 1 });
+  }
+  deleteProduct(index: number) {
+    this.products.splice(index, 1);
   }
 
   calculateFinalAmount() {
@@ -141,6 +154,7 @@ finalAmount: number = 0;
 
       invoices: this.invoices,
       packages: this.packages,
+      products: this.products,
       charges: this.charges,
       finalAmount: this.finalAmount
       
@@ -204,13 +218,89 @@ finalAmount: number = 0;
       alert(`Please select a branch before saving or create one if you haven't.`);
     }
 }
+
+onConsignorSelect(name: string) {
+    const selectedconignor = this.clientList.find(c => c.clientName === name);
+    if (selectedconignor) {
+      this.consignorGST = selectedconignor.GSTIN;
+      this.consignorAddress = selectedconignor.address;
+      this.consignorPhone = selectedconignor.phoneNum;
+    }
+  }
+
+  onConsigneeSelect(name: string) {
+    const selectedconignee = this.clientList.find(c => c.clientName === name);
+    if (selectedconignee) {
+      this.consigneeGST = selectedconignee.GSTIN;
+      this.consigneeAddress = selectedconignee.address;
+      this.consigneePhone = selectedconignee.phoneNum;
+    }
+  }
+
+  onConsignorGuestSelect(name: string) {
+    const selectedguestconignor = this.guestList.find(c => c.guestName === name);
+    if (selectedguestconignor) {
+      this.consignorAddress = selectedguestconignor.address;
+      this.consignorPhone = selectedguestconignor.phoneNum;
+    }
+  }
+
+  onConsigneeGuestSelect(name: string) {
+    const selectedguestconignee = this.guestList.find(c => c.guestName === name);
+    if (selectedguestconignee) {
+      this.consigneeAddress = selectedguestconignee.address;
+      this.consigneePhone = selectedguestconignee.phoneNum;
+    }
+  }
+
+  onPackageList(name: string) {
+    const selectedpackage = this.pkgList.find(c => c.pkgName === name);
+  }
+
+  onProductList(name: string) {
+    const selectedpackage = this.productList.find(c => c.productName === name);
+  }
   
 
   ngOnInit() {
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';  
-    this.getCurrentConsignmentNumber();
+    this.getCurrentConsignmentNumber();    
+    //clients list  
+    this.http.get<any[]>(
+      `http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.clientList = data;
+    });
+
+    //guest list
+    this.http.get<any[]>(
+      `http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.guestList = data;
+    }, error => {
+      console.error('Error fetching guest list', error);
+    });
+
+    //package list
+    this.http.get<any[]>(
+      `http://localhost:3000/api/pkgs/pkglist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.pkgList = data;
+    }, error => {
+      console.error('Error fetching package list', error);
+    });
+
+     //product list
+    this.http.get<any[]>(
+      `http://localhost:3000/api/products/productlist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.productList = data;
+    }, error => {
+      console.error('Error fetching product list', error);
+    });
+    
   }
   constructor(private http: HttpClient) {}
 } 

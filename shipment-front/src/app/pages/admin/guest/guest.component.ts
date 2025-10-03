@@ -53,6 +53,7 @@ export class GuestsComponent implements OnInit {
       next: (res) => {
         console.log('✅ Guest saved', res);
         alert('Guest added successfully!');
+        window.location.reload();
       },
       error: (err) => {
         console.error('❌ Error saving guest:', err);

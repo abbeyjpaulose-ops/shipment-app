@@ -66,5 +66,17 @@ router.get('/by-user/:username', async (req, res) => {
   }
 });
 
+// GET active product for dropdown
+router.get('/productlist', async (req, res) => {
+  try {
+    const email = req.query.emailId; // frontend sends ?email=user@example.com
+    const query = email ? { email, status: 'active' } : { status: 'active' };
+    const product = await Product.find(query).sort({ createdAt: -1 });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 export default router;
