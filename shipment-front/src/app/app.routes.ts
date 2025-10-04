@@ -3,7 +3,7 @@ import { LoginComponent } from './login/login.component';
 import { HomeComponent } from './home/home.component';
 import { DashboardComponent } from './pages/dashboard/dashboard.component';
 import { NewShipmentComponent } from './pages/new-shipment/new-shipment.component';
-import { ShipmentsComponent } from './pages/shipments/shipments.component';
+import { ViewShipmentsComponent } from './pages/shipments/view-shipments/view-shipments.component';
 import { AdminComponent } from './pages/admin/admin.component';
 import { SettingsComponent } from './pages/settings/settings.component';
 import { ProfileComponent } from './pages/profile/profile.component';
@@ -37,7 +37,7 @@ export const routes: Routes = [
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'new-shipment', component: NewShipmentComponent },
-      { path: 'shipments', component: ShipmentsComponent },
+      { path: 'shipments', component: ViewShipmentsComponent },
       { path: 'admin', component: AdminComponent },
       { path: 'Branches', component:  BranchComponent},
       { path: 'Clients', component:  ClientComponent},

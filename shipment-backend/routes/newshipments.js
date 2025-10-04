@@ -54,5 +54,23 @@ router.get("/nextConsignment", async (req, res) => {
   }
 });
 
+// GET all shipments for logged-in user
+router.get('/', async (req, res) => {
+  try {
+    const { email } = req.query; // passed from frontend
+    if (!email) return res.status(400).json({ message: 'Email required' });
+
+    const shipments = await NewShipment.find({ email })
+      .sort({ createdAt: -1 }); // descending order
+
+      console.log(shipments)
+
+    res.json(shipments);
+  } catch (err) {
+    console.error('Error fetching shipments:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 
 export default router;

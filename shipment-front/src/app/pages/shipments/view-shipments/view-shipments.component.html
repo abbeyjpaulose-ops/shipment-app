@@ -1,1 +1,77 @@
-<h2>Shipments Page</h2>
+<div class="shipments-container">
+  <h2>View Shipments</h2>
+
+  <!-- 🔍 Search and Filters -->
+  <div class="filters">
+    <input
+      type="text"
+      placeholder="Search by consignment no. or consignor"
+      [(ngModel)]="searchText"
+      (input)="applyFilters()" />
+
+    <input
+      type="date"
+      [(ngModel)]="filterDate"
+      (change)="applyFilters()" />
+
+    <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+      <option value="">All Status</option>
+      <option value="Pending">Pending</option>
+      <option value="In Transit">In Transit</option>
+      <option value="Delivered">Delivered</option>
+    </select>
+
+    <input
+      type="text"
+      placeholder="Filter by consignor"
+      [(ngModel)]="filterConsignor"
+      (input)="applyFilters()" />
+  </div>
+
+  <!-- 📦 Shipments Table -->
+  <table class="shipments-table">
+    <thead>
+      <tr>
+        <th>Consignment No.</th>
+        <th>Status</th>
+        <th>Consignor</th>
+        <th>Delivery Address</th>
+        <th>No. of Products</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of filteredShipments" (click)="openShipmentDetails(s)">
+        <td>{{ s.consignmentNumber }}</td>
+        <td>{{ s.shipmentStatus }}</td>
+        <td>{{ s.consignor }}</td>
+        <td>{{ s.deliveryAddress }}</td>
+        <td>{{ s.products?.length || 0 }}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- 📑 Shipment Details Modal -->
+<div class="modal" *ngIf="selectedShipment">
+  <div class="modal-content">
+    <span class="close" (click)="closeShipmentDetails()">&times;</span>
+    <h2>Shipment Details</h2>
+
+    <div class="shipment-details">
+      <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
+      <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
+      <p><strong>Consignor:</strong> {{ selectedShipment.consignor }}</p>
+      <p><strong>Consignee:</strong> {{ selectedShipment.consignee }}</p>
+      <p><strong>Delivery Address:</strong> {{ selectedShipment.deliveryAddress }}</p>
+      <p><strong>Date:</strong> {{ selectedShipment.date | date:'short' }}</p>
+      <p><strong>No. of Products:</strong> {{ selectedShipment.products?.length || 0 }}</p>
+    </div>
+
+    <h3>Products</h3>
+    <ul>
+      <li *ngFor="let p of selectedShipment.products">
+        {{ p.name }} (Qty: {{ p.quantity }})
+      </li>
+    </ul>
+  </div>
+</div>

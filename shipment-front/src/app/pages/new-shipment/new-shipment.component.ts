@@ -57,7 +57,7 @@ packages = [{ type: '', amount: 1 }];
 products = [{ type: '', amount: 1 }];
 charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
 finalAmount: number = 0;
-shipmentStatus: string = 'INSTOCK';
+shipmentStatus: string = 'Pending';
 shipmentStatusDetails: string = '';
 
 
