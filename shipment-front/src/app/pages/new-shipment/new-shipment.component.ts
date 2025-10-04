@@ -57,6 +57,8 @@ packages = [{ type: '', amount: 1 }];
 products = [{ type: '', amount: 1 }];
 charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
 finalAmount: number = 0;
+shipmentStatus: string = 'INSTOCK';
+shipmentStatusDetails: string = '';
 
 
 
@@ -118,6 +120,9 @@ finalAmount: number = 0;
       email: localStorage.getItem('email'),
       username: localStorage.getItem('username'),
       branch: localStorage.getItem('branch'),
+
+      shipmentStatus: this.shipmentStatus,
+      shipmentStatusDetails: localStorage.getItem('email')+'$$'+this.date+'$$'+this.shipmentStatus,
 
       ewaybillNumber: this.ewaybillNumber,
       consignmentNumber: this.consignmentNumber,
@@ -258,7 +263,7 @@ onConsignorSelect(name: string) {
   }
 
   onProductList(name: string) {
-    const selectedpackage = this.productList.find(c => c.productName === name);
+    const selectedproduct = this.productList.find(c => c.productName === name);
   }
   
 

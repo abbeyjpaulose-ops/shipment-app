@@ -182,7 +182,7 @@
 <section>
   <h3>5. Package Details</h3>
   <div *ngFor="let pkg of packages; let i = index" class="grid-4">
-    <select [(ngModel)]="pkg.pkgName" (change)="onPackageList(pkg.pkgName)">
+    <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
       <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
     </select>
     <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount">
@@ -195,7 +195,7 @@
 <section>
   <h3>5. Product Details</h3>
   <div *ngFor="let product of products; let i = index" class="grid-4">
-    <select [(ngModel)]="product.productName" (change)="onPackageList(product.productName)">
+    <select [(ngModel)]="product.type" (change)="onPackageList(product.productName)">
       <option *ngFor="let productItem of productList" [value]="productItem.productName">{{ productItem.hsnNum }}-{{ productItem.productName }}</option>
     </select>
     <input placeholder="Amount*" type="number" [(ngModel)]="product.amount">

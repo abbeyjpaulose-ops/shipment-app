@@ -11,6 +11,11 @@ const PackageSchema = new mongoose.Schema({
   amount: { type: Number }
 });
 
+const ProductSchema = new mongoose.Schema({
+  type: { type: String },
+  amount: { type: Number }
+});
+
 const ChargesSchema = new mongoose.Schema({
   odc: { type: Number },
   unloading: { type: Number },
@@ -28,6 +33,9 @@ const NewShipmentSchema = new mongoose.Schema({
   ewaybillNumber: { type: String },
   consignmentNumber: { type: String },
   date: { type: Date },
+  shipmentStatus: { type: String },
+  shipmentStatusDetails: { type: String },
+
 
   // Section 2 - Consignor / Consignee / Guest
   consignorTab: { type: String },                // 'consignor' or 'guest'
@@ -67,6 +75,7 @@ const NewShipmentSchema = new mongoose.Schema({
 
   // Section 5 - Packages
   packages: [PackageSchema],
+  products: [ProductSchema],
 
   // Section 6 - Charges
   charges: ChargesSchema,
