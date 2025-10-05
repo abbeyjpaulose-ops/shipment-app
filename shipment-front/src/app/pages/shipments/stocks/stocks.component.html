@@ -1,1 +1,102 @@
-<h2>Stocks</h2>
+<div class="stocks-container">
+  <h2>Stocks</h2>
+
+  <!-- 🔍 Search and Filters (no status filter here) -->
+  <div class="filters">
+    <input
+      type="text"
+      placeholder="Search by consignment no. or consignor"
+      [(ngModel)]="searchText"
+      (input)="applyFilters()" />
+
+    <input
+      type="date"
+      [(ngModel)]="filterDate"
+      (change)="applyFilters()" />
+
+    <input
+      type="text"
+      placeholder="Filter by consignor"
+      [(ngModel)]="filterConsignor"
+      (input)="applyFilters()" />
+      
+      <button (click)="manifestSelected()">Manifestation</button>
+  </div>
+
+    <!-- Manifestation Button -->
+  <div class="actions">
+    
+  </div>
+
+  <!-- 📦 Stocks Table -->
+  <table class="stocks-table">
+    <thead>
+      <tr>
+        <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
+        <th>Consignment No.</th>
+        <th>Consignor</th>
+        <th>Delivery Address</th>
+        <th>No. of Products</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of filteredStocks" (click)="openStockDetails(s)">
+        <td>
+          <input type="checkbox" [(ngModel)]="s.selected" (click)="$event.stopPropagation()" />
+        </td>
+        <td>{{ s.consignmentNumber }}</td>
+        <td>{{ s.consignor }}</td>
+        <td>{{ s.deliveryAddress }}</td>
+        <td>{{ s.products?.length || 0 }}</td>
+        <td>
+          <button (click)="editStock(s); $event.stopPropagation()">Edit</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+
+</div>
+
+<!-- 📑 Stock Details Modal -->
+<div class="modal" *ngIf="selectedStock">
+  <div class="modal-content">
+    <span class="close" (click)="closeStockDetails()">&times;</span>
+    <h2>Stock Details</h2>
+
+    <div class="stock-details">
+      <p><strong>Consignment No.:</strong> {{ selectedStock.consignmentNumber }}</p>
+      <p><strong>Consignor:</strong> {{ selectedStock.consignor }}</p>
+      <p><strong>Consignee:</strong> {{ selectedStock.consignee }}</p>
+      <p><strong>Delivery Address:</strong> {{ selectedStock.deliveryAddress }}</p>
+      <p><strong>Date:</strong> {{ selectedStock.date | date:'short' }}</p>
+      <p><strong>No. of Products:</strong> {{ selectedStock.products?.length || 0 }}</p>
+    </div>
+
+    <h3>Products</h3>
+    <ul>
+      <li *ngFor="let p of selectedStock.products">
+        {{ p.name }} (Qty: {{ p.quantity }})
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- ✅ Edit Modal -->
+<div class="modal" *ngIf="editingStock">
+  <div class="modal-content">
+    <h3>Edit Stock</h3>
+
+    <label>Consignment No:{{editingStock.consignmentNumber}}  Status:{{editingStock.shipmentStatus}}</label><br>
+
+    <label>Consignor:</label>
+    <input [(ngModel)]="editingStock.consignor" />
+
+    <label>Delivery Address:</label>
+    <input [(ngModel)]="editingStock.deliveryAddress" />
+
+    <button (click)="saveStockEdit()">Save</button>
+    <button (click)="cancelEdit()">Cancel</button>
+  </div>
+</div>

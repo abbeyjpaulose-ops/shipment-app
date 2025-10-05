@@ -63,14 +63,42 @@ router.get('/', async (req, res) => {
     const shipments = await NewShipment.find({ email })
       .sort({ createdAt: -1 }); // descending order
 
-      console.log(shipments)
-
     res.json(shipments);
   } catch (err) {
     console.error('Error fetching shipments:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// PUT: Edit a shipment line by consignmentNumber
+router.put('/:consignmentNumber', async (req, res) => {
+  const { consignmentNumber } = req.params;
+  const updatedData = req.body;
+
+  console.log("🔧 Updating shipment with consignmentNumber:", consignmentNumber);
+  console.log("📦 Updated data:", JSON.stringify(updatedData));
+
+  try {
+    const updatedShipment = await NewShipment.findOneAndUpdate(
+      { consignmentNumber: consignmentNumber },
+      updatedData,
+      {
+        new: true,
+        runValidators: true
+      }
+    );
+
+    if (!updatedShipment) {
+      return res.status(404).json({ message: 'Shipment not found' });
+    }
+
+    res.status(200).json({ message: 'Shipment updated successfully', data: updatedShipment });
+  } catch (error) {
+    console.error('❌ Error updating shipment:', error);
+    res.status(500).json({ message: 'Internal server error', error });
+  }
+});
+
 
 
 export default router;
