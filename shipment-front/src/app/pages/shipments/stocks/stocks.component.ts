@@ -31,7 +31,7 @@ export class StocksComponent implements OnInit {
       next: (res) => {
         // filter only INSTOCK shipments
         
-        this.stocks = res.filter(s => s.shipmentStatus === 'INSTOCK');
+        this.stocks = res.filter(s => s.shipmentStatus === 'Pending');
         console.log(this.stocks);
         this.filteredStocks = [...this.stocks];
       },
@@ -53,13 +53,33 @@ export class StocksComponent implements OnInit {
   }
 
   manifestSelected() {
-    const selected = this.filteredStocks.filter(s => s.selected);
-    console.log('🚀 Manifest selected stocks:', selected);
-    
+  const selectedConsignments = this.filteredStocks.filter(s => s.selected);
 
-
-    // later implement API call
+  if (selectedConsignments.length === 0) {
+    console.warn('⚠️ No consignments selected for manifestation.');
+    return;
   }
+
+  selectedConsignments.forEach(stock => {
+    const updatedStock = { ...stock, shipmentStatus: 'In Transit' };
+    console.log("sqsqsqsqsqsqsqsqsqs" + stock.shipmentStatus);
+
+    this.http.put(`http://localhost:3000/api/newshipments/${stock.consignmentNumber}`, updatedStock)
+      .subscribe({
+        next: () => {
+          console.log(`✅ Consignment ${stock.consignmentNumber} updated to In Transit`);
+          this.loadStocks(); // Refresh data
+        },
+        error: (err) => {
+          console.error(`❌ Error updating consignment ${stock.consignmentNumber}:`, err);
+        }
+      });
+  });
+
+  // Optionally clear selection after update
+  this.filteredStocks.forEach(s => s.selected = false);
+}
+
 
   openStockDetails(stock: any) {
     this.selectedStock = stock;

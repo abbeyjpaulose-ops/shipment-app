@@ -74,10 +74,7 @@ router.get('/', async (req, res) => {
 router.put('/:consignmentNumber', async (req, res) => {
   const { consignmentNumber } = req.params;
   const updatedData = req.body;
-
-  console.log("🔧 Updating shipment with consignmentNumber:", consignmentNumber);
-  console.log("📦 Updated data:", JSON.stringify(updatedData));
-
+  
   try {
     const updatedShipment = await NewShipment.findOneAndUpdate(
       { consignmentNumber: consignmentNumber },
