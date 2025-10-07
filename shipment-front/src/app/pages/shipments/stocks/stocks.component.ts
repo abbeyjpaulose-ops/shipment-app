@@ -19,11 +19,86 @@ export class StocksComponent implements OnInit {
   selectedStock: any = null;
   editingStock: any = null;   // ✅ track which stock is being edited
 
+  // Billing
+billingType: 'consignor' | 'different' = 'consignor';
+billingName = '';
+billingAddress = '';
+billingGSTIN = '';
+billingPhone = '';
+
+clientList: any[] = [];
+guestList: any[] = [];
+pkgList: any[] = [];
+productList: any[] = [];
+// Pickup
+pickupType: 'consignor' | 'different' = 'consignor';
+pickupName = '';
+pickupAddress = '';
+pickupPhone = '';
+
+// Delivery
+deliveryType: 'consignee' | 'different' = 'consignee';
+deliveryName = '';
+deliveryAddress = '';
+deliveryPhone = ''; 
+consignorTab: 'consignor' | 'guest' = 'consignor';
+consigneeTab: 'consignee' | 'guest' = 'consignee';
+email: string = '';
+username: string = '';
+branch: string = localStorage.getItem('branch') || 'All Branches';
+consignmentNumber: string = localStorage.getItem('consignmentNumber')||'-999'; // will be loaded asynchronously
+date: string = new Date().toISOString().split('T')[0];
+ewaybillNumber: string = '';
+consignor: string = '';
+consignorGST: string = '';
+consignorAddress: string = '';
+consignorPhone: string = '';
+consignee: string = '';
+consigneeGST: string = '';
+consigneeAddress: string = '';
+consigneePhone: string = '';
+paymentMode: string = 'Account Credit';
+externalRefId: string = '';
+invoices = [{ number: '', value: 0 }];
+packages = [{ type: '', amount: 1 }];
+products = [{ type: '', amount: 1 }];
+charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
+finalAmount: number = 0;
+shipmentStatus: string = 'Pending';
+shipmentStatusDetails: string = '';
+
   constructor(private http: HttpClient) {}
 
-  ngOnInit() {
-    this.loadStocks();
+
+    // --- Methods ---
+  addInvoice() {
+    this.editingStock.invoices.push({ number: '', value: 0 });
   }
+  deleteInvoice(index: number) {
+    this.editingStock.invoices.splice(index, 1);
+  }
+
+  addPackage() {
+    this.editingStock.packages.push({ type: '', amount: 1 });
+  }
+  deletePackage(index: number) {
+    this.editingStock.packages.splice(index, 1);
+  }
+  addProduct() {
+    this.editingStock.products.push({ type: '', amount: 1 });
+  }
+  deleteProduct(index: number) {
+    this.editingStock.products.splice(index, 1);
+  }
+
+calculateFinalAmount() {
+  const invoiceTotal = this.editingStock.invoices.reduce((sum: number, i: { value: number }) => sum + (i.value || 0), 0);
+  const packageTotal = this.editingStock.packages.reduce((sum: number, p: { amount: number }) => sum + (p.amount || 0), 0);
+  const chargeTotal = Object.values(this.charges).reduce((sum: number, c: any) => sum + (Number(c) || 0), 0);
+  this.editingStock.finalAmount = invoiceTotal + packageTotal + chargeTotal;
+}
+
+
 
   loadStocks() {
     const email = localStorage.getItem('email');
@@ -112,6 +187,92 @@ export class StocksComponent implements OnInit {
 
   cancelEdit() {
     this.editingStock = null;
+  }
+
+  onConsignorSelect(name: string) {
+    const selectedconignor = this.clientList.find(c => c.clientName === name);
+    if (selectedconignor) {
+      this.editingStock.consignorGST = selectedconignor.GSTIN;
+      this.editingStock.consignorAddress = selectedconignor.address;
+      this.editingStock.consignorPhone = selectedconignor.phoneNum;
+    }
+  }
+
+  onConsigneeSelect(name: string) {
+    const selectedconignee = this.clientList.find(c => c.clientName === name);
+    if (selectedconignee) {
+      this.editingStock.consigneeGST = selectedconignee.GSTIN;
+      this.editingStock.consigneeAddress = selectedconignee.address;
+      this.editingStock.consigneePhone = selectedconignee.phoneNum;
+    }
+  }
+
+  onConsignorGuestSelect(name: string) {
+    const selectedguestconignor = this.guestList.find(c => c.guestName === name);
+    if (selectedguestconignor) {
+      this.editingStock.consignorGST = 'GUEST';
+      this.editingStock.consignorAddress = selectedguestconignor.address;
+      this.editingStock.consignorPhone = selectedguestconignor.phoneNum;
+    }
+  }
+
+  onConsigneeGuestSelect(name: string) {
+    const selectedguestconignee = this.guestList.find(c => c.guestName === name);
+    if (selectedguestconignee) {
+      this.editingStock.consigneeGST = 'GUEST';
+      this.editingStock.editingStock.consigneeAddress = selectedguestconignee.address;
+      this.editingStock.editingStock.consigneePhone = selectedguestconignee.phoneNum;
+    }
+  }
+
+  onPackageList(name: string) {
+    const selectedpackage = this.pkgList.find(c => c.pkgName === name);
+  }
+
+  onProductList(name: string) {
+    const selectedproduct = this.productList.find(c => c.productName === name);
+  }
+  
+
+  ngOnInit() {
+    this.loadStocks();
+    this.email = localStorage.getItem('email') || '';
+    this.username = localStorage.getItem('username') || '';
+    this.branch = localStorage.getItem('branch') || 'All Branches';  
+    //clients list  
+    this.http.get<any[]>(
+      `http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.clientList = data;
+    });
+
+    //guest list
+    this.http.get<any[]>(
+      `http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.guestList = data;
+    }, error => {
+      console.error('Error fetching guest list', error);
+    });
+
+    //package list
+    this.http.get<any[]>(
+      `http://localhost:3000/api/pkgs/pkglist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.pkgList = data;
+    }, error => {
+      console.error('Error fetching package list', error);
+    });
+
+     //product list
+    this.http.get<any[]>(
+      `http://localhost:3000/api/products/productlist?emailId=${this.email}`)
+      .subscribe(data => {
+      this.productList = data;
+    }, error => {
+      console.error('Error fetching product list', error);
+    });
+    
   }
 
 }

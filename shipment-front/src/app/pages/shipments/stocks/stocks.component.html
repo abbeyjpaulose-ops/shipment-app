@@ -88,15 +88,151 @@
   <div class="modal-content">
     <h3>Edit Stock</h3>
 
-    <label>Consignment No:{{editingStock.consignmentNumber}}  Status:{{editingStock.shipmentStatus}}</label><br>
+    <!-- Section 1: Basic Info -->
+    <label>Consignment No: {{editingStock.consignmentNumber}} | Status: {{editingStock.shipmentStatus}}</label><br>
+    <label>E-way Bill No:</label>
+    <input [(ngModel)]="editingStock.ewaybillNumber" />
 
-    <label>Consignor:</label>
-    <input [(ngModel)]="editingStock.consignor" />
+    <label>Date:</label>
+    <input type="date" [(ngModel)]="editingStock.date" />
 
-    <label>Delivery Address:</label>
-    <input [(ngModel)]="editingStock.deliveryAddress" />
+    <label>Status Details:</label>
+    <input [(ngModel)]="editingStock.shipmentStatusDetails" />
 
+    <!-- Section 2: Consignor / Consignee Tabs -->
+    <h4>Consignor</h4>
+    <div class="tabs">
+      <button (click)="editingStock.consignorTab = 'consignor'" [class.active]="editingStock.consignorTab === 'consignor'">Consignor</button>
+      <button (click)="editingStock.consignorTab = 'guest'" [class.active]="editingStock.consignorTab === 'guest'">Guest</button>
+    </div>
+
+    <div *ngIf="editingStock.consignorTab === 'consignor'">
+      <label>Consignor:
+        <select [(ngModel)]="editingStock.consignor" (change)="onConsignorSelect(editingStock.consignor)">
+          <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+        </select>
+      </label>
+      <label>GSTIN: <input [(ngModel)]="editingStock.consignorGST" readonly /></label>
+      <label>Address: <input [(ngModel)]="editingStock.consignorAddress" readonly /></label>
+      <label>Phone: <input [(ngModel)]="editingStock.consignorPhone" readonly /></label>
+    </div>
+
+    <div *ngIf="editingStock.consignorTab === 'guest'">
+      <label>Guest Name:
+        <select [(ngModel)]="editingStock.consignor" (change)="onConsignorGuestSelect(editingStock.consignor)">
+          <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+        </select>
+      </label>
+      <label>Address: <input [(ngModel)]="editingStock.consignorAddress" readonly /></label>
+      <label>Phone: <input [(ngModel)]="editingStock.consignorPhone" readonly /></label>
+    </div>
+
+    <h4>Consignee</h4>
+    <div class="tabs">
+      <button (click)="editingStock.consigneeTab = 'consignee'" [class.active]="editingStock.consigneeTab === 'consignee'">Consignee</button>
+      <button (click)="editingStock.consigneeTab = 'guest'" [class.active]="editingStock.consigneeTab === 'guest'">Guest</button>
+    </div>
+
+    <div *ngIf="editingStock.consigneeTab === 'consignee'">
+      <label>Consignee:
+        <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeSelect(editingStock.consignee)">
+          <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+        </select>
+      </label>
+      <label>GSTIN: <input [(ngModel)]="editingStock.consigneeGST" readonly /></label>
+      <label>Address: <input [(ngModel)]="editingStock.consigneeAddress" readonly /></label>
+      <label>Phone: <input [(ngModel)]="editingStock.consigneePhone" readonly /></label>
+    </div>
+
+    <div *ngIf="editingStock.consigneeTab === 'guest'">
+      <label>Guest Name:
+        <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeGuestSelect(editingStock.consignee)">
+          <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+        </select>
+      </label>
+      <label>Address: <input [(ngModel)]="editingStock.consigneeAddress" readonly /></label>
+      <label>Phone: <input [(ngModel)]="editingStock.consigneePhone" readonly /></label>
+    </div>
+
+    <!-- Payment Mode -->
+    <label>Payment Mode:
+      <select [(ngModel)]="editingStock.paymentMode">
+        <option>Account Credit</option>
+        <option>Paid</option>
+        <option>To Pay</option>
+      </select>
+    </label>
+
+    <label>External Ref ID:</label>
+    <input [(ngModel)]="editingStock.externalRefId" />
+
+    <!-- Billing, Pickup, Delivery Address Types -->
+    <h4>Billing Type</h4>
+    <label><input type="radio" name="billing" value="consignor" [(ngModel)]="editingStock.billingType" /> Consignor's GST Address</label>
+    <label><input type="radio" name="billing" value="different" [(ngModel)]="editingStock.billingType" /> Different Address</label>
+
+    <div *ngIf="editingStock.billingType === 'different'">
+      <label>Name: <input [(ngModel)]="editingStock.billingName" /></label>
+      <label>GSTIN: <input [(ngModel)]="editingStock.billingGSTIN" /></label>
+      <label>Address: <textarea [(ngModel)]="editingStock.billingAddress"></textarea></label>
+    </div>
+
+    <!-- Similar structure for Pickup and Delivery -->
+    <!-- You can replicate the same radio + conditional logic for pickupType and deliveryType -->
+
+    <!-- Invoices -->
+<h4>Invoices</h4>
+<div *ngFor="let invoice of editingStock.invoices; let i = index" class="invoice-block">
+  <!-- Invoice Header -->
+  <div>
+    <input placeholder="Invoice Number" [(ngModel)]="invoice.number" />
+    <input placeholder="Value" type="number" [(ngModel)]="invoice.value" />
+    <button type="button" (click)="deleteInvoice(i)">🗑️</button>
+  </div>
+
+  <!-- Packages for this Invoice -->
+  <h5>Packages</h5>
+  <div *ngFor="let pkg of invoice.packages; let j = index">
+    <select [(ngModel)]="pkg.type">
+      <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
+    </select>
+    <input type="number" [(ngModel)]="pkg.amount" />
+    <button type="button" (click)="deletePackage(i, j)">🗑️</button>
+  </div>
+  <button type="button" (click)="addPackage(i)">+ Add Package</button>
+
+  <!-- Products for this Invoice -->
+  <h5>Products</h5>
+  <div *ngFor="let prod of invoice.products; let k = index">
+    <select [(ngModel)]="prod.type">
+      <option *ngFor="let productItem of productList" [value]="productItem.productName">
+        {{ productItem.hsnNum }} - {{ productItem.productName }}
+      </option>
+    </select>
+    <input type="number" [(ngModel)]="prod.amount" />
+    <button type="button" (click)="deleteProduct(i, k)">🗑️</button>
+  </div>
+  <button type="button" (click)="addProduct(i)">+ Add Product</button>
+</div>
+
+<!-- Add New Invoice -->
+<button type="button" (click)="addInvoice()">+ Add Invoice</button>
+
+
+    <!-- Charges -->
+    <h4>Charges</h4>
+    <label>ODC: <input type="number" [(ngModel)]="editingStock.charges.odc" /></label>
+    <label>Unloading: <input type="number" [(ngModel)]="editingStock.charges.unloading" /></label>
+    <label>Docket: <input type="number" [(ngModel)]="editingStock.charges.docket" /></label>
+    <label>Other: <input type="number" [(ngModel)]="editingStock.charges.other" /></label>
+    <label>CCC: <input type="number" [(ngModel)]="editingStock.charges.ccc" /></label>
+    <label>Final Amount: <input type="number" [(ngModel)]="editingStock.finalAmount" /></label>
+
+    <!-- Actions -->
+    <button (click)="calculateFinalAmount()">Calculate</button>
     <button (click)="saveStockEdit()">Save</button>
     <button (click)="cancelEdit()">Cancel</button>
   </div>
 </div>
+
+

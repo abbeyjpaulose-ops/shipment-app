@@ -52,9 +52,18 @@ consigneeAddress: string = '';
 consigneePhone: string = '';
 paymentMode: string = 'Account Credit';
 externalRefId: string = '';
-invoices = [{ number: '', value: 0 }];
-packages = [{ type: '', amount: 1 }];
-products = [{ type: '', amount: 1 }];
+invoices = [
+  {
+    number: '',
+    value: 0,
+    packages: [
+      { type: '', amount: 1 }
+    ],
+    products: [
+      { type: '', amount: 1 }
+    ]
+  }
+];
 charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
 finalAmount: number = 0;
 shipmentStatus: string = 'Pending';
@@ -63,32 +72,48 @@ shipmentStatusDetails: string = '';
 
 
   // --- Methods ---
-  addInvoice() {
-    this.invoices.push({ number: '', value: 0 });
-  }
-  deleteInvoice(index: number) {
-    this.invoices.splice(index, 1);
-  }
+ addInvoice() {
+  this.invoices.push({
+    number: '',
+    value: 0,
+    packages: [],
+    products: []
+  });
+}
 
-  addPackage() {
-    this.packages.push({ type: '', amount: 1 });
-  }
-  deletePackage(index: number) {
-    this.packages.splice(index, 1);
-  }
-  addProduct() {
-    this.products.push({ type: '', amount: 1 });
-  }
-  deleteProduct(index: number) {
-    this.products.splice(index, 1);
-  }
+deleteInvoice(index: number) {
+  this.invoices.splice(index, 1);
+}
+
+addPackage(invoiceIndex: number) {
+  this.invoices[invoiceIndex].packages.push({ type: '', amount: 0 });
+}
+
+deletePackage(invoiceIndex: number, packageIndex: number) {
+  this.invoices[invoiceIndex].packages.splice(packageIndex, 1);
+}
+
+addProduct(invoiceIndex: number) {
+  this.invoices[invoiceIndex].products.push({ type: '', amount: 0 });
+}
+
+deleteProduct(invoiceIndex: number, productIndex: number) {
+  this.invoices[invoiceIndex].products.splice(productIndex, 1);
+}
+
 
   calculateFinalAmount() {
-    const invoiceTotal = this.invoices.reduce((sum, i) => sum + (i.value || 0), 0);
-    const packageTotal = this.packages.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const chargeTotal = Object.values(this.charges).reduce((sum, c) => sum + (Number(c) || 0), 0);
-    this.finalAmount = invoiceTotal + packageTotal + chargeTotal;
-  }
+  const invoiceTotal = this.invoices.reduce((sum: number, i) => sum + (i.value || 0), 0);
+
+  const packageTotal = this.invoices.reduce((sum: number, i) => {
+    return sum + i.packages.reduce((pkgSum: number, p) => pkgSum + (p.amount || 0), 0);
+  }, 0);
+
+  const chargeTotal = Object.values(this.charges).reduce((sum: number, c) => sum + (Number(c) || 0), 0);
+
+  this.finalAmount = invoiceTotal + packageTotal + chargeTotal;
+}
+
 
   resetForm() {
     Object.assign(this, new NewShipmentComponent(this.http));
@@ -158,8 +183,6 @@ shipmentStatusDetails: string = '';
       deliveryPhone: this.deliveryPhone,
 
       invoices: this.invoices,
-      packages: this.packages,
-      products: this.products,
       charges: this.charges,
       finalAmount: this.finalAmount
       
@@ -245,6 +268,7 @@ onConsignorSelect(name: string) {
   onConsignorGuestSelect(name: string) {
     const selectedguestconignor = this.guestList.find(c => c.guestName === name);
     if (selectedguestconignor) {
+      this.consignorGST = 'GUEST';
       this.consignorAddress = selectedguestconignor.address;
       this.consignorPhone = selectedguestconignor.phoneNum;
     }
@@ -253,6 +277,7 @@ onConsignorSelect(name: string) {
   onConsigneeGuestSelect(name: string) {
     const selectedguestconignee = this.guestList.find(c => c.guestName === name);
     if (selectedguestconignee) {
+      this.consigneeGST = 'GUEST';
       this.consigneeAddress = selectedguestconignee.address;
       this.consigneePhone = selectedguestconignee.phoneNum;
     }

@@ -1,19 +1,21 @@
 // shipment-backend/models/NewShipment.js
 import mongoose from 'mongoose';
 
-const InvoiceSchema = new mongoose.Schema({
-  number: { type: String },
-  value: { type: Number }
-});
-
 const PackageSchema = new mongoose.Schema({
-  type: { type: String },
-  amount: { type: Number }
+  type: { type: String, required: false },
+  amount: { type: Number, required: false }
 });
 
 const ProductSchema = new mongoose.Schema({
-  type: { type: String },
-  amount: { type: Number }
+  type: { type: String, required: false },
+  amount: { type: Number, required: false }
+});
+
+const InvoiceSchema = new mongoose.Schema({
+  number: { type: String, required: true },
+  value: { type: Number, required: true },
+  packages: [PackageSchema],
+  products: [ProductSchema]
 });
 
 const ChargesSchema = new mongoose.Schema({
@@ -31,27 +33,24 @@ const NewShipmentSchema = new mongoose.Schema({
 
   // Section 1
   ewaybillNumber: { type: String },
-  consignmentNumber: { type: String },
+  consignmentNumber: { type: String, required: true },
   date: { type: Date },
   shipmentStatus: { type: String },
   shipmentStatusDetails: { type: String },
 
 
   // Section 2 - Consignor / Consignee / Guest
-  consignorTab: { type: String },                // 'consignor' or 'guest'
-  consignor: { type: String },
+  consignorTab: { type: String, required: true },                // 'consignor' or 'guest'
+  consignor: { type: String, required: true },
   consignorGST: { type: String },
   consignorAddress: { type: String },
   consignorPhone: { type: String },
 
   consigneeTab: { type: String },                // 'consignee' or 'guest'
-  consignee: { type: String },
+  consignee: { type: String, required: true },
   consigneeGST: { type: String },
   consigneeAddress: { type: String },
   consigneePhone: { type: String },
-  consigneeGuestName: { type: String },
-  consigneeGuestPhone: { type: String },
-  consigneeGuestAddress: { type: String },
 
   paymentMode: { type: String },
   externalRefId: { type: String },
@@ -72,10 +71,6 @@ const NewShipmentSchema = new mongoose.Schema({
 
   // Section 4 - Invoices
   invoices: [InvoiceSchema],
-
-  // Section 5 - Packages
-  packages: [PackageSchema],
-  products: [ProductSchema],
 
   // Section 6 - Charges
   charges: ChargesSchema,
