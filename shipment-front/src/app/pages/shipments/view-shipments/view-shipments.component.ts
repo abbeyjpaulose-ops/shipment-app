@@ -43,6 +43,24 @@ export class ViewShipmentsComponent implements OnInit {
     });
   }
 
+  getInvoiceAmountTotal(invoices: any[]): number {
+  if (!invoices) return 0;
+
+  return invoices.reduce((total, invoice) => {
+    const productSum = invoice.products?.reduce((sum: number, prod: any) => sum + (prod.amount || 0), 0) || 0;
+    return total + productSum;
+  }, 0);
+}
+
+  getInStockAmountTotal(invoices: any[]): number {
+  if (!invoices) return 0;
+
+  return invoices.reduce((total, invoice) => {
+    const productSum = invoice.products?.reduce((sum: number, prod: any) => sum + (prod.instock || 0), 0) || 0;
+    return total + productSum;
+  }, 0);
+}
+
   applyFilters(): void {
     this.filteredShipments = this.shipments.filter(s => {
       const matchesSearch = this.searchText

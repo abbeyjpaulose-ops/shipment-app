@@ -8,12 +8,13 @@ const PackageSchema = new mongoose.Schema({
 
 const ProductSchema = new mongoose.Schema({
   type: { type: String, required: false },
-  amount: { type: Number, required: false }
+  amount: { type: Number, required: false },
+  instock: { type: Number, required: false }
 });
 
 const InvoiceSchema = new mongoose.Schema({
-  number: { type: String, required: true },
-  value: { type: Number, required: true },
+  number: { type: String, required: false },
+  value: { type: Number, required: false },
   packages: [PackageSchema],
   products: [ProductSchema]
 });

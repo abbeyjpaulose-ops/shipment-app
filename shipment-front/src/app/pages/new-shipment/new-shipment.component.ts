@@ -52,15 +52,16 @@ consigneeAddress: string = '';
 consigneePhone: string = '';
 paymentMode: string = 'Account Credit';
 externalRefId: string = '';
+
 invoices = [
   {
     number: '',
     value: 0,
     packages: [
-      { type: '', amount: 1 }
+      { type: '', amount: 1}
     ],
     products: [
-      { type: '', amount: 1 }
+      { type: '', amount: 1, instock: 1 }
     ]
   }
 ];
@@ -94,7 +95,7 @@ deletePackage(invoiceIndex: number, packageIndex: number) {
 }
 
 addProduct(invoiceIndex: number) {
-  this.invoices[invoiceIndex].products.push({ type: '', amount: 0 });
+  this.invoices[invoiceIndex].products.push({ type: '', amount: 0, instock: 0 });
 }
 
 deleteProduct(invoiceIndex: number, productIndex: number) {
@@ -152,11 +153,12 @@ deleteProduct(invoiceIndex: number, productIndex: number) {
       ewaybillNumber: this.ewaybillNumber,
       consignmentNumber: this.consignmentNumber,
       date: this.date,
-
+      consignorTab: this.consignorTab,
       consignor: this.consignor,
       consignorGST: this.consignorGST,
       consignorAddress: this.consignorAddress,
       consignorPhone: this.consignorPhone,
+      consigneeTab: this.consigneeTab,
 
       consignee: this.consignee,
       consigneeGST: this.consigneeGST,
