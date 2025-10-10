@@ -137,6 +137,24 @@ calculateFinalAmount() {
     });
   }
 
+    getInvoiceAmountTotal(invoices: any[]): number {
+  if (!invoices) return 0;
+
+  return invoices.reduce((total, invoice) => {
+    const productSum = invoice.products?.reduce((sum: number, prod: any) => sum + (prod.amount || 0), 0) || 0;
+    return total + productSum;
+  }, 0);
+}
+
+  getInStockAmountTotal(invoices: any[]): number {
+  if (!invoices) return 0;
+
+  return invoices.reduce((total, invoice) => {
+    const productSum = invoice.products?.reduce((sum: number, prod: any) => sum + (prod.instock || 0), 0) || 0;
+    return total + productSum;
+  }, 0);
+}
+
   applyFilters() {
     this.filteredStocks = this.stocks.filter(s =>
       (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
