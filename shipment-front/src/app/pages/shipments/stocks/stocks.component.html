@@ -180,43 +180,46 @@
     <!-- Similar structure for Pickup and Delivery -->
     <!-- You can replicate the same radio + conditional logic for pickupType and deliveryType -->
 
-    <!-- Invoices -->
-<h4>Invoices</h4>
-<div *ngFor="let invoice of editingStock.invoices; let i = index" class="invoice-block">
-  <!-- Invoice Header -->
-  <div>
-    <input placeholder="Invoice Number" [(ngModel)]="invoice.number" />
-    <input placeholder="Value" type="number" [(ngModel)]="invoice.value" />
-    <button type="button" (click)="deleteInvoice(i)">🗑️</button>
+   <!-- 4. Invoice Details -->
+<section>
+  <h3>4. Invoice Details</h3>
+  <div *ngFor="let invoice of editingStock.invoices; let i = index" class="invoice-block">
+    <!-- Invoice Header -->
+    <div class="grid-3">
+      <input placeholder="Invoice Number" [(ngModel)]="invoice.number" />
+      <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value" />
+      <button type="button" (click)="deleteInvoice(i)">🗑️ Delete Invoice</button>
+    </div>
+
+    <!-- Package Details for this Invoice -->
+    <h4>Packages</h4>
+    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
+      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
+        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
+      </select>
+      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount" />
+      <button type="button" (click)="deletePackage(i, j)">🗑️ Delete Package {{i}}/{{j}}</button>
+    </div>
+    <button type="button" (click)="addPackage(i)">+ Add Package</button>
+
+    <!-- Product Details for this Invoice -->
+    <h4>Products</h4>
+    <div *ngFor="let product of invoice.products; let k = index" class="grid-4">
+      <select [(ngModel)]="product.type" (change)="onPackageList(product.productName)">
+        <option *ngFor="let productItem of productList" [value]="productItem.productName">
+          {{ productItem.hsnNum }} - {{ productItem.productName }}
+        </option>
+      </select>
+      <input placeholder="Amount*" type="number" [(ngModel)]="product.amount" (ngModelChange)="product.instock = $event" />
+      <button type="button" (click)="deleteProduct(i, k)">🗑️ Delete Product {{i}}/{{k}}</button>
+    </div>
+    <button type="button" (click)="addProduct(i)">+ Add Product</button>
   </div>
 
-  <!-- Packages for this Invoice -->
-  <h5>Packages</h5>
-  <div *ngFor="let pkg of invoice.packages; let j = index">
-    <select [(ngModel)]="pkg.type">
-      <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
-    </select>
-    <input type="number" [(ngModel)]="pkg.amount" />
-    <button type="button" (click)="deletePackage(i, j)">🗑️</button>
-  </div>
-  <button type="button" (click)="addPackage(i)">+ Add Package</button>
+  <!-- Add New Invoice -->
+  <button type="button" (click)="addInvoice()">+ Add Invoice</button>
+</section>
 
-  <!-- Products for this Invoice -->
-  <h5>Products</h5>
-  <div *ngFor="let prod of invoice.products; let k = index">
-    <select [(ngModel)]="prod.type">
-      <option *ngFor="let productItem of productList" [value]="productItem.productName">
-        {{ productItem.hsnNum }} - {{ productItem.productName }}
-      </option>
-    </select>
-    <input type="number" [(ngModel)]="prod.amount" />
-    <button type="button" (click)="deleteProduct(i, k)">🗑️</button>
-  </div>
-  <button type="button" (click)="addProduct(i)">+ Add Product</button>
-</div>
-
-<!-- Add New Invoice -->
-<button type="button" (click)="addInvoice()">+ Add Invoice</button>
 
 
     <!-- Charges -->

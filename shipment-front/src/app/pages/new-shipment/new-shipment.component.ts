@@ -72,8 +72,8 @@ shipmentStatusDetails: string = '';
 
 
 
-  // --- Methods ---
- addInvoice() {
+ // --- Methods ---
+addInvoice() {
   this.invoices.push({
     number: '',
     value: 0,
@@ -87,7 +87,10 @@ deleteInvoice(index: number) {
 }
 
 addPackage(invoiceIndex: number) {
-  this.invoices[invoiceIndex].packages.push({ type: '', amount: 0 });
+  this.invoices[invoiceIndex].packages.push({
+    type: '',    // This now serves as the package name
+    amount: 0
+  });
 }
 
 deletePackage(invoiceIndex: number, packageIndex: number) {
@@ -95,12 +98,17 @@ deletePackage(invoiceIndex: number, packageIndex: number) {
 }
 
 addProduct(invoiceIndex: number) {
-  this.invoices[invoiceIndex].products.push({ type: '', amount: 0, instock: 0 });
+  this.invoices[invoiceIndex].products.push({
+    type: '',    // This now serves as the product name
+    amount: 0,
+    instock: 0
+  });
 }
 
 deleteProduct(invoiceIndex: number, productIndex: number) {
   this.invoices[invoiceIndex].products.splice(productIndex, 1);
 }
+
 
 
   calculateFinalAmount() {

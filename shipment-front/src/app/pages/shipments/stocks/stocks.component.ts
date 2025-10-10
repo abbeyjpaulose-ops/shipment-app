@@ -70,26 +70,49 @@ shipmentStatusDetails: string = '';
   constructor(private http: HttpClient) {}
 
 
-    // --- Methods ---
-  addInvoice() {
-    this.editingStock.invoices.push({ number: '', value: 0 });
-  }
-  deleteInvoice(index: number) {
-    this.editingStock.invoices.splice(index, 1);
-  }
+ // --- Methods ---
+addInvoice() {
+  this.editingStock.invoices.push({
+    number: '',
+    value: 0,
+    packages: [],
+    products: []
+  });
+}
 
-  addPackage() {
-    this.editingStock.packages.push({ type: '', amount: 1 });
+deleteInvoice(index: number) {
+  this.editingStock.invoices.splice(index, 1);
+}
+
+addPackage(invoiceIndex: number) {
+  const invoice = this.editingStock.invoices[invoiceIndex];
+  if (!invoice.packages) {
+    invoice.packages = [];
   }
-  deletePackage(index: number) {
-    this.editingStock.packages.splice(index, 1);
+  invoice.packages.push({ type: '', amount: 1 });
+}
+
+deletePackage(invoiceIndex: number, packageIndex: number) {
+  const invoice = this.editingStock.invoices[invoiceIndex];
+  if (invoice.packages && invoice.packages.length > packageIndex) {
+    invoice.packages.splice(packageIndex, 1);
   }
-  addProduct() {
-    this.editingStock.products.push({ type: '', amount: 1 });
+}
+
+addProduct(invoiceIndex: number) {
+  const invoice = this.editingStock.invoices[invoiceIndex];
+  if (!invoice.products) {
+    invoice.products = [];
   }
-  deleteProduct(index: number) {
-    this.editingStock.products.splice(index, 1);
+  invoice.products.push({ type: '', amount: 1, instock: 0 });
+}
+
+deleteProduct(invoiceIndex: number, productIndex: number) {
+  const invoice = this.editingStock.invoices[invoiceIndex];
+  if (invoice.products && invoice.products.length > productIndex) {
+    invoice.products.splice(productIndex, 1);
   }
+}
 
 calculateFinalAmount() {
   const invoiceTotal = this.editingStock.invoices.reduce((sum: number, i: { value: number }) => sum + (i.value || 0), 0);
