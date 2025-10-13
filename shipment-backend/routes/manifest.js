@@ -33,18 +33,21 @@ router.post('/add', async (req, res) => {
 
     // 🔁 Update corresponding shipments in the newshipments collection
     for (const consignment of consignments) {
+      
       const shipment = await NewShipment.findOne({ consignmentNumber: consignment.consignmentNumber });
       if (!shipment) continue;
 
       let stillHasStock = false;
 
       consignment.invoices.forEach(inv => {
+        console.log('📥invoice', inv);
         inv.products.forEach(prod => {
           const shipmentInvoice = shipment.invoices.find(i => i.number === inv.number);
           if (shipmentInvoice) {
             const shipmentProduct = shipmentInvoice.products.find(p => p.type === prod.type);
             if (shipmentProduct) {
               shipmentProduct.instock = Math.max(0, shipmentProduct.instock - prod.manifestQty);
+              console.log('📥shipmentproduct', shipmentProduct.instock, shipmentProduct.amount);
               if (shipmentProduct.instock > 0) stillHasStock = true;
             }
           }
@@ -52,6 +55,8 @@ router.post('/add', async (req, res) => {
       });
 
       shipment.shipmentStatus = stillHasStock ? 'In Transit/Pending' : 'In Transit';
+      console.log('📥 Updated Shipment Status:', shipment.shipmentStatus);
+      console.log('📥 Updated Shipment Data:', shipment);
       await shipment.save();
     }
 

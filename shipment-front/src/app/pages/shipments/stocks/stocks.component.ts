@@ -129,7 +129,7 @@ calculateFinalAmount() {
       next: (res) => {
         // filter only INSTOCK shipments
         
-        this.stocks = res.filter(s => s.shipmentStatus === 'Pending');
+        this.stocks = res.filter(s => s.shipmentStatus === 'Pending' || s.shipmentStatus === 'In Transit/Pending');
         console.log(this.stocks);
         this.filteredStocks = [...this.stocks];
       },
@@ -360,38 +360,9 @@ finalizeManifestation() {
     next: (res: any) => {
       console.log('✅ Manifestation saved successfully:', res);
       console.log('testttttt', manifestationData);
+      window.location.reload();
 
-
-      // ✅ 2️⃣ Once saved, update shipment statuses (In Transit or In Transit/Pending)
-      const selectedConsignments = this.filteredStocks.filter(s => s.selected);
-
-      if (selectedConsignments.length === 0) {
-        console.warn('⚠️ No consignments selected for shipment update.');
-        return;
-      }
-
-      selectedConsignments.forEach(stock => {
-        const updatedStock = { ...stock, shipmentStatus: 'In Transit' };
-        console.log('🚚 Updating shipment:', stock.consignmentNumber);
-
-        this.http.put(`http://localhost:3000/api/newshipments/${stock.consignmentNumber}`, updatedStock)
-          .subscribe({
-            next: () => {
-              console.log(`✅ Consignment ${stock.consignmentNumber} updated to In Transit`, updatedStock);
-              this.loadStocks(); // refresh the table
-            },
-            error: (err) => {
-              console.error(`❌ Error updating consignment ${stock.consignmentNumber}:`, err);
-            }
-          });
-      });
-
-      // ✅ 3️⃣ Clear selection and close the popup
-      this.filteredStocks.forEach(s => s.selected = false);
-      this.showManifestationPopup = false;
-      alert(`✅ Manifestation ${res.manifestationNumber} created successfully!`);
-
-    },
+      },
     error: (err) => {
       console.error('❌ Error saving manifestation:', err);
       alert('Failed to save manifestation. Check server logs.');
