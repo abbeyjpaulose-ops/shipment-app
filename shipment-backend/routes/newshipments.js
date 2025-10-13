@@ -19,13 +19,13 @@ router.post('/add', async (req, res) => {
 
 // Get next consignment number for a user (reset on April 1st)
 router.get("/nextConsignment", async (req, res) => {
-  const { emailId } = req.query;
+  const emailId = req.query.emailId;
   if (!emailId) {
     return res.status(400).json({ message: "Missing emailId in query parameters" });
   }
   try {
-    const emailId = req.query.emailId;
-    console.log("Fetching next consignment number for:", req.query.emailId);
+    
+    console.log("Fetching next consignment number for:", emailId);
     
     // Get today's fiscal year (April 1 – March 31)
     const today = new Date();
@@ -34,17 +34,33 @@ router.get("/nextConsignment", async (req, res) => {
     const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59); // March 31
 
     // Find last shipment in this fiscal year for this user
-    const lastShipment = await NewShipment.findOne({
+   const result = await NewShipment.aggregate([
+  {
+    $match: {
       email: emailId,
       date: { $gte: fiscalYearStart, $lte: fiscalYearEnd }
-    })
-      .sort({ consignmentNumber: -1 }) // highest number
-      .exec();
-    //console.log("Last shipment found:", lastShipment);
+    }
+  },
+  {
+    $addFields: {
+      consignmentNumberInt: { $toInt: "$consignmentNumber" }
+    }
+  },
+  {
+    $sort: { consignmentNumberInt: -1 }
+  },
+  {
+    $limit: 1
+  }
+]);
+
+const lastShipment = result[0]; // Access first item in array
+console.log("CCCCCCCCCCCCCCConsignment Number (int):", lastShipment?.consignmentNumberInt);
+
 
     let nextNumber = 1;
     if (lastShipment && lastShipment.consignmentNumber) {
-      nextNumber = parseInt(lastShipment.consignmentNumber, 10) + 1;
+      nextNumber = lastShipment.consignmentNumberInt + 1;
     }
     console.log(`Next consignment number for ${emailId} in FY ${year}-${year + 1}:`, nextNumber);
 
@@ -70,29 +86,17 @@ router.get('/', async (req, res) => {
   }
 });
 
-// PUT: Edit a shipment line by consignmentNumber
+///stocks page each line detail popup design completed
 router.put('/:consignmentNumber', async (req, res) => {
-  const { consignmentNumber } = req.params;
-  const updatedData = req.body;
-  
   try {
-    const updatedShipment = await NewShipment.findOneAndUpdate(
-      { consignmentNumber: consignmentNumber },
-      updatedData,
-      {
-        new: true,
-        runValidators: true
-      }
+    const shipment = await NewShipment.findOneAndUpdate(
+      { consignmentNumber: req.params.consignmentNumber },
+      req.body,
+      { new: true }
     );
-
-    if (!updatedShipment) {
-      return res.status(404).json({ message: 'Shipment not found' });
-    }
-
-    res.status(200).json({ message: 'Shipment updated successfully', data: updatedShipment });
-  } catch (error) {
-    console.error('❌ Error updating shipment:', error);
-    res.status(500).json({ message: 'Internal server error', error });
+    res.json(shipment);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

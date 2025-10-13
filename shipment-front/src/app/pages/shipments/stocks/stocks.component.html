@@ -20,7 +20,7 @@
       [(ngModel)]="filterConsignor"
       (input)="applyFilters()" />
       
-      <button (click)="manifestSelected()">Manifestation</button>
+      <button (click)="openManifestationPopup()">Manifestation</button>
   </div>
 
     <!-- Manifestation Button -->
@@ -245,6 +245,61 @@
     <button (click)="calculateFinalAmount()">Calculate</button>
     <button (click)="saveStockEdit()">Save</button>
     <button (click)="cancelEdit()">Cancel</button>
+  </div>
+</div>
+
+<!-- 🧾 Manifestation Terminal Popup -->
+<div class="modal" *ngIf="showManifestationPopup">
+  <div class="modal-content terminal-style">
+    <span class="close" (click)="closeManifestationPopup()">&times;</span>
+    <h2>Manifestation Terminal</h2>
+
+    <div *ngIf="selectedForManifestation.length > 0; else noSelection">
+      <p><strong>Manifestation No:</strong> {{ manifestationNumber }}</p>
+      <hr>
+
+      <div *ngFor="let consignment of selectedForManifestation" class="consignment-block">
+        <h4>Consignment: {{ consignment.consignmentNumber }}</h4>
+        <p><strong>Consignor:</strong> {{ consignment.consignor }}</p>
+        <ul>
+          <li *ngFor="let invoice of consignment.invoices">
+            <strong>Invoice:</strong> {{ invoice.number }}   
+            <ul>
+              <li *ngFor="let product of invoice.products">
+                <div class="product-line">
+                  <span><strong>{{ product.type }}</strong></span>
+                  <span>
+                    In Stock: {{ product.instock }} /
+                    Total: {{ product.amount }}
+                  </span>
+                  <span>
+                    <input
+                    type="number"
+                    min="0"
+                    [max]="product.instock"
+                    [(ngModel)]="product.manifestQty"
+                    (change)="validateManifestQty(product)"
+                    class="manifest-input"
+                    />
+                  </span>
+                </div>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <hr>
+      </div>
+
+      <div class="terminal-buttons">
+        <button (click)="finalizeManifestation()">Manifest</button>
+        <button (click)="closeManifestationPopup()">Cancel</button>
+      </div>
+    </div>
+
+    <ng-template #noSelection>
+      <p>No consignments selected for manifestation.</p>
+      <button (click)="closeManifestationPopup()">Close</button>
+    </ng-template>
   </div>
 </div>
 

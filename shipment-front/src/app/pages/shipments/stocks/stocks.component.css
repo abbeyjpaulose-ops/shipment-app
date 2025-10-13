@@ -58,3 +58,61 @@
   font-size: 24px;
   cursor: pointer;
 }
+
+.modal-content.terminal-style {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+  font-family: 'Courier New', monospace;
+  border-radius: 10px;
+  padding: 20px;
+  width: 80%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.consignment-block {
+  background: #2a2a2a;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+}
+
+.terminal-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+}
+
+.terminal-buttons button {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.terminal-buttons button:first-child {
+  background-color: #007acc;
+  color: white;
+}
+
+.terminal-buttons button:last-child {
+  background-color: #555;
+  color: white;
+}
+.product-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.manifest-input {
+  width: 60px;
+  padding: 4px;
+  margin-left: 4px;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  text-align: right;
+}

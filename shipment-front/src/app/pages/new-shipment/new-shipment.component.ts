@@ -39,7 +39,7 @@ consigneeTab: 'consignee' | 'guest' = 'consignee';
 email: string = '';
 username: string = '';
 branch: string = localStorage.getItem('branch') || 'All Branches';
-consignmentNumber: string = localStorage.getItem('consignmentNumber')||'-999'; // will be loaded asynchronously
+consignmentNumber: string = '-999'; // will be loaded asynchronously
 date: string = new Date().toISOString().split('T')[0];
 ewaybillNumber: string = '';
 consignor: string = '';
@@ -140,8 +140,11 @@ deleteProduct(invoiceIndex: number, productIndex: number) {
       `http://localhost:3000/api/newshipments/nextConsignment?emailId=${this.email}`)
       .subscribe({
         next: (res) => {
-          
-          this.consignmentNumber = res.nextNumber.toString();  
+          console.log('FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFetched consignment number:', res);
+          console.log(localStorage.getItem('consignmentNumber'));
+          this.consignmentNumber = res.nextNumber.toString();
+          localStorage.setItem('consignmentNumber', this.consignmentNumber);
+          console.log(localStorage.getItem('consignmentNumber'));
         },
         error: (err) => console.error('Error fetching consignment number', err)
    
@@ -235,15 +238,16 @@ deleteProduct(invoiceIndex: number, productIndex: number) {
           console.log('Shipment Data:', shipmentData);
           
           alert(`Shipment ${this.consignmentNumber} saved successfully!`);
-          this.consignmentNumber = (parseInt(this.consignmentNumber) + 1).toString();
-          localStorage.setItem('consignmentNumber', this.consignmentNumber);
+          this.getCurrentConsignmentNumber(); // get next consignment number
           // reset form for next entry
           this.resetForm();
-          //window.location.reload();
+          window.location.reload();
           
          
           console.log('✅ Shipment saved', res);
-          alert('Shipment saved successfully!');
+          console.log('Next Consignment Number:', this.consignmentNumber);
+          console.log(localStorage.getItem('consignmentNumber'));
+          alert(`Shipment ${this.consignmentNumber} next successfully!`);
         },
         error: (err: any) => {
           console.error("Error saving shipment:", err.message);
@@ -303,10 +307,13 @@ onConsignorSelect(name: string) {
   
 
   ngOnInit() {
+    if (typeof window !== 'undefined') {
+      console.log('Window is aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaavailable');
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';  
     this.getCurrentConsignmentNumber();    
+
     //clients list  
     this.http.get<any[]>(
       `http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
@@ -341,6 +348,6 @@ onConsignorSelect(name: string) {
       console.error('Error fetching product list', error);
     });
     
-  }
+  }}
   constructor(private http: HttpClient) {}
 } 

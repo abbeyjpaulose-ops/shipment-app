@@ -168,34 +168,6 @@ calculateFinalAmount() {
     this.filteredStocks.forEach(s => s.selected = checked);
   }
 
-  manifestSelected() {
-  const selectedConsignments = this.filteredStocks.filter(s => s.selected);
-
-  if (selectedConsignments.length === 0) {
-    console.warn('⚠️ No consignments selected for manifestation.');
-    return;
-  }
-
-  selectedConsignments.forEach(stock => {
-    const updatedStock = { ...stock, shipmentStatus: 'In Transit' };
-    console.log("sqsqsqsqsqsqsqsqsqs" + stock.shipmentStatus);
-
-    this.http.put(`http://localhost:3000/api/newshipments/${stock.consignmentNumber}`, updatedStock)
-      .subscribe({
-        next: () => {
-          console.log(`✅ Consignment ${stock.consignmentNumber} updated to In Transit`);
-          this.loadStocks(); // Refresh data
-        },
-        error: (err) => {
-          console.error(`❌ Error updating consignment ${stock.consignmentNumber}:`, err);
-        }
-      });
-  });
-
-  // Optionally clear selection after update
-  this.filteredStocks.forEach(s => s.selected = false);
-}
-
 
   openStockDetails(stock: any) {
     this.selectedStock = stock;
@@ -315,5 +287,130 @@ calculateFinalAmount() {
     });
     
   }
+
+  
+  showManifestationPopup = false;
+  selectedForManifestation: any[] = [];
+  manifestationNumber: string = '';
+
+openManifestationPopup() {
+  this.selectedForManifestation = this.filteredStocks.filter(s => s.selected);
+
+  if (this.selectedForManifestation.length === 0) {
+    alert('⚠️ Please select at least one consignment to manifest.');
+    return;
+  }
+
+  const now = new Date();
+  this.manifestationNumber =
+    'MF-' + now.getFullYear().toString().slice(2) +
+    (now.getMonth() + 1).toString().padStart(2, '0') +
+    now.getDate().toString().padStart(2, '0') +
+    '-' + Math.floor(Math.random() * 10000);
+
+  // Initialize manifestQty = instock
+  this.selectedForManifestation.forEach(consignment => {
+    consignment.invoices?.forEach((invoice: any) => {
+      invoice.products?.forEach((product: any) => {
+        product.manifestQty = product.instock;
+      });
+    });
+  });
+
+  this.showManifestationPopup = true;
+}
+
+
+closeManifestationPopup() {
+  this.showManifestationPopup = false;
+}
+
+finalizeManifestation() {
+  if (this.selectedForManifestation.length === 0) {
+    alert('No consignments selected.');
+    return;
+  }
+
+  const manifestationData = {
+    email: this.email,
+    username: this.username,
+    branch: this.branch,
+    manifestationNumber: this.manifestationNumber,
+    date: new Date(),
+    consignments: this.selectedForManifestation.map(c => ({
+      consignmentNumber: c.consignmentNumber,
+      consignor: c.consignor,
+      invoices: c.invoices.map((inv: any) => ({
+        number: inv.number,
+        value: inv.value,
+        products: inv.products.map((p: any) => ({
+          type: p.type,
+          instock: p.instock,
+          amount: p.amount,
+          manifestQty: p.manifestQty
+        }))
+      }))
+    }))
+  };
+
+  console.log('📦 Sending manifestation to backend:', manifestationData);
+
+  // ✅ 1️⃣ POST manifestation details to backend DB
+  this.http.post('http://localhost:3000/api/manifest/add', manifestationData).subscribe({
+    next: (res: any) => {
+      console.log('✅ Manifestation saved successfully:', res);
+      console.log('testttttt', manifestationData);
+
+
+      // ✅ 2️⃣ Once saved, update shipment statuses (In Transit or In Transit/Pending)
+      const selectedConsignments = this.filteredStocks.filter(s => s.selected);
+
+      if (selectedConsignments.length === 0) {
+        console.warn('⚠️ No consignments selected for shipment update.');
+        return;
+      }
+
+      selectedConsignments.forEach(stock => {
+        const updatedStock = { ...stock, shipmentStatus: 'In Transit' };
+        console.log('🚚 Updating shipment:', stock.consignmentNumber);
+
+        this.http.put(`http://localhost:3000/api/newshipments/${stock.consignmentNumber}`, updatedStock)
+          .subscribe({
+            next: () => {
+              console.log(`✅ Consignment ${stock.consignmentNumber} updated to In Transit`, updatedStock);
+              this.loadStocks(); // refresh the table
+            },
+            error: (err) => {
+              console.error(`❌ Error updating consignment ${stock.consignmentNumber}:`, err);
+            }
+          });
+      });
+
+      // ✅ 3️⃣ Clear selection and close the popup
+      this.filteredStocks.forEach(s => s.selected = false);
+      this.showManifestationPopup = false;
+      alert(`✅ Manifestation ${res.manifestationNumber} created successfully!`);
+
+    },
+    error: (err) => {
+      console.error('❌ Error saving manifestation:', err);
+      alert('Failed to save manifestation. Check server logs.');
+    }
+  });
+}
+
+
+validateManifestQty(product: any) {
+  if (product.manifestQty > product.instock) {
+    alert(`⚠️ Manifest quantity cannot exceed available stock (${product.instock}).`);
+    product.manifestQty = product.instock;
+  }
+  if (product.manifestQty < 0) {
+    alert('⚠️ Manifest quantity cannot be negative.');
+    product.manifestQty = 0;
+  }
+}
+
+
 
 }

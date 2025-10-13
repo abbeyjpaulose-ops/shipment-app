@@ -12,6 +12,8 @@ import clientsRoutes from './routes/clients.js';
 import guestsRoutes from './routes/guests.js';
 import productRoutes from './routes/product.js';
 import newShipmentRoutes from './routes/newShipments.js';
+import manifestRoutes from './routes/manifest.js';
+
 
 
 const app = express();
@@ -33,5 +35,7 @@ app.use('/api/guests', guestsRoutes);
 app.use('/api/pkgs', pkgRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/newshipments', newShipmentRoutes);
+app.use('/api/manifest', manifestRoutes);
+
 
 app.listen(3000, () => console.log('🚀 Server running on port 3000'));
