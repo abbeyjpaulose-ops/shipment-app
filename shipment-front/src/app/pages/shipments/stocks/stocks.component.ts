@@ -382,6 +382,67 @@ validateManifestQty(product: any) {
   }
 }
 
+printReceipts() {
+  const selected = this.filteredStocks?.filter(s => s.selected) || [];
 
+  if (selected.length === 0) {
+    alert('No consignments selected.');
+    return;
+  }
+
+  fetch('assets/receipt-template.html')
+    .then(res => res.text())
+    .then(template => {
+      let fullHtml = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h2 { margin-bottom: 0; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; }
+              .page-break { page-break-after: always; }
+            </style>
+          </head>
+          <body>
+      `;
+
+      selected.forEach((consignment, index) => {
+        const rows = consignment.invoices.flatMap((inv: any) =>
+          inv.products.map((p: any) => `
+            <tr>
+              <td>${inv.number}</td>
+              <td>${p.type}</td>
+              <td>${p.instock}</td>
+              <td>${p.manifestQty}</td>
+              <td>${p.amount}</td>
+            </tr>
+          `)
+        ).join('');
+
+        const htmlContent = template
+          .replace('{{consignmentNumber}}', consignment.consignmentNumber)
+          .replace('{{consignor}}', consignment.consignor)
+          .replace('{{rows}}', rows);
+
+        fullHtml += htmlContent;
+
+        // Add page break after each consignment except the last one
+        if (index < selected.length - 1) {
+          fullHtml += `<div class="page-break"></div>`;
+        }
+      });
+
+      fullHtml += `</body></html>`;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(fullHtml);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    });
+}
 
 }
