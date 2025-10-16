@@ -252,39 +252,39 @@ calculateFinalAmount() {
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';  
-    //clients list  
-    this.http.get<any[]>(
-      `http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
-      .subscribe(data => {
-      this.clientList = data;
+
+    // Clients list
+    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
+    .subscribe({
+      next: data => this.clientList = data,
+      error: err => console.error('Error fetching client list', err),
+      complete: () => console.log('Client list fetch complete')
     });
 
-    //guest list
-    this.http.get<any[]>(
-      `http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
-      .subscribe(data => {
-      this.guestList = data;
-    }, error => {
-      console.error('Error fetching guest list', error);
+    // Guests list
+    this.http.get<any[]>(`http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
+    .subscribe({
+      next: data => this.guestList = data,
+      error: err => console.error('Error fetching guest list', err),
+      complete: () => console.log('Guest list fetch complete')
     });
 
-    //package list
-    this.http.get<any[]>(
-      `http://localhost:3000/api/pkgs/pkglist?emailId=${this.email}`)
-      .subscribe(data => {
-      this.pkgList = data;
-    }, error => {
-      console.error('Error fetching package list', error);
+    // Packages list
+    this.http.get<any[]>(`http://localhost:3000/api/pkgs/pkglist?emailId=${this.email}`)
+    .subscribe({
+      next: data => this.pkgList = data,
+      error: err => console.error('Error fetching package list', err),
+      complete: () => console.log('Package list fetch complete')
     });
 
-     //product list
-    this.http.get<any[]>(
-      `http://localhost:3000/api/products/productlist?emailId=${this.email}`)
-      .subscribe(data => {
-      this.productList = data;
-    }, error => {
-      console.error('Error fetching product list', error);
+    // Products list
+    this.http.get<any[]>(`http://localhost:3000/api/products/productlist?emailId=${this.email}`)
+    .subscribe({
+      next: data => this.productList = data,
+      error: err => console.error('Error fetching product list', err),
+      complete: () => console.log('Product list fetch complete')
     });
+
     
   }
 
@@ -437,8 +437,10 @@ printReceipts() {
       fullHtml += `</body></html>`;
 
       const printWindow = window.open('', '_blank');
+    
       if (printWindow) {
-        printWindow.document.write(fullHtml);
+        printWindow.document.open();
+        printWindow.document.body.innerHTML = fullHtml;
         printWindow.document.close();
         printWindow.print();
       }

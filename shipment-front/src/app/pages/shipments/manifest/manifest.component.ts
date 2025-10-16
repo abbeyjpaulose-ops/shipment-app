@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient, provideHttpClient } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-manifest',
@@ -11,107 +11,106 @@ import { HttpClient, provideHttpClient } from '@angular/common/http';
   styleUrls: ['./manifest.component.css']
 })
 export class ManifestComponent implements OnInit {
-  manifest: any[] = [];
-  filteredManifest: any[] = [];
-  searchText = '';
+  manifests: any[] = [];
+  filteredManifests: any[] = [];
+  searchText: string = '';
   filterDate: string = '';
   filterConsignor: string = '';
   selectedManifest: any = null;
-  editingManifest: any = null;   // ✅ track which manifest is being edited
+  showDeliveryPopup: boolean = false;
+  selectedForDelivery: any[] = [];
+
+  email: string = '';
+  username: string = '';
+  branch: string = localStorage.getItem('branch') || 'All Branches';
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    this.loadManifest();
+    this.email = localStorage.getItem('email') || '';
+    this.username = localStorage.getItem('username') || '';
+    this.branch = localStorage.getItem('branch') || 'All Branches';
+    this.loadManifests();
   }
 
-  loadManifest() {
-    const email = localStorage.getItem('email');
-    this.http.get<any[]>(`http://localhost:3000/api/newshipments?email=${email}`).subscribe({
+  // ✅ Load all manifests from backend
+  loadManifests() {
+    this.http.get<any[]>(`http://localhost:3000/api/manifest?email=${this.email}`).subscribe({
       next: (res) => {
-        // filter only In Tansit shipments
-        
-        this.manifest = res.filter(s => s.shipmentStatus === 'In Transit');
-        console.log(this.manifest);
-        this.filteredManifest = [...this.manifest];
+        this.manifests = res;
+        this.filteredManifests = [...this.manifests];
+        console.log('📦 Loaded manifests:', res);
       },
-      error: (err) => console.error('❌ Error loading manifest:', err)
+      error: (err) => console.error('❌ Error loading manifests:', err)
     });
   }
 
   applyFilters() {
-    this.filteredManifest = this.manifest.filter(s =>
-      (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
-      (this.filterDate ? new Date(s.date).toISOString().split('T')[0] === this.filterDate : true) &&
-      (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true)
+    this.filteredManifests = this.manifests.filter(m =>
+      (this.searchText ? m.manifestationNumber?.includes(this.searchText) || m.consignments?.some((c: any) => c.consignor?.includes(this.searchText)) : true) &&
+      (this.filterDate ? new Date(m.date).toISOString().split('T')[0] === this.filterDate : true) &&
+      (this.filterConsignor ? m.consignments?.some((c: any) => c.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase())) : true)
     );
   }
 
   toggleAllSelection(event: any) {
     const checked = event.target.checked;
-    this.filteredManifest.forEach(s => s.selected = checked);
+    this.filteredManifests.forEach(m => m.selected = checked);
   }
 
-  manifestSelected() {
-  const selectedConsignments = this.filteredManifest.filter(s => s.selected);
+  // ✅ Open delivery popup
+  openDeliveryPopup() {
+    this.selectedForDelivery = this.filteredManifests.filter(m => m.selected);
 
-  if (selectedConsignments.length === 0) {
-    console.warn('⚠️ No consignments selected for manifestation.');
-    return;
+    if (this.selectedForDelivery.length === 0) {
+      alert('⚠️ Please select at least one manifest to deliver.');
+      return;
+    }
+
+    this.showDeliveryPopup = true;
   }
 
-  selectedConsignments.forEach(manifest => {
-    const updatedManifest = { ...manifest, shipmentStatus: 'Delivered' };
-    console.log("sqsqsqsqsqsqsqsqsqs" + manifest.shipmentStatus);
+  closeDeliveryPopup() {
+    this.showDeliveryPopup = false;
+  }
 
-    this.http.put(`http://localhost:3000/api/newshipments/${manifest.consignmentNumber}`, updatedManifest)
-      .subscribe({
-        next: () => {
-          console.log(`✅ Consignment ${manifest.consignmentNumber} updated to Delivered`);
-          this.loadManifest(); // Refresh data
-        },
-        error: (err) => {
-          console.error(`❌ Error updating consignment ${manifest.consignmentNumber}:`, err);
-        }
+  // ✅ Finalize delivery and update statuses in both DBs
+  finalizeDelivery() {
+    if (this.selectedForDelivery.length === 0) {
+      alert('No manifests selected for delivery.');
+      return;
+    }
+
+    this.selectedForDelivery.forEach(manifest => {
+      manifest.consignments.forEach((cons: any) => {
+        cons.invoices.forEach((inv: any) => {
+          inv.products.forEach((p: any) => {
+            // update stock — if any product left undelivered
+            if (p.instock > 0) {
+              p.instock = 0;
+            }
+          });
+        });
+
+        // Update consignment in newshipments DB
+        const updatedStatus = 'Delivered';
+        const updatedStock = { ...cons, shipmentStatus: updatedStatus };
+
+        this.http.put(`http://localhost:3000/api/newshipments/${cons.consignmentNumber}`, updatedStock)
+          .subscribe({
+            next: () => {
+              console.log(`✅ Consignment ${cons.consignmentNumber} marked as Delivered`);
+            },
+            error: (err) => {
+              console.error(`❌ Error updating consignment ${cons.consignmentNumber}:`, err);
+            }
+          });
       });
-  });
+    });
 
-  // Optionally clear selection after update
-  this.filteredManifest.forEach(s => s.selected = false);
-}
-
-
-  openManifestDetails(manifest: any) {
-    this.selectedManifest = manifest;
+    this.showDeliveryPopup = false;
+    alert('✅ Delivery completed successfully!');
+    this.filteredManifests.forEach(m => m.selected = false);
+    this.loadManifests();
   }
-
-  closeManifestDetails() {
-    this.selectedManifest = null;
-  }
-
-    editManifest(manifest: any) {
-    console.log('✏️ Edit manifest:', manifest);
-    this.editingManifest = { ...manifest };  // ✅ copy so we don’t mutate directly
-  }
-
-  saveManifestEdit() {
-    if (!this.editingManifest) return;
-
-    console.log("kkkkkkkkkkklllllllllllllllll" + this.editingManifest.consignmentNumber);
-
-    this.http.put(`http://localhost:3000/api/newshipments/${this.editingManifest.consignmentNumber}`, this.editingManifest)
-      .subscribe({
-        next: () => {
-          console.log('✅ Manifest updated');
-          this.loadManifest();          // reload updated data
-          this.editingManifest = null;   // close modal
-        },
-        error: (err) => console.error('❌ Error updating manifest:', err)
-      });
-  }
-
-  cancelEdit() {
-    this.editingManifest = null;
-  }
-
 }

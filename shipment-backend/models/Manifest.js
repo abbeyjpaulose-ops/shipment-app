@@ -13,10 +13,25 @@ const ManifestInvoiceSchema = new mongoose.Schema({
   products: [ManifestProductSchema]
 });
 
+const CEwaybillSchema = new mongoose.Schema({
+  editTime: Date,
+  user: String,
+  vehicleNumber: String,
+  cEwaybillNumber: String,
+  enterTime: Date
+});
+
+const RouteSchema = new mongoose.Schema({
+  route: String,
+  createdAt: { type: Date, default: Date.now }
+});
+
 const ManifestConsignmentSchema = new mongoose.Schema({
   consignmentNumber: String,
   consignor: String,
-  invoices: [ManifestInvoiceSchema]
+  invoices: [ManifestInvoiceSchema],
+  cEwaybill: [CEwaybillSchema],
+  routes: [RouteSchema]
 });
 
 const ManifestSchema = new mongoose.Schema({
@@ -28,8 +43,7 @@ const ManifestSchema = new mongoose.Schema({
   consignments: [ManifestConsignmentSchema]
 });
 
-
-// Unique combo: manifestName + address + email
+// Unique combo: manifestationNumber + address + email
 ManifestSchema.index({ manifestationNumber: 1, address: 1, email: 1 }, { unique: true });
 
 export default mongoose.models.Manifest || mongoose.model('Manifest', ManifestSchema);
