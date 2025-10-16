@@ -293,14 +293,27 @@ calculateFinalAmount() {
   selectedForManifestation: any[] = [];
   manifestationNumber: string = '';
 
+
+  getEwaybillNumberFromDB(consignmentNumber: string): string {
+  const record = this.stocks.find(
+    shipment => shipment.consignmentNumber === consignmentNumber
+  );
+  return record?.ewaybillNumber || '';
+}
+
+  
+
 openManifestationPopup() {
+  // Filter selected consignments
   this.selectedForManifestation = this.filteredStocks.filter(s => s.selected);
 
+  // Guard clause: ensure at least one consignment is selected
   if (this.selectedForManifestation.length === 0) {
     alert('⚠️ Please select at least one consignment to manifest.');
     return;
   }
 
+  // Generate unique manifestation number
   const now = new Date();
   this.manifestationNumber =
     'MF-' + now.getFullYear().toString().slice(2) +
@@ -308,17 +321,29 @@ openManifestationPopup() {
     now.getDate().toString().padStart(2, '0') +
     '-' + Math.floor(Math.random() * 10000);
 
-  // Initialize manifestQty = instock
-  this.selectedForManifestation.forEach(consignment => {
-    consignment.invoices?.forEach((invoice: any) => {
+  // Initialize manifestQty and eway bill fields
+  this.selectedForManifestation = this.selectedForManifestation.map(consignment => {
+    // Set eway bill fields
+    const updatedConsignment = {
+      ...consignment,
+      ewayBillRequired: false,
+      ewaybillNumber: this.getEwaybillNumberFromDB(consignment.consignmentNumber)
+    };
+
+    // Set manifestQty = instock for each product
+    updatedConsignment.invoices?.forEach((invoice: any) => {
       invoice.products?.forEach((product: any) => {
         product.manifestQty = product.instock;
       });
     });
+
+    return updatedConsignment;
   });
 
+  // Show the popup
   this.showManifestationPopup = true;
 }
+
 
 
 closeManifestationPopup() {

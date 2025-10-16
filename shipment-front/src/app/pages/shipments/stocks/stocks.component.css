@@ -116,3 +116,50 @@
   border-radius: 4px;
   text-align: right;
 }
+.eway-toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.eway-toggle-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.eway-toggle-slider {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  background-color: #ccc;
+  border-radius: 20px;
+  transition: background-color 0.3s;
+}
+
+.eway-toggle-slider::before {
+  content: "";
+  position: absolute;
+  height: 16px;
+  width: 16px;
+  left: 2px;
+  bottom: 2px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s;
+}
+
+.eway-toggle-input:checked + .eway-toggle-slider {
+  background-color: #4caf50;
+}
+
+.eway-toggle-input:checked + .eway-toggle-slider::before {
+  transform: translateX(20px);
+}
+
+.eway-toggle-text {
+  font-weight: 500;
+}

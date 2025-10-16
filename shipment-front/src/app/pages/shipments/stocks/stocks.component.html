@@ -255,13 +255,29 @@
   <div class="modal-content terminal-style">
     <span class="close" (click)="closeManifestationPopup()">&times;</span>
     <h2>Manifestation Terminal</h2>
-
     <div *ngIf="selectedForManifestation.length > 0; else noSelection">
       <p><strong>Manifestation No:</strong> {{ manifestationNumber }}</p>
       <hr>
-
       <div *ngFor="let consignment of selectedForManifestation" class="consignment-block">
         <h4>Consignment: {{ consignment.consignmentNumber }}</h4>
+        <div class="ewaybill-section">
+          <ng-container *ngIf="consignment.ewaybillNumber === ''; else showEwaybill">
+            <label class="eway-toggle-label">
+              <input
+              type="checkbox"
+              [(ngModel)]="consignment.ewayBillRequired"
+              class="eway-toggle-input"
+              />
+              <span class="eway-toggle-slider"></span>
+              <span class="eway-toggle-text">
+                {{ consignment.ewayBillRequired ? 'Eway Bill will be created' : 'Eway Bill not required' }}
+              </span>
+            </label>
+          </ng-container>
+          <ng-template #showEwaybill>
+            <p><strong>Customer created Eway Bill No:</strong> {{ consignment.ewaybillNumber }}</p>
+          </ng-template>
+        </div>
         <p><strong>Consignor:</strong> {{ consignment.consignor }}</p>
         <ul>
           <li *ngFor="let invoice of consignment.invoices">
