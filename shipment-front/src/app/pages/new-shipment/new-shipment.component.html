@@ -3,7 +3,7 @@
 
   <!-- 1. Basic Details -->
   <section>
-    <h3>1. Basic Details</h3>
+    <h3>Basic Details</h3>
     <div class="grid-2">
       <label>E-Waybill Number <input [(ngModel)]="ewaybillNumber"></label>
       <label>Consignment Number* <input [(ngModel)]="consignmentNumber" readonly></label>
@@ -14,7 +14,7 @@
 
   <!-- 2. Consignment & Payment Mode -->
   <section>
-  <h3>2. Consignment & Payment Mode</h3>
+  <h3>Consignment & Payment Mode</h3>
   <div class="grid-2">
 
     <!-- Consignor Tabs -->
@@ -32,8 +32,8 @@
             </select>
           </label>
           <label>Consignor GSTIN <input [(ngModel)]="consignorGST" readonly></label>
-          <label>Consignor Address <input [(ngModel)]="consignorAddress" readonly></label>
-          <label>Consignor Phone <input [(ngModel)]="consignorPhone" readonly></label>
+         <!-- <label>Consignor Address <input [(ngModel)]="consignorAddress" readonly></label> 
+          <label>Consignor Phone <input [(ngModel)]="consignorPhone" readonly></label> -->
         </div>
         <div *ngIf="consignorTab === 'guest'">
           <label>Guest Sender Name
@@ -41,7 +41,7 @@
               <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
             </select>
           </label>
-          <label>Sender Address <input [(ngModel)]="consignorAddress" readonly></label>
+         <!-- <label>Sender Address <input [(ngModel)]="consignorAddress" readonly></label> -->
           <label>Sender Phone Number <input [(ngModel)]="consignorPhone" readonly></label>
           
         </div>
@@ -63,8 +63,8 @@
             </select>
           </label>
           <label>Consignee GSTIN <input [(ngModel)]="consigneeGST" readonly></label>
-          <label>Consignee Address <input [(ngModel)]="consigneeAddress" readonly></label>
-          <label>Consignee Phone <input [(ngModel)]="consigneePhone" readonly></label>
+         <!-- <label>Consignee Address <input [(ngModel)]="consigneeAddress" readonly></label>
+          <label>Consignee Phone <input [(ngModel)]="consigneePhone" readonly></label> <!-->
         </div>
         <div *ngIf="consigneeTab === 'guest'">
           <label>Guest Reciever Name
@@ -72,7 +72,7 @@
               <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
             </select>
           </label>
-          <label>Reciever Address <input [(ngModel)]="consigneeAddress" readonly></label>
+       <!--   <label>Reciever Address <input [(ngModel)]="consigneeAddress" readonly></label> <!-->
           <label>Reciever Phone <input [(ngModel)]="consigneePhone" readonly></label>
         </div>
       </div>
@@ -88,29 +88,20 @@
     </label>
 
     <label>External Ref Id <input [(ngModel)]="externalRefId"></label>
-  </div>
-  
-</section>
-<section>
-  <h3>3. Address Details</h3>
-  <div class="grid-1">
-
     <!-- Billing Address -->
     <div class="address-section">
       <h4>Billing Address</h4>
       <label>
         <input type="radio" name="billing" value="consignor" [(ngModel)]="billingType">
         Consignor's GST Address
-      </label>
-      <label>
         <input type="radio" name="billing" value="different" [(ngModel)]="billingType">
         Assigner / Different Address
       </label>
 
-      <!-- Autofill if Consignor GST Address -->
+      <!-- Autofill if Consignor GST Address
       <div *ngIf="billingType === 'consignor'">
         <p><strong>Consignor Address:</strong><br>Name:{{ consignor }}<br>Address:{{ consignorAddress }}</p>
-      </div>
+      </div>  -->
 
       <!-- Manual Entry if Different Address -->
       <div *ngIf="billingType === 'different'">
@@ -126,15 +117,13 @@
       <label>
         <input type="radio" name="pickup" value="consignor" [(ngModel)]="pickupType">
         Consignor Address
-      </label>
-      <label>
         <input type="radio" name="pickup" value="different" [(ngModel)]="pickupType">
         Different Address
       </label>
 
-      <div *ngIf="pickupType === 'consignor'">
+     <!-- <div *ngIf="pickupType === 'consignor'">
         <p><strong>Consignor Address:</strong><br>Name:{{ consignor }}<br>Address:{{ consignorAddress }}</p>
-      </div>
+      </div> <!-->
 
       <div *ngIf="pickupType === 'different'">
         <label>Pickup Name <input [(ngModel)]="pickupName"></label>
@@ -148,59 +137,59 @@
       <label>
         <input type="radio" name="delivery" value="consignee" [(ngModel)]="deliveryType">
         Consignee Address
-      </label>
-      <label>
         <input type="radio" name="delivery" value="different" [(ngModel)]="deliveryType">
         Different Address
       </label>
 
-      <div *ngIf="deliveryType === 'consignee'">
+       <!--<div *ngIf="deliveryType === 'consignee'">
         <p><strong>Consignee Address:</strong><br>Name:{{ consignee }}<br>Address:{{ consigneeAddress }}</p>
-      </div>
+      </div> <!-->
 
       <div *ngIf="deliveryType === 'different'">
         <label>Delivery Name <input [(ngModel)]="deliveryName"></label>
         <label>Delivery Address <textarea [(ngModel)]="deliveryAddress"></textarea></label>
       </div>
     </div>
-
   </div>
+  
 </section>
 
   <!-- 4. Invoice Details -->
   <section>
-  <h3>4. Invoice Details</h3>
   <div *ngFor="let invoice of invoices; let i = index" class="invoice-block">
+    <h4>Invoice {{ i + 1 }}</h4>
     <!-- Invoice Header -->
     <div class="grid-3">
       <input placeholder="Invoice Number" [(ngModel)]="invoice.number">
       <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value">
-      <button type="button" (click)="deleteInvoice(i)">🗑️ Delete Invoice</button>
+      <button type="button" (click)="deleteInvoice(i)">-</button>
     </div>
-
-    <!-- Package Details for this Invoice -->
-    <h4>Packages</h4>
-    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
-      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
-        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
-      </select>
-      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount"/>
-      <button type="button" (click)="deletePackage(i, j)">🗑️ Delete Package</button>
-    </div>
-    <button type="button" (click)="addPackage(i)">+ Add Package</button>
 
     <!-- Product Details for this Invoice -->
-    <h4>Products</h4>
+    
     <div *ngFor="let product of invoice.products; let k = index" class="grid-4">
+      <h4>Products {{k+1}}</h4>
       <select [(ngModel)]="product.type" (change)="onPackageList(product.productName)">
         <option *ngFor="let productItem of productList" [value]="productItem.productName">
           {{ productItem.hsnNum }} - {{ productItem.productName }}
         </option>
       </select>
       <input placeholder="Amount*" type="number" [(ngModel)]="product.amount" (ngModelChange)="product.instock = $event" />
-      <button type="button" (click)="deleteProduct(i, k)">🗑️ Delete Product</button>
+      <button type="button" (click)="deleteProduct(i, k)">-</button>
+      <button type="button" (click)="addProduct(i)">+</button>
     </div>
-    <button type="button" (click)="addProduct(i)">+ Add Product</button>
+
+    <!-- Package Details for this Invoice -->
+    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
+      <h4>Packages {{j+1}}</h4>
+      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
+        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
+      </select>
+      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount"/>
+      <button type="button" (click)="deletePackage(i, j)">-</button>
+      <button type="button" (click)="addPackage(i)">+</button>
+    </div>
+    
   </div>
 
   <!-- Add New Invoice -->

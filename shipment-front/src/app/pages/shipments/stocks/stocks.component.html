@@ -255,18 +255,22 @@
   <div class="modal-content terminal-style">
     <span class="close" (click)="closeManifestationPopup()">&times;</span>
     <h2>Manifestation Terminal</h2>
+
     <div *ngIf="selectedForManifestation.length > 0; else noSelection">
       <p><strong>Manifestation No:</strong> {{ manifestationNumber }}</p>
       <hr>
+
       <div *ngFor="let consignment of selectedForManifestation" class="consignment-block">
         <h4>Consignment: {{ consignment.consignmentNumber }}</h4>
+
+        <!-- Eway Bill Section -->
         <div class="ewaybill-section">
           <ng-container *ngIf="consignment.ewaybillNumber === ''; else showEwaybill">
             <label class="eway-toggle-label">
               <input
-              type="checkbox"
-              [(ngModel)]="consignment.ewayBillRequired"
-              class="eway-toggle-input"
+                type="checkbox"
+                [(ngModel)]="consignment.ewayBillRequired"
+                class="eway-toggle-input"
               />
               <span class="eway-toggle-slider"></span>
               <span class="eway-toggle-text">
@@ -278,10 +282,12 @@
             <p><strong>Customer created Eway Bill No:</strong> {{ consignment.ewaybillNumber }}</p>
           </ng-template>
         </div>
+
+        <!-- Consignor and Invoices -->
         <p><strong>Consignor:</strong> {{ consignment.consignor }}</p>
         <ul>
           <li *ngFor="let invoice of consignment.invoices">
-            <strong>Invoice:</strong> {{ invoice.number }}   
+            <strong>Invoice:</strong> {{ invoice.number }}
             <ul>
               <li *ngFor="let product of invoice.products">
                 <div class="product-line">
@@ -292,12 +298,12 @@
                   </span>
                   <span>
                     <input
-                    type="number"
-                    min="0"
-                    [max]="product.instock"
-                    [(ngModel)]="product.manifestQty"
-                    (change)="validateManifestQty(product)"
-                    class="manifest-input"
+                      type="number"
+                      min="0"
+                      [max]="product.instock"
+                      [(ngModel)]="product.manifestQty"
+                      (change)="validateManifestQty(product)"
+                      class="manifest-input"
                     />
                   </span>
                 </div>
@@ -308,17 +314,41 @@
         <hr>
       </div>
 
+
+      <!-- Shipment Routing Section -->
+      <div class="routing-section">
+        <h3>Shipment Routing</h3>
+        <div class="routing-controls">
+          <select [(ngModel)]="selectedRoutePoint">
+            <option *ngFor="let location of availableRoutePoints" [ngValue]="location">
+              {{ location.name }} ({{ location.type }})
+            </option>
+          </select>
+          <button (click)="addRoutePoint()">Add</button>
+        </div>
+        <ul class="route-list">
+          <li *ngFor="let point of shipmentRoute; let i = index">
+            {{ i + 1 }}. {{ point.name }} ({{ point.type }})
+            <button class="remove-btn" (click)="removeRoutePoint(i)">✖</button>
+          </li>
+        </ul>
+      </div>
+
+
+      <!-- Terminal Buttons -->
       <div class="terminal-buttons">
         <button (click)="finalizeManifestation()">Manifest</button>
         <button (click)="closeManifestationPopup()">Cancel</button>
       </div>
     </div>
 
+    <!-- No Selection Template -->
     <ng-template #noSelection>
       <p>No consignments selected for manifestation.</p>
       <button (click)="closeManifestationPopup()">Close</button>
     </ng-template>
   </div>
 </div>
+
 
 

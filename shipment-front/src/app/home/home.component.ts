@@ -23,7 +23,7 @@ export class HomeComponent implements OnInit {
 
   // Branch data
   branches: any[] = [];
-  selectedBranch: string = localStorage.getItem('selectedBranch') || 'All Branches';
+  selectedBranch: string = localStorage.getItem('branch') || 'All Branches';
 
   constructor(private http: HttpClient) {}
 

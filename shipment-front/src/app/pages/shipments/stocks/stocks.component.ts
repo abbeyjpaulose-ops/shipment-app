@@ -67,7 +67,15 @@ finalAmount: number = 0;
 shipmentStatus: string = 'Pending';
 shipmentStatusDetails: string = '';
 
+branches: any[] = [];
+hubs: any[] = [];
+availableRoutePoints: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
+shipmentRoute: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
+selectedRoutePoint: any = null;
+
+
   constructor(private http: HttpClient) {}
+
 
 
  // --- Methods ---
@@ -245,7 +253,49 @@ calculateFinalAmount() {
   onProductList(name: string) {
     const selectedproduct = this.productList.find(c => c.productName === name);
   }
-  
+
+  addRoutePoint() {
+  if (!this.selectedRoutePoint) return;
+  this.shipmentRoute.push({ ...this.selectedRoutePoint });
+  this.selectedRoutePoint = null;
+}
+
+removeRoutePoint(index: number) {
+  this.shipmentRoute.splice(index, 1);
+}
+
+loadBranches() {
+  const email = localStorage.getItem('email');
+  this.http.get<any[]>(`http://localhost:3000/api/branches?email=${email}`)
+    .subscribe({
+      next: (data) => {
+        console.log("Branches loaded:", data);
+        this.branches = data;
+        this.updateAvailableRoutePoints(); // ⬅️ Refresh route options
+      },
+      error: (err) => console.error("Error loading branches:", err)
+    });
+}
+
+loadHubs() {
+  const email = localStorage.getItem('email');
+  this.http.get<any[]>(`http://localhost:3000/api/hubs?email=${email}`)
+    .subscribe({
+      next: (data) => {
+        console.log("Hubs loaded:", data);
+        this.hubs = data;
+        this.updateAvailableRoutePoints(); // ⬅️ Refresh route options
+      },
+      error: (err) => console.error("Error loading hubs:", err)
+    });
+}
+
+updateAvailableRoutePoints() {
+  this.availableRoutePoints = [
+    ...this.branches.map(b => ({ name: b.branchName, type: "Branch" as const, email: b.email })),
+    ...this.hubs.map(h => ({ name: h.hubName, type: "Hub" as const, email: h.email }))
+  ];
+} 
 
   ngOnInit() {
     this.loadStocks();
@@ -285,6 +335,10 @@ calculateFinalAmount() {
       complete: () => console.log('Product list fetch complete')
     });
 
+   
+    this.loadBranches();
+  
+    this.loadHubs();
     
   }
 
@@ -356,6 +410,11 @@ finalizeManifestation() {
     return;
   }
 
+  // Convert route points to a travel pattern string
+  const routeString = this.shipmentRoute.map(p => `${p.name} (${p.type})`).join(' / ');
+  console.log('🛤️ TTTTTTTTTTTTTTTTTTTravel Pattern:', routeString);
+
+
   const manifestationData = {
     email: this.email,
     username: this.username,
@@ -365,6 +424,9 @@ finalizeManifestation() {
     consignments: this.selectedForManifestation.map(c => ({
       consignmentNumber: c.consignmentNumber,
       consignor: c.consignor,
+      routes: c.routes?.map((routeObj: any) => ({
+        route: routeString
+      })) || [],
       invoices: c.invoices.map((inv: any) => ({
         number: inv.number,
         value: inv.value,
@@ -386,14 +448,14 @@ finalizeManifestation() {
       console.log('✅ Manifestation saved successfully:', res);
       console.log('testttttt', manifestationData);
       window.location.reload();
-
-      },
+    },
     error: (err) => {
       console.error('❌ Error saving manifestation:', err);
       alert('Failed to save manifestation. Check server logs.');
     }
   });
 }
+
 
 
 validateManifestQty(product: any) {

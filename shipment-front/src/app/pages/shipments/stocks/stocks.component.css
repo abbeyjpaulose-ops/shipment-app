@@ -163,3 +163,31 @@
 .eway-toggle-text {
   font-weight: 500;
 }
+
+.routing-section {
+  margin-top: 20px;
+}
+
+.routing-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.route-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.route-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.remove-btn {
+  background: none;
+  border: none;
+  color: red;
+  cursor: pointer;
+}
