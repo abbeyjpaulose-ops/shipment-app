@@ -127,14 +127,4 @@ button:hover {
   width: 100%;
   min-height: 60px;
 }
-.grid-3,
-.grid-4 {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
 
-.grid-3 button,
-.grid-4 button {
-  flex: 0 0 auto; /* Prevents button from stretching */
-}

@@ -156,40 +156,38 @@
 
   <!-- 4. Invoice Details -->
   <section>
+  <h3>4. Invoice Details</h3>
   <div *ngFor="let invoice of invoices; let i = index" class="invoice-block">
-    <h4>Invoice {{ i + 1 }}</h4>
     <!-- Invoice Header -->
     <div class="grid-3">
       <input placeholder="Invoice Number" [(ngModel)]="invoice.number">
       <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value">
-      <button type="button" (click)="deleteInvoice(i)">-</button>
+      <button type="button" (click)="deleteInvoice(i)">🗑️ Delete Invoice</button>
     </div>
 
+    <!-- Package Details for this Invoice -->
+    <h4>Packages</h4>
+    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
+      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
+        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
+      </select>
+      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount"/>
+      <button type="button" (click)="deletePackage(i, j)">🗑️ Delete Package</button>
+    </div>
+    <button type="button" (click)="addPackage(i)">+ Add Package</button>
+
     <!-- Product Details for this Invoice -->
-    
+    <h4>Products</h4>
     <div *ngFor="let product of invoice.products; let k = index" class="grid-4">
-      <h4>Products {{k+1}}</h4>
       <select [(ngModel)]="product.type" (change)="onPackageList(product.productName)">
         <option *ngFor="let productItem of productList" [value]="productItem.productName">
           {{ productItem.hsnNum }} - {{ productItem.productName }}
         </option>
       </select>
       <input placeholder="Amount*" type="number" [(ngModel)]="product.amount" (ngModelChange)="product.instock = $event" />
-      <button type="button" (click)="deleteProduct(i, k)">-</button>
-      <button type="button" (click)="addProduct(i)">+</button>
+      <button type="button" (click)="deleteProduct(i, k)">🗑️ Delete Product</button>
     </div>
-
-    <!-- Package Details for this Invoice -->
-    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
-      <h4>Packages {{j+1}}</h4>
-      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
-        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
-      </select>
-      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount"/>
-      <button type="button" (click)="deletePackage(i, j)">-</button>
-      <button type="button" (click)="addPackage(i)">+</button>
-    </div>
-    
+    <button type="button" (click)="addProduct(i)">+ Add Product</button>
   </div>
 
   <!-- Add New Invoice -->

@@ -30,7 +30,8 @@ export class ViewShipmentsComponent implements OnInit {
   loadShipments(): void {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
-        email: localStorage.getItem('email') || ''
+        email: localStorage.getItem('email') || '',
+        branch: localStorage.getItem('branch') || ''
       }
     }).subscribe({
       next: (res: any[]) => {

@@ -35,13 +35,20 @@ export class ManifestComponent implements OnInit {
 
   // ✅ Load all manifests from backend
   loadManifests() {
-    this.http.get<any[]>(`http://localhost:3000/api/manifest?email=${this.email}`).subscribe({
-      next: (res) => {
-        this.manifests = res;
+    this.http.get<any[]>('http://localhost:3000/api/manifest', {
+      params: {
+        email: localStorage.getItem('email') || '',
+        branch: localStorage.getItem('branch') || ''
+      }
+    }).subscribe({
+      next: (res: any[]) => {
+        this.manifests = res
+        .sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
         this.filteredManifests = [...this.manifests];
-        console.log('📦 Loaded manifests:', res);
       },
-      error: (err) => console.error('❌ Error loading manifests:', err)
+      error: (err: any) => console.error('❌ Error loading shipments:', err)
     });
   }
 

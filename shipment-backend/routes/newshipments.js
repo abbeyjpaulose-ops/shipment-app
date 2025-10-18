@@ -73,11 +73,18 @@ console.log("CCCCCCCCCCCCCCConsignment Number (int):", lastShipment?.consignment
 // GET all shipments for logged-in user
 router.get('/', async (req, res) => {
   try {
-    const { email } = req.query; // passed from frontend
-    if (!email) return res.status(400).json({ message: 'Email required' });
+    const { email, branch } = req.query; // extract both email and branch
 
-    const shipments = await NewShipment.find({ email })
-      .sort({ createdAt: -1 }); // descending order
+    if (!email || !branch) {
+      return res.status(400).json({ message: 'Email and branch are required' });
+    }
+
+    let shipments;
+    if (branch === 'All Branches') {
+      shipments = await NewShipment.find({ email }).sort({ createdAt: -1 });
+    } else {
+      shipments = await NewShipment.find({ email, branch }).sort({ createdAt: -1 });
+    }
 
     res.json(shipments);
   } catch (err) {
@@ -85,6 +92,7 @@ router.get('/', async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 
 ///stocks page each line detail popup design completed
 router.put('/:consignmentNumber', async (req, res) => {

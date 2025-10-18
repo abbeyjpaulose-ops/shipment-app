@@ -76,13 +76,24 @@ router.post('/add', async (req, res) => {
 // 🟡 Get all manifests for a specific user (sorted by latest)
 router.get('/', async (req, res) => {
   try {
-    const email = req.query.email;
-    const query = email ? { email } : {};
-    const manifests = await Manifest.find(query).sort({ date: -1 });
-    res.json(manifests);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
+      const { email, branch } = req.query; // extract both email and branch
+  
+      if (!email || !branch) {
+        return res.status(400).json({ message: 'Email and branch are required' });
+      }
+  
+      let shipments;
+      if (branch === 'All Branches') {
+        shipments = await Manifest.find({ email }).sort({ createdAt: -1 });
+      } else {
+        shipments = await Manifest.find({ email, branch }).sort({ createdAt: -1 });
+      }
+  
+      res.json(shipments);
+    } catch (err) {
+      console.error('Error fetching shipments:', err);
+      res.status(500).json({ message: 'Server error' });
+    }
 });
 
 

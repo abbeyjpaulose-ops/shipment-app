@@ -132,16 +132,24 @@ calculateFinalAmount() {
 
 
   loadStocks() {
-    const email = localStorage.getItem('email');
-    this.http.get<any[]>(`http://localhost:3000/api/newshipments?email=${email}`).subscribe({
-      next: (res) => {
-        // filter only INSTOCK shipments
-        
-        this.stocks = res.filter(s => s.shipmentStatus === 'Pending' || s.shipmentStatus === 'In Transit/Pending');
-        console.log(this.stocks);
+    this.http.get<any[]>('http://localhost:3000/api/newshipments', {
+      params: {
+        email: localStorage.getItem('email') || '',
+        branch: localStorage.getItem('branch') || ''
+      }
+    }).subscribe({
+      next: (res: any[]) => {
+        this.stocks = res
+        .filter(stock =>
+          stock.shipmentStatus === 'Pending' ||
+          stock.shipmentStatus === 'In Transit/Pending'
+        )
+        .sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
         this.filteredStocks = [...this.stocks];
       },
-      error: (err) => console.error('❌ Error loading stocks:', err)
+      error: (err: any) => console.error('❌ Error loading shipments:', err)
     });
   }
 
