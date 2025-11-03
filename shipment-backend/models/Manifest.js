@@ -4,7 +4,8 @@ const ManifestProductSchema = new mongoose.Schema({
   type: String,
   amount: Number,
   instock: Number,
-  manifestQty: Number
+  manifestQty: Number,
+  shipmentStatus: { type: String, default: 'In Transit' }
 });
 
 const ManifestInvoiceSchema = new mongoose.Schema({
@@ -21,17 +22,13 @@ const CEwaybillSchema = new mongoose.Schema({
   enterTime: Date
 });
 
-const RouteSchema = new mongoose.Schema({
-  route: String,
-  createdAt: { type: Date, default: Date.now }
-});
 
 const ManifestConsignmentSchema = new mongoose.Schema({
   consignmentNumber: String,
   consignor: String,
   invoices: [ManifestInvoiceSchema],
   cEwaybill: [CEwaybillSchema],
-  routes: [RouteSchema]
+  routes: String
 });
 
 const ManifestSchema = new mongoose.Schema({
@@ -40,6 +37,7 @@ const ManifestSchema = new mongoose.Schema({
   branch: { type: String, required: true },
   manifestationNumber: { type: Number, required: true, unique: false },
   date: { type: Date, default: Date.now },
+  mshipmentStatus: { type: String, default: 'In Transit' },
   consignments: [ManifestConsignmentSchema]
 });
 

@@ -112,7 +112,7 @@ addProduct(invoiceIndex: number) {
   if (!invoice.products) {
     invoice.products = [];
   }
-  invoice.products.push({ type: '', amount: 1, instock: 0 });
+  invoice.products.push({ type: '', amount: 1, instock: 0, intransitstock: 0, deliveredstock: 0 });
 }
 
 deleteProduct(invoiceIndex: number, productIndex: number) {
@@ -419,8 +419,8 @@ finalizeManifestation() {
   }
 
   // Convert route points to a travel pattern string
-  const routeString = this.shipmentRoute.map(p => `${p.name} (${p.type})`).join(' / ');
-  console.log('🛤️ TTTTTTTTTTTTTTTTTTTravel Pattern:', routeString);
+  const routeString = this.shipmentRoute.map(p => `${p.name} (${p.type})`).join(' -> ');
+  console.log('🛤️ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTravel Pattern:', routeString);
 
 
   const manifestationData = {
@@ -432,9 +432,7 @@ finalizeManifestation() {
     consignments: this.selectedForManifestation.map(c => ({
       consignmentNumber: c.consignmentNumber,
       consignor: c.consignor,
-      routes: c.routes?.map((routeObj: any) => ({
-        route: routeString
-      })) || [],
+      routes: routeString,
       invoices: c.invoices.map((inv: any) => ({
         number: inv.number,
         value: inv.value,
@@ -449,13 +447,14 @@ finalizeManifestation() {
   };
 
   console.log('📦 Sending manifestation to backend:', manifestationData);
+  
 
   // ✅ 1️⃣ POST manifestation details to backend DB
   this.http.post('http://localhost:3000/api/manifest/add', manifestationData).subscribe({
     next: (res: any) => {
       console.log('✅ Manifestation saved successfully:', res);
       console.log('testttttt', manifestationData);
-      window.location.reload();
+      //window.location.reload();
     },
     error: (err) => {
       console.error('❌ Error saving manifestation:', err);

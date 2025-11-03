@@ -1,16 +1,9 @@
 <div class="form-container">
-  <h2>New Shipment</h2>
-
-  <!-- 1. Basic Details -->
-  <section>
-    <h3>Basic Details</h3>
-    <div class="grid-2">
+  <h2>New Shipment <div class="grid-3">
       <label>E-Waybill Number <input [(ngModel)]="ewaybillNumber"></label>
       <label>Consignment Number* <input [(ngModel)]="consignmentNumber" readonly></label>
       <label>Date* <input type="date" [(ngModel)]="date"></label>
-    </div>
-  </section>
-
+    </div></h2>
 
   <!-- 2. Consignment & Payment Mode -->
   <section>
@@ -25,8 +18,9 @@
       </div>
 
       <div class="tab-content">
-        <div *ngIf="consignorTab === 'consignor'">        
-          <label>Consignor 
+        <div *ngIf="consignorTab === 'consignor'">   
+          <button routerLink="Clients">+New Clients</button>     
+          <label>Consignor(Sender)
             <select [(ngModel)]="consignor" (change)="onConsignorSelect(consignor)">
               <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
             </select>
@@ -36,7 +30,7 @@
           <label>Consignor Phone <input [(ngModel)]="consignorPhone" readonly></label> -->
         </div>
         <div *ngIf="consignorTab === 'guest'">
-          <label>Guest Sender Name
+          <label><button type="button" routerLink="/home/Guests">+New Guests</button>Guest Sender Name
             <select [(ngModel)]="consignor" (change)="onConsignorGuestSelect(consignor)">
               <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
             </select>
@@ -57,7 +51,7 @@
 
       <div class="tab-content">
         <div *ngIf="consigneeTab === 'consignee'">
-          <label>Consignee 
+          <label><button type="button" routerLink="/home/Clients">+New Clients</button>Consignee(Reciever)
             <select [(ngModel)]="consignee" (change)="onConsigneeSelect(consignee)">
               <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
             </select>
@@ -67,7 +61,7 @@
           <label>Consignee Phone <input [(ngModel)]="consigneePhone" readonly></label> <!-->
         </div>
         <div *ngIf="consigneeTab === 'guest'">
-          <label>Guest Reciever Name
+          <label><button type="button" routerLink="/home/Guests">+New Guests</button>Guest Reciever Name
             <select [(ngModel)]="consignee" (change)="onConsigneeGuestSelect(consignee)">
               <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
             </select>

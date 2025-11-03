@@ -58,10 +58,10 @@ invoices = [
     number: '',
     value: 0,
     packages: [
-      { type: '', amount: 1}
+      { type: '', amount: 0}
     ],
     products: [
-      { type: '', amount: 1, instock: 1 }
+      { type: '', amount: 0, instock: 1, intransitstock: 0, deliveredstock: 0}
     ]
   }
 ];
@@ -101,7 +101,9 @@ addProduct(invoiceIndex: number) {
   this.invoices[invoiceIndex].products.push({
     type: '',    // This now serves as the product name
     amount: 0,
-    instock: 0
+    instock: 0,
+    intransitstock: 0,
+    deliveredstock: 0
   });
 }
 

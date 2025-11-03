@@ -37,6 +37,8 @@
         <th>Consignor</th>
         <th>Delivery Address</th>
         <th>Products in stock</th>
+        <th>Products in Transit</th>
+        <th>Products Delivered</th>
         <th>No. of Products</th>
       </tr>
     </thead>
@@ -46,8 +48,10 @@
         <td>{{ s.shipmentStatus }}</td>
         <td>{{ s.consignor }}</td>
         <td>{{ s.deliveryAddress }}</td>
-        <td>{{ getInStockAmountTotal(s.invoices) }}</td>
-        <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
+        <td>{{ getProductTotal(s.invoices, 'instock') }}</td>
+        <td>{{ getProductTotal(s.invoices, 'intransitstock') }}</td>
+        <td>{{ getProductTotal(s.invoices, 'deliveredstock') }}</td>
+        <td>{{ getProductTotal(s.invoices, 'amount') }}</td>
       </tr>
     </tbody>
   </table>

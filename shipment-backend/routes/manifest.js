@@ -47,6 +47,7 @@ router.post('/add', async (req, res) => {
             const shipmentProduct = shipmentInvoice.products.find(p => p.type === prod.type);
             if (shipmentProduct) {
               shipmentProduct.instock = Math.max(0, shipmentProduct.instock - prod.manifestQty);
+              shipmentProduct.intransitstock = (shipmentProduct.intransitstock || 0) + prod.manifestQty;
               console.log('📥shipmentproduct', shipmentProduct.instock, shipmentProduct.amount);
               if (shipmentProduct.instock > 0) stillHasStock = true;
             }
@@ -132,6 +133,25 @@ router.get('/manifestlist', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+///Manifest page each line updation router.put('/:id', async (req, res) is cauding error
+router.post('/manifestationNumber', async (req, res) => {
+  console.log('Entering update route for manifestation number:', req);
+  try {
+    console.log('UUUUUUUUUUUUUUUUUUUUUUpdating Manifestation Number:', req.body.manifestationNumber);
+    console.log('Update Data:', req.body);
+    const manifest = await Manifest.findOneAndUpdate(
+      { manifestationNumber: req.body.manifestationNumber },
+      req.body,
+      { new: true }
+    );
+    res.json(manifest);
+  } catch (err) {
+  console.error('Update error:', err);
+  res.status(400).json({ message: err.message });
+}
+
 });
 
 export default router;

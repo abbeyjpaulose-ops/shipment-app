@@ -9,7 +9,9 @@ const PackageSchema = new mongoose.Schema({
 const ProductSchema = new mongoose.Schema({
   type: { type: String, required: false },
   amount: { type: Number, required: false },
-  instock: { type: Number, required: false }
+  instock: { type: Number, required: false },
+  intransitstock: { type: Number, required: false },
+  deliveredstock: { type: Number, required: false }
 });
 
 const InvoiceSchema = new mongoose.Schema({

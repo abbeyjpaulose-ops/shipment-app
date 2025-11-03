@@ -94,7 +94,7 @@ router.get('/', async (req, res) => {
 });
 
 
-///stocks page each line detail popup design completed
+///stocks page edit shipment
 router.put('/:consignmentNumber', async (req, res) => {
   try {
     const shipment = await NewShipment.findOneAndUpdate(
@@ -108,6 +108,50 @@ router.put('/:consignmentNumber', async (req, res) => {
   }
 });
 
+router.post('/updateConsignment', async (req, res) => {
+  const { email, updatedConsignment } = req.body;
 
+  console.log('📥 UUUUUUUUUUUUUpdate request received for:', { email });
+  console.log('📦 Updated Consignment:', updatedConsignment);
+
+  try {
+    // Log each invoice and its products
+    updatedConsignment.invoices.forEach(async invoice => {
+        // Update logic (assuming consignmentNumber is unique within a shipment document)   
+        const result = await NewShipment.findOneAndUpdate(
+          {'consignments.email': email, 'consignments.consignmentNumber': consignmentNumber, 'consignments.invoices': consignmentNumber },
+          { $set: { 'consignments.$': updatedConsignment } },
+          { new: true }
+        );
+        if (!result) {
+          console.warn('⚠️ No matching consignment found.');
+          return res.status(404).json({ error: 'Consignment not found' });
+        }
+      });    
+
+    console.log('✅ Consignment updated successfully.');
+    res.status(200).json({ message: 'Consignment updated', data: result });
+  } catch (error) {
+    console.error('❌ Error updating consignment:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/getConsignment', async (req, res) => {
+  try {
+    const { email, consignmentNumber } = req.query; // extract both email and branch
+
+    let conshipments;
+    conshipments = await NewShipment.find({ email, consignmentNumber }).sort({ createdAt: -1 });
+
+    console.log('FFFFFFFFFFFFFetched consignment:', email, consignmentNumber, conshipments);
+  
+
+    res.json(conshipments);
+  } catch (err) {
+    console.error('Error fetching shipments:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 export default router;
