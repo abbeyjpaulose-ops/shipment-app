@@ -43,6 +43,7 @@ export class ManifestComponent implements OnInit {
     }).subscribe({
       next: (res: any[]) => {
         this.manifests = res
+        .filter(item => item.mshipmentStatus !== 'Delivered')
         .sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
