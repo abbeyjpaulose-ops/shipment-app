@@ -25,6 +25,7 @@ export class LoginComponent {
         localStorage.setItem('username', res.username);
         localStorage.setItem('email', res.email);
         localStorage.setItem('branch', 'All Branches');
+        localStorage.setItem('CompanyType', res.CompanyType || '');
 
         this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${res.username}?email=${res.email}`)
           .subscribe(branches => {

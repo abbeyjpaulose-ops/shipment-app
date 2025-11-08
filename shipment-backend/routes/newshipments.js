@@ -86,6 +86,28 @@ router.get('/', async (req, res) => {
       shipments = await NewShipment.find({ email, branch }).sort({ createdAt: -1 });
     }
 
+    // Custom status order
+    const statusOrder = {
+      "Pending": 1,
+      "In Transit": 2,
+      "Delivered": 3,
+      "Invoiced": 4
+    };
+
+    // Sort shipments by status group first, then by createdAt (descending)
+    shipments.sort((a, b) => {
+      const orderA = statusOrder[a.shipmentStatus] || 99; // default 99 for "rest"
+      const orderB = statusOrder[b.shipmentStatus] || 99;
+      console.log('📦 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSShipments loaded:', a.shipmentStatus, b.shipmentStatus);
+
+      if (orderA !== orderB) {
+        return orderA - orderB; // sort by group
+      }
+      return new Date(b.createdAt) - new Date(a.createdAt); // then by createdAt
+    });
+       
+    
+
     res.json(shipments);
   } catch (err) {
     console.error('Error fetching shipments:', err);

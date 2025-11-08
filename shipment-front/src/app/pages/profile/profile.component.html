@@ -43,9 +43,27 @@
     </div>
   </div>
 
+  <div class="form-row">
+  <label>Type of business:</label>
+  <div>
+    <label>
+      <input type="radio" [(ngModel)]="profile.businessType" value="5" />
+      Goods Transport Agency (GTA) - 5%
+    </label>
+    <label>
+      <input type="radio" [(ngModel)]="profile.businessType" value="12" />
+      Parcel - 12%
+    </label>
+    <label>
+      <input type="radio" [(ngModel)]="profile.businessType" value="18" />
+      Courier - 18%
+    </label>
+  </div>
+
   <!-- Buttons at bottom -->
   <div class="button-section">
     <button (click)="saveProfile()">Save</button>
     <button (click)="clearProfile()">Clear</button>
   </div>
+  
 </div>

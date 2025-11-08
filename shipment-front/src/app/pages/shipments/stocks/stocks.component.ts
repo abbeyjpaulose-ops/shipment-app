@@ -454,7 +454,7 @@ finalizeManifestation() {
     next: (res: any) => {
       console.log('✅ Manifestation saved successfully:', res);
       console.log('testttttt', manifestationData);
-      //window.location.reload();
+      window.location.reload();
     },
     error: (err) => {
       console.error('❌ Error saving manifestation:', err);

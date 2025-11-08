@@ -1,1 +1,98 @@
-<h2>Invoice</h2>
+<div class="invoice-container">
+  <h2>📦 Invoice Management</h2>
+
+  <!-- Filters -->
+  <div class="filters">
+    <input type="text" placeholder="Search by Consignment / Consignor" [(ngModel)]="searchText" (input)="applyFilters()" />
+    <input type="date" [(ngModel)]="filterDate" (change)="applyFilters()" />
+    <input type="text" placeholder="Filter by Consignor" [(ngModel)]="filterConsignor" (input)="applyFilters()" />
+  </div>
+
+  <!-- Invoice Table -->
+  <table class="invoice-table">
+    <thead>
+      <tr>
+        <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
+        <th>Consignment No.</th>
+        <th>Status</th>
+        <th>Consignor</th>
+        <th>Delivery Address</th>
+        <th>No. of Products</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let inv of filteredInvoices" [class.selected]="inv.selected">
+        <td><input type="checkbox" [(ngModel)]="inv.selected" /></td>
+        <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
+        <td>{{ inv.shipmentStatus }}</td>
+        <td>{{ inv.consignor }}</td>
+        <td>{{ inv.deliveryAddress }}</td>
+        <td>{{ inv.products?.length || 0 }}</td>
+        <td>
+          <button class="edit-btn" (click)="editInvoice(inv)">✏️ Edit</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Action Bar -->
+  <div class="action-bar">
+    <button (click)="invoiceSelected()">🧾 Generate Invoice</button>
+  </div>
+
+  <!-- Modal for invoice details -->
+  <div class="modal" *ngIf="showInvoiceModal">
+    <div class="modal-content">
+      <h3>Consignment Details</h3>
+      <p><strong>Consignment Number:</strong> {{ selectedInvoice?.consignmentNumber }}</p>
+      <p><strong>Consignor:</strong> {{ selectedInvoice?.consignor }}</p>
+      <p><strong>Delivery Address:</strong> {{ selectedInvoice?.deliveryAddress }}</p>
+      <p><strong>Status:</strong> {{ selectedInvoice?.shipmentStatus }}</p>
+
+      <h4>Products:</h4>
+      <ul>
+        <li *ngFor="let p of selectedInvoice?.products">
+          {{ p.productName }} — Qty: {{ p.quantity }}
+        </li>
+      </ul>
+
+      <button (click)="closeInvoiceDetails()">Close</button>
+    </div>
+  </div>
+
+  <!-- Popup Modal for Editing -->
+  <div class="popup-overlay" *ngIf="showEditPopup">
+    <div class="popup-content">
+      <h2>Edit Details</h2>
+      
+      <form>
+        <div class="form-row">
+          <label for="consignor">Consignor:</label>
+          <input type="text" id="consignor" [(ngModel)]="editingInvoice.consignor" name="consignor" />
+        </div>
+
+        <div class="form-row">
+          <label for="deliveryAddress">Delivery Address:</label>
+          <textarea id="deliveryAddress" [(ngModel)]="editingInvoice.deliveryAddress" name="deliveryAddress"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="status">Status:</label>
+          <select id="status" [(ngModel)]="editingInvoice.shipmentStatus" name="status">
+            <option value="Pending">Pending</option>
+            <option value="In Transit">In Transit</option>
+            <option value="Delivered">Delivered</option>
+            <option value="Invoiced">Invoiced</option>
+          </select>
+        </div>
+
+        <!-- Buttons -->
+        <div class="button-section">
+          <button type="button" (click)="saveInvoiceEdit()">Save</button>
+          <button type="button" (click)="cancelEdit()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

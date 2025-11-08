@@ -35,10 +35,8 @@ export class ViewShipmentsComponent implements OnInit {
       }
     }).subscribe({
       next: (res: any[]) => {
-        this.shipments = res.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-        this.filteredShipments = [...this.shipments];
+        this.shipments = res;
+        this.filteredShipments = res;
       },
       error: (err: any) => console.error('❌ Error loading shipments:', err)
     });
