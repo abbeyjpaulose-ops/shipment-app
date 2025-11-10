@@ -21,6 +21,7 @@
     <!-- Deliver Button -->
   <div class="actions">
     <button class="delivery-btn" (click)="openDeliveryPopup()">🚚 Deliver</button>
+    <button class="delete-btn" (click)="openCancelPopup()">🗑️ Cancel</button>
   </div>
 
   <!-- Responsive Table Wrapper -->
@@ -30,15 +31,18 @@
         <tr>
           <th style="width: 50px"><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
           <th>Manifest #</th>
+          <th>Status #</th>
           <th>Date</th>
           <th>Consignor / Consignment Details</th>
           <th>Branch</th>
         </tr>
       </thead>
+ 
       <tbody>
         <tr *ngFor="let manifest of filteredManifests">
           <td><input type="checkbox" [(ngModel)]="manifest.selected" /></td>
           <td>{{ manifest.manifestationNumber }}</td>
+          <td>{{ manifest.mshipmentStatus }}</td>
           <td>{{ manifest.date | date: 'mediumDate' }}</td>
           <td>
             <div class="manifest-consignments">
@@ -60,11 +64,37 @@
             </div>
           </td>
           <td>{{ manifest.branch }}</td>
+          <td>
+            <!-- ✏️ Edit Button -->
+            <button class="edit-btn" (click)="openEditPopup(manifest)">✏️ Edit</button>
+          </td>
         </tr>
       </tbody>
     </table>
   </div>
 
+
+
+  <!-- Edit Popup -->
+  <div class="popup" *ngIf="showEditPopup">
+    <div class="popup-content">
+      <h3>Edit Manifest</h3>
+      <label>Manifest #:</label>
+      <input type="text" [(ngModel)]="selectedManifest.manifestationNumber" />
+      <label>Status:</label>
+      <input type="text" [(ngModel)]="selectedManifest.mshipmentStatus" />
+      <label>Date:</label>
+      <input type="date" [(ngModel)]="selectedManifest.date" />
+      <label>Branch:</label>
+      <input type="text" [(ngModel)]="selectedManifest.branch" />
+
+      <!-- You can expand with consignments/invoices editing if needed -->
+      <div class="popup-actions">
+        <button class="confirm-btn" (click)="finalizeEdit()">✅ Save</button>
+        <button class="cancel-btn" (click)="closeEditPopup()">❌ Cancel</button>
+      </div>
+    </div>
+  </div>
 
 
   <!-- Delivery Popup -->
@@ -82,4 +112,21 @@
       </div>
     </div>
   </div>
+
+  <!-- Cancel Popup -->
+<div class="popup" *ngIf="showCancelPopup">
+  <div class="popup-content">
+    <h3>Confirm Cancellation</h3>
+    <p><b>Selected Manifests:</b></p>
+    <ul>
+      <li *ngFor="let m of selectedForCancel">{{ m.manifestationNumber }}</li>
+    </ul>
+
+    <div class="popup-actions">
+      <button class="confirm-btn" (click)="finalizeCancel()">✅ Confirm Cancel</button>
+      <button class="cancel-btn" (click)="closeCancelPopup()">❌ Close</button>
+    </div>
+  </div>
+</div>
+
 </div>

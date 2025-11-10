@@ -89,9 +89,12 @@ router.get('/', async (req, res) => {
     // Custom status order
     const statusOrder = {
       "Pending": 1,
-      "In Transit": 2,
-      "Delivered": 3,
-      "Invoiced": 4
+      "In Transit/Pending": 2,      
+      "In Transit": 3,
+      "Delivered": 4,
+      "Invoiced": 5,
+      "Income Tax filed": 6,
+      "Cancel": 7
     };
 
     // Sort shipments by status group first, then by createdAt (descending)

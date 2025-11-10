@@ -37,8 +37,11 @@ export class InvoiceComponent implements OnInit {
     }).subscribe({
       next: (res) => {
         // ✅ Only show shipments with status 'Delivered'
-        this.invoices = res.filter(s => s.shipmentStatus === 'Delivered'|| s.shipmentStatus === 'Invoiced');
+        //onsole.log('📦 IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
+        this.invoices = res.filter(s => s.shipmentStatus === 'Delivered' || s.shipmentStatus === 'Invoiced');
         this.filteredInvoices = [...this.invoices];
+        console.log('📦 Filtered Invoices for Delivered status:', this.filteredInvoices);
+        this.filteredInvoices.forEach(i => console.log('📦 Filtered Invoice:', i.consignmentNumber));
       },
       error: (err) => console.error('❌ Error loading invoices:', err)
     });
@@ -102,9 +105,47 @@ export class InvoiceComponent implements OnInit {
     this.showEditPopup = true;             // Show popup
   }
 
+  deleteInvoice() {
+  // Confirm before deleting
+  const selectedConsignments = this.filteredInvoices.filter(i => i.selected);
+
+    if (selectedConsignments.length === 0) {
+      console.warn('⚠️ No consignments selected for invoicing.');
+      return;
+    }
+
+    selectedConsignments.forEach(consignment => {
+      const updatedConsignment = { ...consignment, shipmentStatus: ' Cancelled-'+consignment.shipmentStatus};
+
+      this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
+        .subscribe({
+          next: () => {
+            console.log(`✅ Consignment ${consignment.consignmentNumber} updated to Invoiced`);
+            this.loadInvoices(); // Refresh data
+          },
+          error: (err) => {
+            console.error(`❌ Error updating consignment ${consignment.consignmentNumber}:`, err);
+          }
+        });
+    });
+
+    // Clear selection
+    this.filteredInvoices.forEach(i => i.selected = false);
+}
+
+
   // ✅ Save changes from popup
   saveInvoiceEdit() {
     if (!this.editingInvoice) return;
+    
+    this.editingInvoice.invoices.forEach((inv: any) => {
+      inv.products.forEach((prod: any) => {
+      prod.deliveredstock = 0;
+      prod.instock = prod.amount;
+      console.log('💾 SSSSSSSSSSSSSSSSSSaving invoice edit:', prod);
+      });
+    });
+    
 
     this.http.put(`http://localhost:3000/api/newshipments/${this.editingInvoice.consignmentNumber}`, this.editingInvoice)
       .subscribe({

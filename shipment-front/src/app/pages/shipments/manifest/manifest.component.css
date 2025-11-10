@@ -146,3 +146,14 @@ h2 {
     font-size: 0.9em;
   }
 }
+
+.edit-btn {
+  background-color: #ffc107;
+  border: none;
+  padding: 5px 10px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.edit-btn:hover {
+  background-color: #e0a800;
+}

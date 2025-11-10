@@ -24,6 +24,48 @@ export class ManifestComponent implements OnInit {
   username: string = '';
   branch: string = localStorage.getItem('branch') || 'All Branches';
 
+  showCancelPopup: boolean = false;
+  selectedForCancel: any[] = [];
+
+  showEditPopup: boolean = false;
+
+// Open edit popup
+openEditPopup(manifest: any) {
+  this.selectedManifest = { ...manifest }; // clone to avoid direct mutation
+  this.showEditPopup = true;
+}
+
+// Close edit popup
+closeEditPopup() {
+  this.showEditPopup = false;
+  this.selectedManifest = null;
+}
+
+// Save edits
+finalizeEdit() {
+  if (!this.selectedManifest) return;
+  const email = localStorage.getItem('email') || '';
+
+  // Update manifest in DB
+  this.http.post(`http://localhost:3000/api/manifest/manifestationNumber`, this.selectedManifest) 
+  .subscribe({
+    next: () => {
+      console.log('✅ Manifest updated in DDDDDDDDDB', this.selectedManifest.consignments);
+      this.selectedManifest.consignments.forEach((cons: any) => {
+        this.updateConsignment(email, cons);
+      });
+      
+      console.log('✅ Manifest updated successfully');
+      alert('Manifest updated!');
+      this.loadManifests(); // reload list
+      this.closeEditPopup();
+      
+    },
+    error: (err) => console.error('❌ Error updating manifest:', err)
+  });
+}
+
+
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
@@ -43,7 +85,7 @@ export class ManifestComponent implements OnInit {
     }).subscribe({
       next: (res: any[]) => {
         this.manifests = res
-        .filter(item => item.mshipmentStatus !== 'Delivered')
+        .filter(item => item.mshipmentStatus != 'Delivered' && item.mshipmentStatus != 'Cancelled')
         .sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
@@ -104,13 +146,14 @@ export class ManifestComponent implements OnInit {
         });
       // Check if all products are fully delivered
       const allDelivered = cons.invoices.every((inv: any) =>
-        inv.products.every((p: any) => p.deliveredstock === p.amount)
+        inv.products.every((p: any) => p.instock != 0)
       );
       // Prepare updated consignment
+      console.log(`🚚 Updating consignment1  to status:`, allDelivered);
  
       const updatedConsignment = {
         ...cons,
-        mshipmentStatus: allDelivered ? 'Delivered' : 'In Transit'
+        mshipmentStatus: allDelivered ? 'In Transit' : 'Delivered'
       };
 
       // Send updated consignment using helper method
@@ -180,7 +223,9 @@ updateConsignment(email: string, updatedConsignment: any) {
           invoice.products?.forEach((product: any) => {
             
             product.deliveredstock += updatedConsignment.invoices[0].products[i].manifestQty;
+            console.log('📥 OOOOOOOOOUpdating product stock:', product.intransitstock);
             product.intransitstock -= updatedConsignment.invoices[0].products[i].manifestQty;
+            console.log('📥 OOOOOOOOOUpdating product stock:', product.intransitstock);
             ++i;
             
           });
@@ -198,6 +243,100 @@ updateConsignment(email: string, updatedConsignment: any) {
 
  
 }
+
+// ✅ (Deletion)Open cancel popup
+  openCancelPopup() {
+    this.selectedForCancel = this.filteredManifests.filter(m => m.selected);
+
+    if (this.selectedForCancel.length === 0) {
+      alert('⚠️ Please select at least one manifest to cancel.');
+      return;
+    }
+
+    this.showCancelPopup = true;
+  }
+
+  closeCancelPopup() {
+    this.showCancelPopup = false;
+  }
+
+  // ✅ Finalize cancellation
+  finalizeCancel() {
+    if (this.selectedForCancel.length === 0) {
+      alert('No manifests selected for cancellation.');
+      return;
+    }
+
+    const userEmail = this.email;
+
+    this.selectedForCancel.forEach(manifest => {
+      // Update consignments in newshipments DB
+      manifest.consignments.forEach((cons: any) => {
+        const updatedConsignment = {
+          ...cons,
+          shipmentStatus: 'Pending'
+        };
+        this.updateConsignment(userEmail, updatedConsignment);
+      });
+
+      // Update manifest in manifest DB
+      const cancelledManifest = {
+        ...manifest,
+        mshipmentStatus: 'Cancelled'
+      };
+
+      this.http.post(`http://localhost:3000/api/manifest/manifestationNumber`, cancelledManifest)
+        .subscribe({
+          next: () => {
+
+            manifest.consignments.forEach((cons: any) => {
+              console.log(`🗑️ Manifest ${manifest.manifestationNumber} cancelled`, cons)
+
+              this.http.get<any[]>('http://localhost:3000/api/newshipments/getConsignment', {
+                params: {
+                  email: localStorage.getItem('email') || '',
+                  consignmentNumber: cons.consignmentNumber
+                }}).subscribe({
+    
+                next: (res: any[]) => {
+     
+                  let stkupdatedConsignment = res[0];
+                  console.log(`🗑️ Manifest1 ${stkupdatedConsignment.manifestationNumber} cancelled`, stkupdatedConsignment)
+
+                stkupdatedConsignment.invoices?.forEach((invoice: any) => {
+          
+                  let i=0;
+                  invoice.products?.forEach((product: any) => {
+                    product.intransitstock -= cons.invoices[0].products[i].manifestQty;
+                    product.instock += cons.invoices[0].products[i].manifestQty;
+                    ++i;
+            
+          });
+        });
+        // Check if all products are fully delivered
+        const allDelivered = stkupdatedConsignment.invoices.every((inv: any) =>
+          inv.products.every((p: any) => p.deliveredstock != 0)
+        );
+        // Prepare updated consignment
+        console.log(`🗑️ Manifest2 cancelled`, allDelivered)
+        stkupdatedConsignment.shipmentStatus = allDelivered ? 'Pending' : 'In Transit/Pending'
+        this.updatedstkConsignmentfn(stkupdatedConsignment);
+    
+                },
+                error: (err: any) => console.error('❌ Error loading shipments:', err)
+            });   
+            });
+              // Additional logic for finding the consignments and updating the newshipment respectively
+          },
+          error: err => console.error('❌ Error cancelling manifest:', err)
+        });
+    });
+
+    this.showCancelPopup = false;
+    alert('🗑️ Cancellation completed successfully!');
+    this.filteredManifests.forEach(m => m.selected = false);
+    this.loadManifests();
+  }
 
 
 

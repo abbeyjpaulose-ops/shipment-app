@@ -6,6 +6,11 @@
     <input type="text" placeholder="Search by Consignment / Consignor" [(ngModel)]="searchText" (input)="applyFilters()" />
     <input type="date" [(ngModel)]="filterDate" (change)="applyFilters()" />
     <input type="text" placeholder="Filter by Consignor" [(ngModel)]="filterConsignor" (input)="applyFilters()" />
+    <!-- Action Bar -->
+  <div class="action-bar">
+    <button (click)="invoiceSelected()">🧾 Generate Invoice</button>
+    <button class="delete-btn" (click)="deleteInvoice()">🗑️ Delete</button>
+  </div>
   </div>
 
   <!-- Invoice Table -->
@@ -36,10 +41,7 @@
     </tbody>
   </table>
 
-  <!-- Action Bar -->
-  <div class="action-bar">
-    <button (click)="invoiceSelected()">🧾 Generate Invoice</button>
-  </div>
+  
 
   <!-- Modal for invoice details -->
   <div class="modal" *ngIf="showInvoiceModal">
@@ -81,7 +83,6 @@
           <label for="status">Status:</label>
           <select id="status" [(ngModel)]="editingInvoice.shipmentStatus" name="status">
             <option value="Pending">Pending</option>
-            <option value="In Transit">In Transit</option>
             <option value="Delivered">Delivered</option>
             <option value="Invoiced">Invoiced</option>
           </select>
