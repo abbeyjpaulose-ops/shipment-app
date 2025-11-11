@@ -23,15 +23,14 @@ router.post('/save', async (req, res) => {
 });
 
 // Get profile by email
-router.get('/profile', async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const email = req.query.email;
-    if (!email) return res.status(400).json({ message: 'Email is required' });
-
-    const profile = await Profile.findOne({ email });
-    res.json(profile);
+    const username = req.params.username;
+    const email = req.query.email;  // frontend will send ?email=user@example.com
+    const query = username ? { username } : email ? { email } : {};
+    const products = await Profile.find(query).sort({ createdAt: -1 });
+    res.json(products);
   } catch (err) {
-    console.error('❌ Error loading profile:', err.message);
     res.status(500).json({ message: err.message });
   }
 });

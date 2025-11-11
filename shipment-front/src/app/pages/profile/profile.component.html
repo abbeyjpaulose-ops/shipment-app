@@ -13,8 +13,9 @@
     <div class="form-section">
       <div class="form-row">
         <label>Name:</label>
-        <input type="text" [(ngModel)]="profile.name" placeholder="Enter name" />
+        <span>{{ profile.name }}</span>
       </div>
+
 
       <div class="form-row">
         <label>Address:</label>
@@ -33,12 +34,12 @@
 
       <div class="form-row">
         <label>Email:</label>
-        <input type="email" [(ngModel)]="profile.email" placeholder="Enter email" />
+        <span>{{ profile.email }}</span>
       </div>
 
       <div class="form-row">
         <label>Role:</label>
-        <input type="text" [(ngModel)]="profile.role" placeholder="Enter role" />
+        <span>{{ profile.role }}</span>
       </div>
     </div>
   </div>
