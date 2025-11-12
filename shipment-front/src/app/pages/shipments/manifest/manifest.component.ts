@@ -156,6 +156,8 @@ finalizeEdit() {
         mshipmentStatus: allDelivered ? 'In Transit' : 'Delivered'
       };
 
+      console.log(`🚚 Updating consignment1  to status:`, updatedConsignment.mshipmentStatus);
+
       // Send updated consignment using helper method
   
       this.updateConsignment(userEmail, updatedConsignment);
@@ -338,7 +340,83 @@ updateConsignment(email: string, updatedConsignment: any) {
     this.loadManifests();
   }
 
+  //Printing the manifest
 
+  printManifest() {
+  const selected = this.filteredManifests?.filter(m => m.selected) || [];
 
+  if (selected.length === 0) {
+    alert('No manifests selected.');
+    return;
+  }
+
+  fetch('assets/manifest-template.html')
+    .then(res => res.text())
+    .then(template => {
+      let fullHtml = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h2 { margin-bottom: 0; }
+              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+              th { background-color: #f2f2f2; }
+              .page-break { page-break-after: always; }
+            </style>
+          </head>
+          <body>
+      `;
+
+      selected.forEach((manifest, index) => {
+        // Build rows for consignments/invoices/products
+        const rows = manifest.consignments.flatMap((c: any) =>
+          c.invoices.flatMap((inv: any) =>
+            inv.products.map((p: any) => `
+              <tr>
+                <td>${manifest.manifestationNumber}</td>
+                <td>${manifest.mshipmentStatus}</td>
+                <td>${manifest.date}</td>
+                <td>${c.consignmentNumber}</td>
+                <td>${c.consignor}</td>
+                <td>${inv.number}</td>
+                <td>${p.type}</td>
+                <td>${p.manifestQty}</td>
+                <td>${p.instock}</td>
+                <td>${inv.value}</td>
+                <td>${manifest.branch}</td>
+              </tr>
+            `)
+          )
+        ).join('');
+
+        // Replace placeholders in template
+        const htmlContent = template
+          .replace('{{manifestNumber}}', manifest.manifestationNumber)
+          .replace('{{status}}', manifest.mshipmentStatus)
+          .replace('{{date}}', manifest.date)
+          .replace('{{branch}}', manifest.branch)
+          .replace('{{rows}}', rows);
+
+        fullHtml += htmlContent;
+
+        // Add page break after each manifest except the last
+        if (index < selected.length - 1) {
+          fullHtml += `<div class="page-break"></div>`;
+        }
+      });
+
+      fullHtml += `</body></html>`;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.open();
+        printWindow.document.write(fullHtml);  // ✅ safer than body.innerHTML
+        printWindow.document.close();
+        printWindow.print();
+      }
+    })
+    .catch(err => console.error('Error loading manifest template:', err));
+}
 
 }

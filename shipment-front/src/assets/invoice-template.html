@@ -1,0 +1,28 @@
+<h2>Invoice for Consignment #{{consignmentNumber}}</h2>
+<p><b>Consignor:</b> {{consignor}}</p>
+<p><b>Delivery Address:</b> {{deliveryAddress}}</p>
+<p><b>Status:</b> {{status}}</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Consignment #</th>
+      <th>Status</th>
+      <th>Consignor</th>
+      <th>Delivery Address</th>
+      <th>Product</th>
+      <th>Quantity</th>
+      <th>Price</th>
+      <th>Line Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{rows}}
+  </tbody>
+</table>
+
+<div class="totals">
+  <p><b>Subtotal:</b> ₹{{subtotal}}</p>
+  <p><b>GST (18%):</b> ₹{{gst}}</p>
+  <p><b>Grand Total:</b> ₹{{grandTotal}}</p>
+</div>

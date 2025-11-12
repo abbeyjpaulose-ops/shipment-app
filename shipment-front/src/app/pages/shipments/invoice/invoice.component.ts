@@ -164,4 +164,93 @@ export class InvoiceComponent implements OnInit {
     this.editingInvoice = null;
     this.showEditPopup = false;
   }
+
+  printInvoice() {
+  const selected = this.filteredInvoices?.filter(inv => inv.selected) || [];
+
+  if (selected.length === 0) {
+    alert('No invoices selected.');
+    return;
+  }
+
+  fetch('assets/invoice-template.html')
+  .then(res => res.text())
+  .then(template => {
+    let fullHtml = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            h2 { margin-bottom: 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .page-break { page-break-after: always; }
+            .totals { margin-top: 15px; font-weight: bold; }
+          </style>
+        </head>
+        <body>
+    `;
+
+    selected.forEach((inv, index) => {
+      console.log('🖨️ Printing invoice for consignment:', inv);
+
+      // Build product rows + calculate subtotal
+      let subtotal = 0;
+      const rows = inv.invoices.map((i: any) =>
+        i.products.map((p: any) => {
+          const lineTotal = (p.price || 0) * (p.deliveredstock || 0);
+          subtotal += lineTotal;
+          return `
+          <tr>
+          <td>${inv.consignmentNumber}</td>
+          <td>${inv.shipmentStatus}</td>
+          <td>${inv.consignor}</td>
+          <td>${inv.deliveryAddress}</td>
+          <td>${p.type}</td>
+          <td>${p.deliveredstock}</td>
+          <td>${p.price || 0}</td>
+          <td>${lineTotal.toFixed(2)}</td>
+          </tr>
+          `;
+        }).join('')
+      ).join('');
+
+      const ctype = localStorage.getItem('companyType') || 'default';
+      console.log('🏢 Company type for invoice:', ctype);
+
+      const gst = inv.finalAmount * (parseInt(ctype)/100);
+      const grandTotal = inv.finalAmount + gst;
+      const htmlContent = template
+      .replace('{{consignmentNumber}}', inv.consignmentNumber)
+      .replace('{{consignor}}', inv.consignor)
+      .replace('{{deliveryAddress}}', inv.deliveryAddress)
+      .replace('{{status}}', inv.shipmentStatus)
+      .replace('{{rows}}', rows)
+      .replace('{{subtotal}}', subtotal.toFixed(2))
+      .replace('{{gst}}', gst.toFixed(2))
+      .replace('{{grandTotal}}', grandTotal.toFixed(2));
+
+
+
+      fullHtml += htmlContent;
+
+      // Add page break after each invoice except the last
+      if (index < selected.length - 1) {
+        fullHtml += `<div class="page-break"></div>`;
+      }
+    });
+
+    fullHtml += `</body></html>`;
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(fullHtml);
+      printWindow.document.close();
+      printWindow.print();
+    }
+  })
+  .catch(err => console.error('Error loading invoice template:', err));
+}
 }

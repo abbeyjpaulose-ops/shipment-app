@@ -22,24 +22,24 @@ export class LoginComponent {
       password: this.password
     }).subscribe({
       next: (res: any) => {
-        localStorage.setItem('username', res.username);
-        localStorage.setItem('email', res.email);
+        const username = res.username;
+        const email = res.email;
+        localStorage.setItem('username', username);
+        localStorage.setItem('email', email);
         localStorage.setItem('branch', 'All Branches');
 
+
         this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
-   
         .subscribe({
-    
           next: (data) => {
-         
-            localStorage.setItem('companyType', data[0].CompanyType || '');
+ 
+            localStorage.setItem('companyType', data[0].businessType || '');
              
           },
-    
           error: (err) => console.error("Error loading products:", err)
-   
         });
-        
+
+        console.log('✅ Login successful for user:', localStorage.getItem('companyType'));        
 
         this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${res.username}?email=${res.email}`)
           .subscribe(branches => {

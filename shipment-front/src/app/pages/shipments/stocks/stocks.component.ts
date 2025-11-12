@@ -531,13 +531,15 @@ printReceipts() {
       fullHtml += `</body></html>`;
 
       const printWindow = window.open('', '_blank');
-    
+
       if (printWindow) {
+
         printWindow.document.open();
-        printWindow.document.body.innerHTML = fullHtml;
+        printWindow.document.write(fullHtml);  // use write instead of body.innerHTML
         printWindow.document.close();
         printWindow.print();
       }
+
     });
 }
 
