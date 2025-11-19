@@ -9,6 +9,7 @@ import { SettingsComponent } from './pages/settings/settings.component';
 import { ProfileComponent } from './pages/profile/profile.component';
 import { BranchComponent } from './pages/admin/branch/branch.component';
 import { HubComponent } from './pages/admin/hub/hub.component';
+import { TpartnerComponent } from './pages/admin/tpartner/tpartner.component';
 import { NotificationsComponent } from './pages/notifications/notifications.component';
 import { ClientComponent } from './pages/admin/client/client.component';
 import { GuestsComponent } from './pages/admin/guest/guest.component';
@@ -45,6 +46,7 @@ export const routes: Routes = [
       { path: 'Categories', component:  CategoriesComponent},
       { path: 'Pkgs', component:  PkgComponent},
       { path: 'Hubs', component:  HubComponent},
+      { path: 'Tpartners', component:  TpartnerComponent},
       { path: 'Logs', component:  LogsComponent},
       { path: 'Reports', component:  ReportsComponent},
       { path: 'Invoice', component:  InvoiceComponent},
@@ -60,6 +62,7 @@ export const routes: Routes = [
       { path: 'roles', component: RolesComponent },
       { path: 'changePass', component: ChangePassComponent },
       { path: 'notifications', component: NotificationsComponent }
+      
     ]
   }
 ];

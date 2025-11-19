@@ -1,211 +1,222 @@
 <div class="form-container">
-  <h2>New Shipment <div class="grid-3">
-      <label>E-Waybill Number <input [(ngModel)]="ewaybillNumber"></label>
-      <label>Consignment Number* <input [(ngModel)]="consignmentNumber" readonly></label>
-      <label>Date* <input type="date" [(ngModel)]="date"></label>
-    </div></h2>
 
-  <!-- 2. Consignment & Payment Mode -->
+  <!-- CONSIGNMENT HEADER -->
   <section>
-  <h3>Consignment & Payment Mode</h3>
-  <div class="grid-2">
-
-    <!-- Consignor Tabs -->
-    <div class="tab-container">
-      <div class="tabs">
-        <button (click)="consignorTab = 'consignor'" [class.active]="consignorTab === 'consignor'">Consignor</button>
-        <button (click)="consignorTab = 'guest'" [class.active]="consignorTab === 'guest'">Guest</button>
-      </div>
-
-      <div class="tab-content">
-        <div *ngIf="consignorTab === 'consignor'">   
-          <button routerLink="Clients">+New Clients</button>     
-          <label>Consignor(Sender)
-            <select [(ngModel)]="consignor" (change)="onConsignorSelect(consignor)">
-              <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
-            </select>
-          </label>
-          <label>Consignor GSTIN <input [(ngModel)]="consignorGST" readonly></label>
-         <!-- <label>Consignor Address <input [(ngModel)]="consignorAddress" readonly></label> 
-          <label>Consignor Phone <input [(ngModel)]="consignorPhone" readonly></label> -->
-        </div>
-        <div *ngIf="consignorTab === 'guest'">
-          <label><button type="button" routerLink="/home/Guests">+New Guests</button>Guest Sender Name
-            <select [(ngModel)]="consignor" (change)="onConsignorGuestSelect(consignor)">
-              <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
-            </select>
-          </label>
-         <!-- <label>Sender Address <input [(ngModel)]="consignorAddress" readonly></label> -->
-          <label>Sender Phone Number <input [(ngModel)]="consignorPhone" readonly></label>
-          
-        </div>
-      </div>
-    </div>
-
-    <!-- Consignee Tabs -->
-    <div class="tab-container">
-      <div class="tabs">
-        <button (click)="consigneeTab = 'consignee'" [class.active]="consigneeTab === 'consignee'">Consignee</button>
-        <button (click)="consigneeTab = 'guest'" [class.active]="consigneeTab === 'guest'">Guest</button>
-      </div>
-
-      <div class="tab-content">
-        <div *ngIf="consigneeTab === 'consignee'">
-          <label><button type="button" routerLink="/home/Clients">+New Clients</button>Consignee(Reciever)
-            <select [(ngModel)]="consignee" (change)="onConsigneeSelect(consignee)">
-              <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
-            </select>
-          </label>
-          <label>Consignee GSTIN <input [(ngModel)]="consigneeGST" readonly></label>
-         <!-- <label>Consignee Address <input [(ngModel)]="consigneeAddress" readonly></label>
-          <label>Consignee Phone <input [(ngModel)]="consigneePhone" readonly></label> <!-->
-        </div>
-        <div *ngIf="consigneeTab === 'guest'">
-          <label><button type="button" routerLink="/home/Guests">+New Guests</button>Guest Reciever Name
-            <select [(ngModel)]="consignee" (change)="onConsigneeGuestSelect(consignee)">
-              <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
-            </select>
-          </label>
-       <!--   <label>Reciever Address <input [(ngModel)]="consigneeAddress" readonly></label> <!-->
-          <label>Reciever Phone <input [(ngModel)]="consigneePhone" readonly></label>
-        </div>
-      </div>
-    </div>
-
-    <!-- Payment Mode -->
-    <label>Payment Mode
-      <select [(ngModel)]="paymentMode">
-        <option>Account Credit</option>
-        <option>Paid</option>
-        <option>To Pay</option>
-      </select>
-    </label>
-
-    <label>External Ref Id <input [(ngModel)]="externalRefId"></label>
-    <!-- Billing Address -->
-    <div class="address-section">
-      <h4>Billing Address</h4>
-      <label>
-        <input type="radio" name="billing" value="consignor" [(ngModel)]="billingType">
-        Consignor's GST Address
-        <input type="radio" name="billing" value="different" [(ngModel)]="billingType">
-        Assigner / Different Address
+    <h2>New Shipment</h2>
+    <div class="grid-2">
+      <label>Consignment Number*
+        <input [(ngModel)]="consignmentNumber" readonly>
       </label>
 
-      <!-- Autofill if Consignor GST Address
-      <div *ngIf="billingType === 'consignor'">
-        <p><strong>Consignor Address:</strong><br>Name:{{ consignor }}<br>Address:{{ consignorAddress }}</p>
-      </div>  -->
-
-      <!-- Manual Entry if Different Address -->
-      <div *ngIf="billingType === 'different'">
-        <label>Billing Name <input [(ngModel)]="billingName"></label>
-        <label>Billing GSTIN <input [(ngModel)]="billingGSTIN"></label>
-        <label>Billing Address <textarea [(ngModel)]="billingAddress"></textarea></label>
-      </div>
-    </div>
-
-    <!-- Pickup Address -->
-    <div class="address-section">
-      <h4>Pickup Address</h4>
-      <label>
-        <input type="radio" name="pickup" value="consignor" [(ngModel)]="pickupType">
-        Consignor Address
-        <input type="radio" name="pickup" value="different" [(ngModel)]="pickupType">
-        Different Address
+      <label>Date*
+        <input type="date" [(ngModel)]="date">
       </label>
-
-     <!-- <div *ngIf="pickupType === 'consignor'">
-        <p><strong>Consignor Address:</strong><br>Name:{{ consignor }}<br>Address:{{ consignorAddress }}</p>
-      </div> <!-->
-
-      <div *ngIf="pickupType === 'different'">
-        <label>Pickup Name <input [(ngModel)]="pickupName"></label>
-        <label>Pickup Address <textarea [(ngModel)]="pickupAddress"></textarea></label>
-      </div>
-    </div>
-
-    <!-- Delivery Address -->
-    <div class="address-section">
-      <h4>Delivery Address</h4>
-      <label>
-        <input type="radio" name="delivery" value="consignee" [(ngModel)]="deliveryType">
-        Consignee Address
-        <input type="radio" name="delivery" value="different" [(ngModel)]="deliveryType">
-        Different Address
-      </label>
-
-       <!--<div *ngIf="deliveryType === 'consignee'">
-        <p><strong>Consignee Address:</strong><br>Name:{{ consignee }}<br>Address:{{ consigneeAddress }}</p>
-      </div> <!-->
-
-      <div *ngIf="deliveryType === 'different'">
-        <label>Delivery Name <input [(ngModel)]="deliveryName"></label>
-        <label>Delivery Address <textarea [(ngModel)]="deliveryAddress"></textarea></label>
-      </div>
-    </div>
-  </div>
-  
-</section>
-
-  <!-- 4. Invoice Details -->
-  <section>
-  <h3>4. Invoice Details</h3>
-  <div *ngFor="let invoice of invoices; let i = index" class="invoice-block">
-    <!-- Invoice Header -->
-    <div class="grid-3">
-      <input placeholder="Invoice Number" [(ngModel)]="invoice.number">
-      <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value">
-      <button type="button" (click)="deleteInvoice(i)">🗑️ Delete Invoice</button>
-    </div>
-
-    <!-- Package Details for this Invoice -->
-    <h4>Packages</h4>
-    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
-      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
-        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
-      </select>
-      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount"/>
-      <button type="button" (click)="deletePackage(i, j)">🗑️ Delete Package</button>
-    </div>
-    <button type="button" (click)="addPackage(i)">+ Add Package</button>
-
-    <!-- Product Details for this Invoice -->
-    <h4>Products</h4>
-    <div *ngFor="let product of invoice.products; let k = index" class="grid-4">
-      <select [(ngModel)]="product.type" (change)="onPackageList(product.productName)">
-        <option *ngFor="let productItem of productList" [value]="productItem.productName">
-          {{ productItem.hsnNum }} - {{ productItem.productName }}
-        </option>
-      </select>
-      <input placeholder="Amount*" type="number" [(ngModel)]="product.amount" (ngModelChange)="product.instock = $event" />
-      <button type="button" (click)="deleteProduct(i, k)">🗑️ Delete Product</button>
-    </div>
-    <button type="button" (click)="addProduct(i)">+ Add Product</button>
-  </div>
-
-  <!-- Add New Invoice -->
-  <button type="button" (click)="addInvoice()">+ Add Invoice</button>
-</section>
-
-
-  <!-- 6. Charges -->
-  <section>
-    <h3>6. Charges</h3>
-    <div class="grid-3">
-      <label>ODC<input placeholder="ODC" type="number" [(ngModel)]="charges.odc"></label>
-      <label>Unloading Charges<input placeholder="Unloading" type="number" [(ngModel)]="charges.unloading"></label>
-      <label>Docket Charges<input placeholder="Docket" type="number" [(ngModel)]="charges.docket"></label>
-      <label>Other Expenses<input placeholder="Other Expenses" type="number" [(ngModel)]="charges.other"></label>
-      <label>CCC<input placeholder="CCC" type="number" [(ngModel)]="charges.ccc"></label>
-      <label>Final Amount <input type="number" [(ngModel)]="finalAmount"></label>
     </div>
   </section>
 
-  <!-- Buttons -->
+
+  <!-- MULTIPLE E-WAYBILLS -->
+  <section>
+    <h3>E-Waybills</h3>
+
+    <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill-block">
+
+      <h4>E-Waybill {{ e + 1 }}</h4>
+
+      <div class="grid-3">
+        <label>E-Waybill Number*
+          <input [(ngModel)]="ewb.number">
+        </label>
+
+        <label>E-Waybill Date
+          <input type="date" [(ngModel)]="ewb.date">
+        </label>
+
+        <button type="button" (click)="deleteEwaybill(e)">🗑️ Delete E-Waybill</button>
+      </div>
+
+
+
+      <!-- INVOICES UNDER THIS E-WAYBILL -->
+      <div class="invoice-section">
+        <h5>Invoices under E-Waybill {{ e + 1 }}</h5>
+
+        <div *ngFor="let invoice of ewb.invoices; let i = index" class="invoice-block">
+          
+          <h6>Invoice {{ i + 1 }}</h6>
+
+          <!-- Invoice Header -->
+          <div class="grid-3">
+            <input placeholder="Invoice Number" [(ngModel)]="invoice.number">
+            <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value">
+            <button type="button" (click)="deleteInvoice(e, i)">🗑️</button>
+          </div>
+
+
+          <!-- PRODUCTS -->
+          <h6>Products</h6>
+          <div *ngFor="let product of invoice.products; let p=index" class="grid-4">
+            <select [(ngModel)]="product.type">
+              <option *ngFor="let prod of productList" [value]="prod.productName">
+                {{ prod.hsnNum }} - {{ prod.productName }}
+              </option>
+            </select>
+            <input type="number" placeholder="Quantity" [(ngModel)]="product.amount">
+            <button type="button" (click)="deleteProduct(e, i, p)">🗑️</button>
+          </div>
+          <button type="button" (click)="addProduct(e, i)">+ Add Product</button>
+
+
+          <!-- PACKAGES -->
+          <h6>Packages</h6>
+          <div *ngFor="let pkg of invoice.packages; let j=index" class="grid-4">
+            <select [(ngModel)]="pkg.type">
+              <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
+            </select>
+
+            <input type="number" placeholder="Quantity" [(ngModel)]="pkg.amount">
+            <button type="button" (click)="deletePackage(e, i, j)">🗑️</button>
+          </div>
+          <button type="button" (click)="addPackage(e, i)">+ Add Package</button>
+
+        </div>
+
+        <!-- Add Invoice Button -->
+        <button type="button" (click)="addInvoice(e)">+ Add Invoice</button>
+      </div>
+
+    </div>
+
+    <!-- Add E-Waybill Button -->
+    <button type="button" (click)="addEwaybill()">+ Add E-Waybill</button>
+
+  </section>
+
+
+
+  <!-- CONSIGNOR SECTION -->
+  <section>
+    <h3>Consignor (Sender Details)</h3>
+    <div class="tab-container">
+
+      <div class="tabs">
+        <button (click)="consignorTab='consignor'" [class.active]="consignorTab==='consignor'">Consignor</button>
+        <button (click)="consignorTab='guest'" [class.active]="consignorTab==='guest'">Guest</button>
+      </div>
+
+      <div class="tab-content">
+
+        <!-- Consignor -->
+        <div *ngIf="consignorTab==='consignor'">
+          <button routerLink="Clients">+ New Client</button>
+
+          <label>Sender Name
+            <select [(ngModel)]="consignor" (change)="onConsignorSelect(consignor)">
+              <option *ngFor="let c of clientList" [value]="c.clientName">
+                {{ c.clientName }} - {{ c.address }}
+              </option>
+            </select>
+          </label>
+
+          <label>GSTIN
+            <input [(ngModel)]="consignorGST" readonly>
+          </label>
+        </div>
+
+        <!-- Guest Consignor -->
+        <div *ngIf="consignorTab==='guest'">
+          <button routerLink="Guests">+ New Guest</button>
+
+          <label>Guest Sender
+            <select [(ngModel)]="consignor" (change)="onConsignorGuestSelect(consignor)">
+              <option *ngFor="let g of guestList" [value]="g.guestName">
+                {{ g.guestName }} - {{ g.address }}
+              </option>
+            </select>
+          </label>
+
+          <label>Phone
+            <input [(ngModel)]="consignorPhone" readonly>
+          </label>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- CONSIGNEE SECTION -->
+  <section>
+    <h3>Consignee (Receiver Details)</h3>
+    <div class="tab-container">
+
+      <div class="tabs">
+        <button (click)="consigneeTab='consignee'" [class.active]="consigneeTab==='consignee'">Consignee</button>
+        <button (click)="consigneeTab='guest'" [class.active]="consigneeTab==='guest'">Guest</button>
+      </div>
+
+      <div class="tab-content">
+
+        <!-- Consignee -->
+        <div *ngIf="consigneeTab==='consignee'">
+          <button routerLink="Clients">+ New Client</button>
+
+          <label>Receiver Name
+            <select [(ngModel)]="consignee" (change)="onConsigneeSelect(consignee)">
+              <option *ngFor="let c of clientList" [value]="c.clientName">
+                {{ c.clientName }} - {{ c.address }}
+              </option>
+            </select>
+          </label>
+
+          <label>GSTIN
+            <input [(ngModel)]="consigneeGST" readonly>
+          </label>
+        </div>
+
+        <!-- Guest Consignee -->
+        <div *ngIf="consigneeTab==='guest'">
+          <button routerLink="Guests">+ New Guest</button>
+
+          <label>Guest Receiver
+            <select [(ngModel)]="consignee" (change)="onConsigneeGuestSelect(consignee)">
+              <option *ngFor="let g of guestList" [value]="g.guestName">
+                {{ g.guestName }} - {{ g.address }}
+              </option>
+            </select>
+          </label>
+
+          <label>Phone
+            <input [(ngModel)]="consigneePhone" readonly>
+          </label>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+
+  <!-- CHARGES -->
+  <section>
+    <h3>Charges</h3>
+    <div class="grid-3">
+      <label>ODC<input type="number" [(ngModel)]="charges.odc"></label>
+      <label>Unloading<input type="number" [(ngModel)]="charges.unloading"></label>
+      <label>Docket<input type="number" [(ngModel)]="charges.docket"></label>
+      <label>Other<input type="number" [(ngModel)]="charges.other"></label>
+      <label>CCC<input type="number" [(ngModel)]="charges.ccc"></label>
+      <label>Final Amount<input type="number" [(ngModel)]="finalAmount"></label>
+    </div>
+  </section>
+
+
+  <!-- FORM ACTIONS -->
   <div class="actions">
-    <button type="button" (click)="calculateFinalAmount()">Calculate</button>
-    <button type="button" (click)="resetForm()">Reset</button>
-    <button type="button" (click)="saveShipment()">Save</button>
+    <button (click)="calculateFinalAmount()">Calculate</button>
+    <button (click)="resetForm()">Reset</button>
+    <button (click)="saveShipment()">Save</button>
   </div>
+
 </div>
