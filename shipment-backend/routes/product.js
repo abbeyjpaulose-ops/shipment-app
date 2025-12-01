@@ -7,7 +7,7 @@ const router = express.Router();
 // Create new product
 router.post('/add', async (req, res) => {
   try {
-    console.log('📥 Incoming product data:', req.body);  // 👈 debug log
+    console.log('📥 IIIIIIIIIIIIIIIIIncoming product data:', req.body);  // 👈 debug log
   
     const product = new Product(req.body);
     await product.save();

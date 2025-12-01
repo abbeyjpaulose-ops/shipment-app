@@ -15,89 +15,91 @@
   </section>
 
 
-  <!-- MULTIPLE E-WAYBILLS -->
-  <section>
-    <h3>E-Waybills</h3>
+  <!-- MULTIPLE E-WAYBILLS - COMPACT STYLE -->
+<section>
+  
+  <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill-compact">
 
-    <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill-block">
+    <div class="ewaybill-header">
+      <strong>{{ e + 1 }}:- </strong>
 
-      <h4>E-Waybill {{ e + 1 }}</h4>
+      <input placeholder="Customer Eway-bill No:" [(ngModel)]="ewb.number" class="small-input">
+      <input type="date" [(ngModel)]="ewb.date" class="small-input">
 
-      <div class="grid-3">
-        <label>E-Waybill Number*
-          <input [(ngModel)]="ewb.number">
-        </label>
+      <button class="delete-btn" (click)="deleteEwaybill(e)">🗑️</button>
+    </div>
 
-        <label>E-Waybill Date
-          <input type="date" [(ngModel)]="ewb.date">
-        </label>
 
-        <button type="button" (click)="deleteEwaybill(e)">🗑️ Delete E-Waybill</button>
+    <!-- INVOICES -->
+    <div *ngFor="let invoice of ewb.invoices; let i = index" class="invoice-compact">
+
+      <div class="invoice-top">
+        <span class="invoice-label">Invoice {{ i + 1 }}:- </span>
+
+        <input placeholder="Customer INV No:" [(ngModel)]="invoice.number" class="small-input">
+        <span class="invoice-label"> ₹ Value:- </span>
+        <input type="number" placeholder="₹ Value" [(ngModel)]="invoice.value" class="small-input">
+
+        <button class="delete-btn" (click)="deleteInvoice(e, i)">🗑️</button>
       </div>
 
 
+      <!-- PRODUCTS TABLE-LIKE -->
+      <div class="sub-title">Products</div>
+      <div *ngFor="let product of invoice.products; let p=index" class="compact-row">
+        
+        <select class="small-select" [(ngModel)]="product.type">
+          <option *ngFor="let prod of productList" [value]="prod.productName">
+            {{ prod.hsnNum }} - {{ prod.productName }}
+          </option>
+        </select>
 
-      <!-- INVOICES UNDER THIS E-WAYBILL -->
-      <div class="invoice-section">
-        <h5>Invoices under E-Waybill {{ e + 1 }}</h5>
+        <input type="number" placeholder="Qty" class="extra-small-input" [(ngModel)]="product.amount">
 
-        <div *ngFor="let invoice of ewb.invoices; let i = index" class="invoice-block">
-          
-          <h6>Invoice {{ i + 1 }}</h6>
-
-          <!-- Invoice Header -->
-          <div class="grid-3">
-            <input placeholder="Invoice Number" [(ngModel)]="invoice.number">
-            <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value">
-            <button type="button" (click)="deleteInvoice(e, i)">🗑️</button>
-          </div>
-
-
-          <!-- PRODUCTS -->
-          <h6>Products</h6>
-          <div *ngFor="let product of invoice.products; let p=index" class="grid-4">
-            <select [(ngModel)]="product.type">
-              <option *ngFor="let prod of productList" [value]="prod.productName">
-                {{ prod.hsnNum }} - {{ prod.productName }}
-              </option>
-            </select>
-            <input type="number" placeholder="Quantity" [(ngModel)]="product.amount">
-            <button type="button" (click)="deleteProduct(e, i, p)">🗑️</button>
-          </div>
-          <button type="button" (click)="addProduct(e, i)">+ Add Product</button>
-
-
-          <!-- PACKAGES -->
-          <h6>Packages</h6>
-          <div *ngFor="let pkg of invoice.packages; let j=index" class="grid-4">
-            <select [(ngModel)]="pkg.type">
-              <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
-            </select>
-
-            <input type="number" placeholder="Quantity" [(ngModel)]="pkg.amount">
-            <button type="button" (click)="deletePackage(e, i, j)">🗑️</button>
-          </div>
-          <button type="button" (click)="addPackage(e, i)">+ Add Package</button>
-
-        </div>
-
-        <!-- Add Invoice Button -->
-        <button type="button" (click)="addInvoice(e)">+ Add Invoice</button>
+        <button class="delete-btn" (click)="deleteProduct(e, i, p)">🗑️</button>
       </div>
+
+      <button class="tiny-btn" (click)="addProduct(e, i)">+ Product</button>
+
+
+      <!-- PACKAGES TABLE-LIKE -->
+      <div class="sub-title">Packages</div>
+      <div *ngFor="let pkg of invoice.packages; let j=index" class="compact-row">
+        
+        <select class="small-select" [(ngModel)]="pkg.type">
+          <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
+        </select>
+
+        <input type="number" placeholder="Qty" class="extra-small-input" [(ngModel)]="pkg.amount">
+
+        <button class="delete-btn" (click)="deletePackage(e, i, j)">🗑️</button>
+      </div>
+
+      <button class="tiny-btn" (click)="addPackage(e, i)">+ Package</button>
 
     </div>
 
-    <!-- Add E-Waybill Button -->
-    <button type="button" (click)="addEwaybill()">+ Add E-Waybill</button>
+    <!-- Add Invoice -->
+    <button class="tiny-btn primary" (click)="addInvoice(e)">+ Invoice</button>
 
-  </section>
+  </div>
+
+  <!-- Add E-Waybill -->
+  <button class="tiny-btn success" (click)="addEwaybill()">+ E-Waybill</button>
+
+</section>
 
 
 
-  <!-- CONSIGNOR SECTION -->
-  <section>
-    <h3>Consignor (Sender Details)</h3>
+ <!-- SENDER & RECEIVER SECTION SIDE-BY-SIDE -->
+<section>
+  <h3>Sender & Receiver Details</h3>
+
+  <div class="grid-2">
+
+    <!-- CONSIGNOR (LEFT SIDE) -->
     <div class="tab-container">
+      <h4>Consignor (Sender)</h4>
 
       <div class="tabs">
         <button (click)="consignorTab='consignor'" [class.active]="consignorTab==='consignor'">Consignor</button>
@@ -106,7 +108,7 @@
 
       <div class="tab-content">
 
-        <!-- Consignor -->
+        <!-- Saved Consignor -->
         <div *ngIf="consignorTab==='consignor'">
           <button routerLink="Clients">+ New Client</button>
 
@@ -142,14 +144,11 @@
 
       </div>
     </div>
-  </section>
 
 
-
-  <!-- CONSIGNEE SECTION -->
-  <section>
-    <h3>Consignee (Receiver Details)</h3>
+    <!-- CONSIGNEE (RIGHT SIDE) -->
     <div class="tab-container">
+      <h4>Consignee (Receiver)</h4>
 
       <div class="tabs">
         <button (click)="consigneeTab='consignee'" [class.active]="consigneeTab==='consignee'">Consignee</button>
@@ -158,7 +157,7 @@
 
       <div class="tab-content">
 
-        <!-- Consignee -->
+        <!-- Saved Consignee -->
         <div *ngIf="consigneeTab==='consignee'">
           <button routerLink="Clients">+ New Client</button>
 
@@ -194,7 +193,62 @@
 
       </div>
     </div>
-  </section>
+
+  </div>
+</section>
+
+
+<!-- DELIVERY ADDRESS - COMPACT -->
+<section class="delivery-compact">
+
+  <h3>Delivery Address</h3>
+
+  <div class="delivery-options">
+    <label>
+      <input type="radio" name="delivery" value="consignee" [(ngModel)]="deliveryType">
+      Use Consignee Address
+    </label>
+
+    <label>
+      <input type="radio" name="delivery" value="different" [(ngModel)]="deliveryType">
+      Different Address
+    </label>
+  </div>
+
+  <!-- SHOW ONLY IF DIFFERENT ADDRESS -->
+  <div *ngIf="deliveryType === 'different'" class="delivery-fields">
+    <div class="grid-2">
+      <input class="small-input" [(ngModel)]="deliveryName" placeholder="Delivery Name">
+      <input class="small-input" [(ngModel)]="deliveryPhone" placeholder="Phone Number">
+    </div>
+
+    <textarea class="small-textarea"
+      placeholder="Delivery Address"
+      [(ngModel)]="deliveryAddress">
+    </textarea>
+  </div>
+
+</section>
+
+
+
+   <!-- PAYMENT SECTION -->
+  <section>
+    <h3>Payment Details</h3>
+    <div class="grid-3">
+      <label>Payment Mode
+        <select [(ngModel)]="paymentMode">
+          <option>To Pay</option>
+          <option>Account Credit</option>
+          <option>Paid</option>
+        </select>
+      </label>
+
+      <label>External Ref ID
+        <input [(ngModel)]="externalRefId" placeholder="Optional reference ID">
+      </label>
+    </div>
+    </section>
 
 
 

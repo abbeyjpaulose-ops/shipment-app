@@ -56,7 +56,7 @@ export class NewShipmentComponent {
   consigneeAddress: string = '';
   consigneePhone: string = '';
 
-  paymentMode: string = 'Account Credit';
+  paymentMode: string = 'To Pay';
   externalRefId: string = '';
 
   // ===============================

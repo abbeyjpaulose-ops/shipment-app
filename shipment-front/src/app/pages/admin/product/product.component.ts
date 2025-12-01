@@ -39,7 +39,7 @@ export class ProductComponent implements OnInit {
 }
 
   addProduct() {
-    console.log('📤 Sending product data:');
+    console.log('📤 Sending product data:', this.newProduct.ratePerNum, this.newProduct.hsnNum);
     this.http.post('http://localhost:3000/api/products/add', this.newProduct, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({

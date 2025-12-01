@@ -10,6 +10,7 @@ const ClientSchema = new mongoose.Schema({
   GSTIN: { type: String, required: true },
   phoneNum: { type: String, required: true },
   perDis: { type: Number, required: true }, // percentage Discount
+  creditType: { type: String, enum: ['credit', 'no-credit'], default: 'no-credit' },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   email: { type: String, required: true },     // from logged-in user
   username: { type: String, required: true },  // from logged-in user

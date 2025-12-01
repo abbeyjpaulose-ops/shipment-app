@@ -53,6 +53,20 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
+router.patch('/:id/credit', async (req, res) => {
+
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) return res.status(404).json({ message: 'Client not found' });
+    client.creditType = client.creditType === 'credit' ? 'no-credit' : 'credit';
+    await client.save();
+    res.json({ success: true, client });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+
 // Get clients by user
 router.get('/by-user/:username', async (req, res) => {
   try {   

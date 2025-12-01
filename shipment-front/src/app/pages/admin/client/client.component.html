@@ -11,6 +11,14 @@
     <input [(ngModel)]="newClient.GSTIN" placeholder="GSTIN" required>
     <input [(ngModel)]="newClient.phoneNum" placeholder="Contact Number" required>
     <input [(ngModel)]="newClient.perDis" placeholder="% of Discount" required>
+
+    <!-- NEW Credit Type Field -->
+    <select [(ngModel)]="newClient.creditType" class="small-select">
+      <option value="no-credit">No Credit</option>
+      <option value="credit">Credit Allowed</option>
+    </select>
+
+
     <button (click)="addClient()">+ Add Client</button>
   </div>
 
@@ -25,11 +33,14 @@
         <th>Pin</th>
         <th>GSTIN</th>
         <th>Contact Number</th>
-        <th>% of Discount</th>
+        <th>% Discount</th>
+        <th>Credit Type</th> <!-- 🔹 New Column -->
         <th>Status</th>
         <th>Actions</th>
       </tr>
+
       <tr *ngFor="let b of clients">
+
         <!-- Client Name -->
         <td>
           <span *ngIf="editingClient?._id !== b._id">{{ b.clientName }}</span>
@@ -78,11 +89,11 @@
           </div>
         </td>
 
-        <!-- phoneNum -->
+        <!-- Contact Number -->
         <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.phoneNum }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.phoneNum">
+          <span *ngIf="editingClient?._id !== b._id">{{ b.phoneNum }}</span>
+          <div *ngIf="editingClient?._id === b._id" class="edit-field">
+            <input [(ngModel)]="editingClient.phoneNum">
           </div>
         </td>
 
@@ -94,18 +105,32 @@
           </div>
         </td>
 
-        <!-- Status -->
+        <!-- CREDIT TOGGLE BUTTON -->
         <td>
-          <button (click)="toggleStatus(b)">
-            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
-          </button>
-        </td>
+          <button 
+          (click)="toggleCreditType(b)"
+          [ngClass]="b.creditType === 'credit' ? 'credit-active' : 'credit-inactive'">
+          {{ b.creditType === 'credit' ? 'Credit ✔' : 'No Credit' }}
+        </button>
+      </td>
+
+
+      <!-- STATUS TOGGLE BUTTON -->
+      <td>
+        <button 
+        (click)="toggleStatus(b)"
+        [ngClass]="b.status === 'active' ? 'status-active' : 'status-inactive'">
+        {{ b.status === 'active' ? 'Active' : 'Deactivated' }}
+      </button>
+    </td>
+
 
         <!-- Actions -->
         <td>
           <button *ngIf="editingClient?._id !== b._id" (click)="editClient(b)">Edit</button>
           <button *ngIf="editingClient?._id === b._id" (click)="saveEdit()">Save</button>
         </td>
+
       </tr>
     </table>
   </div>

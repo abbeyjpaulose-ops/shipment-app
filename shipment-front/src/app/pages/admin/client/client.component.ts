@@ -21,6 +21,7 @@ export class ClientComponent implements OnInit {
     GSTIN: '',
     phoneNum: '',
     perDis: '',
+    creditType: 'no-credit',
     status: 'active',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')
@@ -75,6 +76,13 @@ export class ClientComponent implements OnInit {
         this.editingClient = null;
       });
   }
+
+  toggleCreditType(client: any) {
+  this.http.patch(`http://localhost:3000/api/clients/${client._id}/credit`, {})
+    .subscribe(() => this.loadClients());
+    console.log('TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTToggled credit type for client:', client._id);
+}
+
 
   toggleStatus(client: any) {
     this.http.patch(`http://localhost:3000/api/clients/${client._id}/status`, {})

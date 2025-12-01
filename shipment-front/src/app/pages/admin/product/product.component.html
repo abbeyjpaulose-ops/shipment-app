@@ -5,6 +5,11 @@
   <div class="add-product-form">
     <input [(ngModel)]="newProduct.hsnNum" placeholder="HSN number" required>
     <input [(ngModel)]="newProduct.productName" placeholder="Product Type" required>
+
+    <input type="number" [(ngModel)]="newProduct.ratePerNum" placeholder="Rate / Number" required>
+    <input type="number" [(ngModel)]="newProduct.ratePerVolume" placeholder="Rate / cm³" required>
+    <input type="number" [(ngModel)]="newProduct.ratePerKg" placeholder="Rate / Kg" required>
+
     <button (click)="addProduct()">+ Add Product</button>
   </div>
 
@@ -14,9 +19,13 @@
       <tr>
         <th>HSN number</th>
         <th>Product Type</th>
+        <th>Rate / No.</th>
+        <th>Rate / cm³</th>
+        <th>Rate / Kg</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
+
       <tr *ngFor="let b of products">
 
         <!-- HSN number -->
@@ -35,7 +44,31 @@
           </div>
         </td>
 
-        <!-- Status -->
+        <!-- Rate Per Number -->
+        <td>
+          <span *ngIf="editingProduct?._id !== b._id">{{ b.ratePerNum }}</span>
+          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
+            <input type="number" [(ngModel)]="editingProduct.ratePerNum">
+          </div>
+        </td>
+
+        <!-- Rate Per Volume -->
+        <td>
+          <span *ngIf="editingProduct?._id !== b._id">{{ b.ratePerVolume }}</span>
+          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
+            <input type="number" [(ngModel)]="editingProduct.ratePerVolume">
+          </div>
+        </td>
+
+        <!-- Rate Per Kg -->
+        <td>
+          <span *ngIf="editingProduct?._id !== b._id">{{ b.ratePerKg }}</span>
+          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
+            <input type="number" [(ngModel)]="editingProduct.ratePerKg">
+          </div>
+        </td>
+
+        <!-- Status Toggle -->
         <td>
           <button (click)="toggleStatus(b)">
             {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
@@ -47,6 +80,7 @@
           <button *ngIf="editingProduct?._id !== b._id" (click)="editProduct(b)">Edit</button>
           <button *ngIf="editingProduct?._id === b._id" (click)="saveEdit()">Save</button>
         </td>
+
       </tr>
     </table>
   </div>
