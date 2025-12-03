@@ -51,6 +51,7 @@ export class NewShipmentComponent {
   consignorAddress: string = '';
   consignorPhone: string = '';
 
+
   consignee: string = '';
   consigneeGST: string = '';
   consigneeAddress: string = '';
@@ -77,7 +78,7 @@ export class NewShipmentComponent {
     }
   ];
 
-  charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
+  charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0, consignorDiscount: 0 };
   finalAmount: number = 0;
 
   shipmentStatus: string = 'Pending';
@@ -300,6 +301,7 @@ export class NewShipmentComponent {
       this.consignorGST = c.GSTIN;
       this.consignorAddress = c.address;
       this.consignorPhone = c.phoneNum;
+      this.charges.consignorDiscount= c.perDis;
     }
   }
 

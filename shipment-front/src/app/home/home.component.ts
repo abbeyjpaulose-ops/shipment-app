@@ -47,6 +47,6 @@ export class HomeComponent implements OnInit {
     const branch = event.target.value;
     this.selectedBranch = branch;
     localStorage.setItem('branch', branch);
-    window.location.reload();
+    //window.location.reload();
   }
 }

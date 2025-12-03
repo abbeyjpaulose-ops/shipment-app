@@ -256,14 +256,30 @@
   <section>
     <h3>Charges</h3>
     <div class="grid-3">
-      <label>ODC<input type="number" [(ngModel)]="charges.odc"></label>
-      <label>Unloading<input type="number" [(ngModel)]="charges.unloading"></label>
-      <label>Docket<input type="number" [(ngModel)]="charges.docket"></label>
-      <label>Other<input type="number" [(ngModel)]="charges.other"></label>
-      <label>CCC<input type="number" [(ngModel)]="charges.ccc"></label>
-      <label>Final Amount<input type="number" [(ngModel)]="finalAmount"></label>
+      <label>ODC
+        <input type="number" [(ngModel)]="charges.odc">
+      </label>
+      <label>Unloading
+        <input type="number" [(ngModel)]="charges.unloading">
+      </label>
+      <label>Docket
+        <input type="number" [(ngModel)]="charges.docket">
+      </label>
+      <label>Other
+        <input type="number" [(ngModel)]="charges.other">
+      </label>
+      <label>CCC
+        <input type="number" [(ngModel)]="charges.ccc">
+      </label>
+      <label>Discount (Consignor)
+        <input type="number" [(ngModel)]="charges.consignorDiscount" placeholder="% Discount">
+      </label>
+      <label>Final Amount
+        <input type="number" [(ngModel)]="finalAmount" readonly>
+      </label>
     </div>
   </section>
+
 
 
   <!-- FORM ACTIONS -->

@@ -23,20 +23,23 @@ export class ClientComponent implements OnInit {
     perDis: '',
     creditType: 'no-credit',
     status: 'active',
+    branch: 'All Branches',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')
   };
   editingClient: any = null;
 
   constructor(private http: HttpClient) {}
-
+  cbranch: string = 'All Branches';
   ngOnInit() {
     this.loadClients();
   }
 
   loadClients() {
     const email = localStorage.getItem('email'); // set during login
-    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}`)
+    this.cbranch = localStorage.getItem('branch') || 'All Branches';
+    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branch=${this.cbranch}
+`)
     .subscribe({
       next: (data) => {
         console.log("Clients loaded:", data); // 👈 log to browser console
@@ -50,6 +53,7 @@ export class ClientComponent implements OnInit {
 
   addClient() {
     console.log('📤 Sending client data:');
+    
     this.http.post('http://localhost:3000/api/clients/add', this.newClient, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({

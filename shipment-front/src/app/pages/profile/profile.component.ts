@@ -12,16 +12,19 @@ import { FormsModule } from '@angular/forms';
 })
 export class ProfileComponent implements OnInit {
   profile: any = {
-    name: '',
-    address: '',
-    company: '',
-    mobile: '',
-    email: '',
-    role: '',
-    photo: '',
-    businessType: '',
-    username: localStorage.getItem('username')
-  };
+  name: '',
+  photo: '',
+  address: '',
+  company: '',
+  mobile: '',
+  email: '',
+  role: '',
+  businessType: '',
+  pricePerNumber: 0,
+  pricePerKg: 0,
+  pricePerArea: 0
+};
+
 
   constructor(private http: HttpClient) {}
 
@@ -37,6 +40,7 @@ export class ProfileComponent implements OnInit {
       next: (data) => {
         
         this.profile = data[0] || this.profile;
+        console.log("Profile loaded:", this.profile);
       },
       error: (err) => console.error("Error loading products:", err)
     });
@@ -75,11 +79,11 @@ export class ProfileComponent implements OnInit {
       address: '', 
       company: '', 
       mobile: '', 
-      email: '', 
+      //email: localStorage.getItem('email')|| '', 
       role: '', 
       photo: '', 
       businessType: '', 
-      username: localStorage.getItem('username')
+      //username: localStorage.getItem('username')
     };
     console.log('Profile cleared locally.');
   }

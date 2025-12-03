@@ -13,8 +13,8 @@ const PackageSchema = new mongoose.Schema({
 // PRODUCT
 //
 const ProductSchema = new mongoose.Schema({
-  type: { type: String, required: false },
-  amount: { type: Number, required: false },
+  type: { type: String, required: true },
+  amount: { type: Number, required: true },
   instock: { type: Number, required: false },
   intransitstock: { type: Number, required: false },
   deliveredstock: { type: Number, required: false }
@@ -25,7 +25,7 @@ const ProductSchema = new mongoose.Schema({
 //
 const InvoiceSchema = new mongoose.Schema({
   number: { type: String, required: false },
-  value: { type: Number, required: false },
+  value: { type: Number, required: true },
   packages: [PackageSchema],
   products: [ProductSchema]
 });
@@ -47,7 +47,8 @@ const ChargesSchema = new mongoose.Schema({
   unloading: { type: Number },
   docket: { type: Number },
   other: { type: Number },
-  ccc: { type: Number }
+  ccc: { type: Number },
+  consignorDiscount: { type: Number }
 });
 
 //

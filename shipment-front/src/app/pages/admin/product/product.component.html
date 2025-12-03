@@ -1,12 +1,12 @@
 <div class="products-container">
-  <h2>Manage Products</h2>
+  <h2>Manage Standard Products Pricing</h2>
 
   <!-- Add Product Form -->
   <div class="add-product-form">
     <input [(ngModel)]="newProduct.hsnNum" placeholder="HSN number" required>
     <input [(ngModel)]="newProduct.productName" placeholder="Product Type" required>
 
-    <input type="number" [(ngModel)]="newProduct.ratePerNum" placeholder="Rate / Number" required>
+    <input type="number" [(ngModel)]="newProduct.ratePerNum" placeholder="Rate / Box" required>
     <input type="number" [(ngModel)]="newProduct.ratePerVolume" placeholder="Rate / cm³" required>
     <input type="number" [(ngModel)]="newProduct.ratePerKg" placeholder="Rate / Kg" required>
 
@@ -19,7 +19,7 @@
       <tr>
         <th>HSN number</th>
         <th>Product Type</th>
-        <th>Rate / No.</th>
+        <th>Rate / Box.</th>
         <th>Rate / cm³</th>
         <th>Rate / Kg</th>
         <th>Status</th>

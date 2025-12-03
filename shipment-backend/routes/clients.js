@@ -21,8 +21,15 @@ router.post('/add', async (req, res) => {
 // Get clients for a specific user
 router.get('/', async (req, res) => {
   try {
-    const email = req.query.email;  // frontend will send ?email=user@example.com
-    const query = email ? { email } : {};
+    // Extract query params from request
+    const email = req.query.email;
+    const cbranch = req.query.branch;
+    // Build query dynamically
+    const query = {
+      ...(email && { email }),
+      ...(cbranch && { branch: cbranch })
+    };
+    // Fetch clients
     const clients = await Client.find(query).sort({ createdAt: -1 });
     res.json(clients);
   } catch (err) {

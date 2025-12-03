@@ -9,6 +9,9 @@ const profileSchema = new mongoose.Schema({
   role: { type: String },
   photo: { type: String },          // base64 string for image
   businessType: { type: String },   // e.g., GTA-5%, Parcel-12%, Courier-18%
+  pricePerNumber: { type: Number, default: 0 },
+  pricePerKg: { type: Number, default: 0 },
+  pricePerArea: { type: Number, default: 0 },
   username: { type: String },       // optional, if you track login
 }, { timestamps: true });
 
