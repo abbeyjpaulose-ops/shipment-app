@@ -47,6 +47,10 @@ export class HomeComponent implements OnInit {
     const branch = event.target.value;
     this.selectedBranch = branch;
     localStorage.setItem('branch', branch);
-    //window.location.reload();
+    //reload for the view shipments to reflect branch change
+    const currentUrl = window.location.href;
+    if (!currentUrl.includes("new-shipment")) {
+      window.location.reload();
+    }
   }
 }
