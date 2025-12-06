@@ -49,7 +49,7 @@ export class HomeComponent implements OnInit {
     localStorage.setItem('branch', branch);
     //reload for the view shipments to reflect branch change
     const currentUrl = window.location.href;
-    if (!currentUrl.includes("new-shipment")) {
+    if (currentUrl.includes("/shipments")) {
       window.location.reload();
     }
   }

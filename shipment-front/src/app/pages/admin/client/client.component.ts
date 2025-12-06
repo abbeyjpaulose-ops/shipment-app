@@ -22,8 +22,9 @@ export class ClientComponent implements OnInit {
     phoneNum: '',
     perDis: '',
     creditType: 'no-credit',
+    products: [],
     status: 'active',
-    branch: 'All Branches',
+    branch: localStorage.getItem('branch') || 'All Branches',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')
   };
@@ -34,6 +35,20 @@ export class ClientComponent implements OnInit {
   ngOnInit() {
     this.loadClients();
   }
+
+  addProduct() {
+    this.newClient.products.push({
+      hsnNum: '',
+      productName: '',
+      ratePerNum: 0,
+      ratePerVolume: 0,
+      ratePerKg: 0
+    });
+  }
+
+removeProduct(index: number) {
+  this.newClient.products.splice(index, 1);
+}
 
   loadClients() {
     const email = localStorage.getItem('email'); // set during login
@@ -49,12 +64,24 @@ export class ClientComponent implements OnInit {
     });
 }
 
+showAddClientPopup = false;
+
+openAddClientPopup() {
+  this.showAddClientPopup = true;
+}
+
+closeAddClientPopup() {
+  this.showAddClientPopup = false;
+}
 
 
   addClient() {
     console.log('📤 Sending client data:');
-    
-    this.http.post('http://localhost:3000/api/clients/add', this.newClient, {
+    const email = localStorage.getItem('email'); // set during login
+    this.newClient.branch = localStorage.getItem('branch') || 'All Branches';
+
+    if (this.newClient.branch !== 'All Branches') {
+      this.http.post('http://localhost:3000/api/clients/add', this.newClient, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: (res) => {
@@ -67,6 +94,9 @@ export class ClientComponent implements OnInit {
         alert('Error: ' + err.error.message);
       }
     });
+    } else {
+      alert('Please select a specific branch before adding a client.');
+    }
   }
 
   editClient(client: any) {

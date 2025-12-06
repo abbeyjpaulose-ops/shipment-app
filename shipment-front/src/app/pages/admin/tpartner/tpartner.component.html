@@ -1,4 +1,88 @@
-<div class="hubs-container">
-  <h2>tpartner</h2>
+<div class="tpartner-container">
+  <h2>Manage Transport Partners</h2>
 
-  
+  <!-- Add Partner Form -->
+  <div class="add-form">
+    <input [(ngModel)]="newPartner.partnerName" placeholder="Partner Name" required>
+
+    <!-- Multiple Vehicle Add -->
+    <div class="vehicle-list">
+      <input [(ngModel)]="newVehicle" placeholder="Vehicle Number">
+      <button (click)="addVehicle()">+ Add Vehicle</button>
+    </div>
+
+    <!-- Show entered vehicles -->
+    <div class="vehicle-tag" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
+      {{ v }} <span class="delete-btn" (click)="removeVehicle(i)">x</span>
+    </div>
+
+    <select [(ngModel)]="newPartner.rateType">
+      <option value="km">Rate / Km</option>
+      <option value="day">Rate / Day</option>
+    </select>
+
+    <input type="number" [(ngModel)]="newPartner.rateValue" placeholder="Rate (₹)" required>
+    
+    <button (click)="addPartner()">+ Add Partner</button>
+  </div>
+
+  <!-- Table View -->
+  <table>
+    <tr>
+      <th>Partner</th>
+      <th>Vehicle Numbers</th>
+      <th>Rate Type</th>
+      <th>Rate</th>
+      <th>Added By</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+
+    <tr *ngFor="let p of partners">
+      
+      <!-- Partner -->
+      <td>
+        <span *ngIf="editing?._id !== p._id">{{ p.partnerName }}</span>
+        <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.partnerName">
+      </td>
+
+      <!-- Multiple Vehicles -->
+      <td>
+        <!-- Show when NOT editing -->
+        <span *ngIf="editing?._id !== p._id">
+          <span class="tag" *ngFor="let v of p.vehicleNumbers">{{ v }}</span>
+        </span>
+
+        <!-- Editable form -->
+        <div *ngIf="editing?._id === p._id">
+          <div class="tag-edit" *ngFor="let v of editing.vehicleNumbers; let i=index">
+            <input [(ngModel)]="editing.vehicleNumbers[i]">
+            <button class="delete-btn" (click)="removeEditingVehicle(i)">-</button>
+          </div>
+          <input [(ngModel)]="editVehicleField" placeholder="New vehicle">
+          <button class="tiny-btn" (click)="addEditingVehicle()">+ Veh</button>
+        </div>
+      </td>
+
+      <td>{{ p.rateType === 'km' ? '₹/Km' : '₹/Day' }}</td>
+      <td>{{ p.rateValue }}</td>
+
+      <!-- Added By -->
+      <td>{{ p.username }} <br> <small>{{ p.email }}</small></td>
+
+      <td>
+        <button [style.color]="p.status === 'active' ? 'green' : 'black'"
+                (click)="toggleStatus(p)">
+          {{ p.status === 'active' ? 'Active' : 'Inactive' }}
+        </button>
+      </td>
+
+      <td>
+        <button *ngIf="editing?._id !== p._id" (click)="editPartner(p)">Edit</button>
+        <button *ngIf="editing?._id === p._id" (click)="saveEdit()">Save</button>
+      </td>
+
+    </tr>
+  </table>
+
+</div>

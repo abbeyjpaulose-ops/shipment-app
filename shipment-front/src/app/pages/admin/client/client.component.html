@@ -1,137 +1,175 @@
 <div class="clients-container">
   <h2>Manage Clients</h2>
 
-  <!-- Add Client Form -->
-  <div class="add-client-form">
-    <input [(ngModel)]="newClient.clientName" placeholder="Client Name" required>
-    <input [(ngModel)]="newClient.address" placeholder="Address" required>
-    <input [(ngModel)]="newClient.city" placeholder="City">
-    <input [(ngModel)]="newClient.state" placeholder="State">
-    <input [(ngModel)]="newClient.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newClient.GSTIN" placeholder="GSTIN" required>
-    <input [(ngModel)]="newClient.phoneNum" placeholder="Contact Number" required>
-    <input [(ngModel)]="newClient.perDis" placeholder="% of Discount" required>
+  <!-- Add Client Button -->
+  <button class="add-client-btn" (click)="openAddClientPopup()">+ Add Client</button>
 
-    <!-- NEW Credit Type Field -->
-    <select [(ngModel)]="newClient.creditType" class="small-select">
-      <option value="no-credit">No Credit</option>
-      <option value="credit">Credit Allowed</option>
-    </select>
+  <!-- Popup Modal -->
+  <div class="modal" *ngIf="showAddClientPopup">
+  <div class="modal-content">
+    <span class="close" (click)="closeAddClientPopup()">&times;</span>
+    <h3>Add New Client</h3>
+
+    <div class="add-client-form">
+      <!-- Client Fields -->
+      <input [(ngModel)]="newClient.clientName" placeholder="Client Name" required>
+      <input [(ngModel)]="newClient.address" placeholder="Address" required>
+      <input [(ngModel)]="newClient.city" placeholder="City">
+      <input [(ngModel)]="newClient.state" placeholder="State">
+      <input [(ngModel)]="newClient.pinCode" placeholder="Pin Code">
+      <input [(ngModel)]="newClient.GSTIN" placeholder="GSTIN" required>
+      <input [(ngModel)]="newClient.phoneNum" placeholder="Contact Number" required>
+      <input [(ngModel)]="newClient.perDis" placeholder="% of Discount" required>
+
+      <!-- Credit Type -->
+      <select [(ngModel)]="newClient.creditType" class="small-select">
+        <option value="no-credit">No Credit</option>
+        <option value="credit">Credit Allowed</option>
+      </select>
+
+      <!-- Product Pricing Section -->
+      <h4>Product Pricing</h4>
+      <div class="product-form" *ngFor="let p of newClient.products; let i = index">
+        <input [(ngModel)]="p.hsnNum" name="hsnNum{{i}}" placeholder="HSN Number" required>
+        <input [(ngModel)]="p.productName" name="productName{{i}}" placeholder="Product Name" required>
+        <br>
+        <label>Rate per Box:</label>
+        <input [(ngModel)]="p.ratePerNum" name="ratePerNum{{i}}" type="number" placeholder="Rate per Number">
+        <br>
+        <label>Rate per Volume cm3:</label>
+        <input [(ngModel)]="p.ratePerVolume" name="ratePerVolume{{i}}" type="number" placeholder="Rate per Volume">
+        <br>
+        <label>Rate per Kilogram:</label>
+        <input [(ngModel)]="p.ratePerKg" name="ratePerKg{{i}}" type="number" placeholder="Rate per Kg">
+        <br>
+
+        <!-- Remove Product -->
+        <button type="button" (click)="removeProduct(i)">Remove</button>
+      </div>
+      <br>
+
+      <!-- Add Product Button -->
+      <button type="button" (click)="addProduct()">+ Add Product</button>
+      <br>
 
 
-    <button (click)="addClient()">+ Add Client</button>
+      <!-- Save Client -->
+      <button (click)="addClient()">+ Add Client</button>
+    </div>
   </div>
+</div>
+
 
   <!-- Clients List -->
   <div class="clients-table-wrapper">
     <table>
-      <tr>
-        <th>Client Name</th>
-        <th>Address</th>
-        <th>City</th>
-        <th>State</th>
-        <th>Pin</th>
-        <th>GSTIN</th>
-        <th>Contact Number</th>
-        <th>% Discount</th>
-        <th>Credit Type</th> <!-- 🔹 New Column -->
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
+      <thead>
+        <tr>
+          <th>Client Name</th>
+          <th>Address</th>
+          <th>City</th>
+          <th>State</th>
+          <th>Pin</th>
+          <th>GSTIN</th>
+          <th>Contact Number</th>
+          <th>% Discount</th>
+          <th>Credit Type</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
 
-      <tr *ngFor="let b of clients">
+      <tbody>
+        <tr *ngFor="let b of clients">
+          <!-- Client Name -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.clientName }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.clientName">
+            </div>
+          </td>
 
-        <!-- Client Name -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.clientName }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.clientName">
-          </div>
-        </td>
+          <!-- Address -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.address }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.address">
+            </div>
+          </td>
 
-        <!-- Address -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.address }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.address">
-          </div>
-        </td>
+          <!-- City -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.city }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.city">
+            </div>
+          </td>
 
-        <!-- City -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.city }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.city">
-          </div>
-        </td>
+          <!-- State -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.state }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.state">
+            </div>
+          </td>
 
-        <!-- State -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.state }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.state">
-          </div>
-        </td>
+          <!-- Pin Code -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.pinCode }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.pinCode">
+            </div>
+          </td>
 
-        <!-- Pin Code -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.pinCode }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.pinCode">
-          </div>
-        </td>
+          <!-- GSTIN -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.GSTIN }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.GSTIN">
+            </div>
+          </td>
 
-        <!-- GSTIN -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.GSTIN }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.GSTIN">
-          </div>
-        </td>
+          <!-- Contact Number -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.phoneNum }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.phoneNum">
+            </div>
+          </td>
 
-        <!-- Contact Number -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.phoneNum }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.phoneNum">
-          </div>
-        </td>
+          <!-- % Discount -->
+          <td>
+            <span *ngIf="editingClient?._id !== b._id">{{ b.perDis }}</span>
+            <div *ngIf="editingClient?._id === b._id" class="edit-field">
+              <input [(ngModel)]="editingClient.perDis">
+            </div>
+          </td>
 
-        <!-- % of Discount -->
-        <td>
-          <span *ngIf="editingClient?._id !== b._id">{{ b.perDis }}</span>
-          <div *ngIf="editingClient?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingClient.perDis">
-          </div>
-        </td>
+          <!-- Credit Toggle -->
+          <td>
+            <button 
+              (click)="toggleCreditType(b)"
+              [ngClass]="b.creditType === 'credit' ? 'credit-active' : 'credit-inactive'">
+              {{ b.creditType === 'credit' ? 'Credit ✔' : 'No Credit' }}
+            </button>
+          </td>
 
-        <!-- CREDIT TOGGLE BUTTON -->
-        <td>
-          <button 
-          (click)="toggleCreditType(b)"
-          [ngClass]="b.creditType === 'credit' ? 'credit-active' : 'credit-inactive'">
-          {{ b.creditType === 'credit' ? 'Credit ✔' : 'No Credit' }}
-        </button>
-      </td>
+          <!-- Status Toggle -->
+          <td>
+            <button 
+              (click)="toggleStatus(b)"
+              [ngClass]="b.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ b.status === 'active' ? 'Active' : 'Deactivated' }}
+            </button>
+          </td>
 
-
-      <!-- STATUS TOGGLE BUTTON -->
-      <td>
-        <button 
-        (click)="toggleStatus(b)"
-        [ngClass]="b.status === 'active' ? 'status-active' : 'status-inactive'">
-        {{ b.status === 'active' ? 'Active' : 'Deactivated' }}
-      </button>
-    </td>
-
-
-        <!-- Actions -->
-        <td>
-          <button *ngIf="editingClient?._id !== b._id" (click)="editClient(b)">Edit</button>
-          <button *ngIf="editingClient?._id === b._id" (click)="saveEdit()">Save</button>
-        </td>
-
-      </tr>
+          <!-- Actions -->
+          <td>
+            <button *ngIf="editingClient?._id !== b._id" (click)="editClient(b)">Edit</button>
+            <button *ngIf="editingClient?._id === b._id" (click)="saveEdit()">Save</button>
+          </td>
+        </tr>
+      </tbody>
     </table>
   </div>
 </div>

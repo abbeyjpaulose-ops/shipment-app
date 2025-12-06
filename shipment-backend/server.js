@@ -4,6 +4,7 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import authRoutes from './routes/auth.js';  // now works
 import User from './models/User.js';
+import tpartnersRoutes from './routes/tpartner.js';
 
 import branchRoutes from './routes/branch.js';
 import pkgRoutes from './routes/pkg.js';
@@ -34,6 +35,7 @@ app.use('/api/hubs', hubRoutes);
 app.use('/api/clients', clientsRoutes);
 app.use('/api/guests', guestsRoutes);
 app.use('/api/pkgs', pkgRoutes);
+app.use('/api/tpartners', tpartnersRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/newshipments', newShipmentRoutes);
 app.use('/api/manifest', manifestRoutes);

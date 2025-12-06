@@ -23,14 +23,19 @@ router.get('/', async (req, res) => {
   try {
     // Extract query params from request
     const email = req.query.email;
-    const cbranch = req.query.branch;
+    const branch = req.query.branch;
     // Build query dynamically
     const query = {
       ...(email && { email }),
-      ...(cbranch && { branch: cbranch })
+      ...(branch && { branch: cbranch })
     };
-    // Fetch clients
-    const clients = await Client.find(query).sort({ createdAt: -1 });
+    // Fetch clients from DB
+    let shipments;
+    if (branch === 'All Branches') {
+      clients = await Client.find(email).sort({ createdAt: -1 })
+    } else {
+      clients = await Client.find(query).sort({ createdAt: -1 });
+    }
     res.json(clients);
   } catch (err) {
     res.status(500).json({ message: err.message });

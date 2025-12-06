@@ -12,13 +12,14 @@ const ClientSchema = new mongoose.Schema({
   perDis: { type: Number, required: true }, // percentage Discount
   creditType: { type: String, enum: ['credit', 'no-credit'], default: 'no-credit' },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+  branch: { type: String, required: true }, // branch name
   email: { type: String, required: true },     // from logged-in user
   username: { type: String, required: true },  // from logged-in user
   createdAt: { type: Date, default: Date.now }
 });
 
 // Unique combo: clientName + address +email
-ClientSchema.index({ clientName: 1, address: 1, email: 1 }, { unique: true });
+ClientSchema.index({ clientName: 1, branch: 1, email: 1 }, { unique: true });
 
 
 export default mongoose.models.Client || mongoose.model('Client', ClientSchema);
