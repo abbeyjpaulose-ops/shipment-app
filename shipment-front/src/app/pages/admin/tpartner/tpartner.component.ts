@@ -16,7 +16,7 @@ export class TpartnerComponent implements OnInit {
   
   newPartner = {
     partnerName: '',
-    vehicleNumbers: [] as string[],
+    vehicleNumbers: [] as { number: string; phone: string }[],
     rateType: 'km',
     rateValue: 0,
     status: 'active',
@@ -24,9 +24,10 @@ export class TpartnerComponent implements OnInit {
     username: localStorage.getItem('username')
   };
 
-  newVehicle = '';
-  editVehicleField = '';
+ 
+  newVehicle = { number: '', phone: '' };
 
+  editVehicleField = { number: '', phone: '' };
 
   editing: any = null;
 
@@ -38,29 +39,27 @@ export class TpartnerComponent implements OnInit {
 
  
   addVehicle() {
-    if (this.newVehicle.trim()) {
-      this.newPartner.vehicleNumbers.push(this.newVehicle.trim());
-      this.newVehicle = '';
-    }
+  if (this.newVehicle.number.trim() && this.newVehicle.phone.trim()) {
+    this.newPartner.vehicleNumbers.push({ ...this.newVehicle });
+    this.newVehicle = { number: '', phone: '' };
   }
+}
 
+removeVehicle(i: number) {
+  this.newPartner.vehicleNumbers.splice(i, 1);
+}
 
-  removeVehicle(i: number) {
-    this.newPartner.vehicleNumbers.splice(i, 1);
+addEditingVehicle() {
+  if (this.editVehicleField.number.trim() && this.editVehicleField.phone.trim()) {
+    this.editing.vehicleNumbers.push({ ...this.editVehicleField });
+    this.editVehicleField = { number: '', phone: '' };
   }
+}
 
+removeEditingVehicle(i: number) {
+  this.editing.vehicleNumbers.splice(i, 1);
+}
 
-  addEditingVehicle() {
-    if (this.editVehicleField.trim()) {
-      this.editing.vehicleNumbers.push(this.editVehicleField.trim());
-      this.editVehicleField = '';
-    }
-  }
-
-
-  removeEditingVehicle(i: number) {
-    this.editing.vehicleNumbers.splice(i, 1);
-  }
 
 
   loadPartners() {

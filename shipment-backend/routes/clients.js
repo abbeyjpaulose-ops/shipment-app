@@ -22,25 +22,30 @@ router.post('/add', async (req, res) => {
 router.get('/', async (req, res) => {
   try {
     // Extract query params from request
-    const email = req.query.email;
-    const branch = req.query.branch;
+    const { email, branch } = req.query;
+
     // Build query dynamically
-    const query = {
-      ...(email && { email }),
-      ...(branch && { branch: cbranch })
-    };
+    const query = {};
+    if (email) query.email = email;
+    if (branch && branch !== 'All Branches') query.branch = branch;
+
+    let clients;
+
     // Fetch clients from DB
-    let shipments;
     if (branch === 'All Branches') {
-      clients = await Client.find(email).sort({ createdAt: -1 })
+      // If "All Branches", ignore branch filter
+      clients = await Client.find({ email }).sort({ createdAt: -1 });
     } else {
       clients = await Client.find(query).sort({ createdAt: -1 });
     }
+
     res.json(clients);
   } catch (err) {
+    console.error('Error fetching clients:', err);
     res.status(500).json({ message: err.message });
   }
 });
+
 
 // Update client
 router.put('/:id', async (req, res) => {

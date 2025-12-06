@@ -53,8 +53,7 @@ removeProduct(index: number) {
   loadClients() {
     const email = localStorage.getItem('email'); // set during login
     this.cbranch = localStorage.getItem('branch') || 'All Branches';
-    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branch=${this.cbranch}
-`)
+    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branch=${this.cbranch}`)
     .subscribe({
       next: (data) => {
         console.log("Clients loaded:", data); // 👈 log to browser console

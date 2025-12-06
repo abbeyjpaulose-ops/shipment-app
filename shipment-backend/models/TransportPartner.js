@@ -1,10 +1,14 @@
-// models/TransportPartner.js
 import mongoose from 'mongoose';
 
 const TransportPartnerSchema = new mongoose.Schema({
   partnerName: { type: String, required: true },
 
-  vehicleNumbers: [{ type: String, required: true }], // 👈 MULTIPLE VEHICLES
+  vehicleNumbers: [
+    {
+      number: { type: String, required: true },
+      phone: { type: String, required: true }
+    }
+  ],
 
   rateType: { type: String, enum: ['km', 'day'], required: true },
   rateValue: { type: Number, required: true },
@@ -17,5 +21,5 @@ const TransportPartnerSchema = new mongoose.Schema({
   createdAt: { type: Date, default: Date.now }
 });
 
-export default mongoose.models.TransportPartner
-  || mongoose.model('TransportPartner', TransportPartnerSchema);
+export default mongoose.models.TransportPartner ||
+ mongoose.model('TransportPartner', TransportPartnerSchema);
