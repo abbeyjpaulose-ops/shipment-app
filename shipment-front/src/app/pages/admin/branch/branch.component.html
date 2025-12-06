@@ -9,10 +9,27 @@
     <input [(ngModel)]="newBranch.state" placeholder="State">
     <input [(ngModel)]="newBranch.pinCode" placeholder="Pin Code">
     <input [(ngModel)]="newBranch.GSTIN" placeholder="GSTIN" required>
-    <button (click)="addBranch()">+ Add Branch</button>
+    <input [(ngModel)]="newBranch.phoneNum" placeholder="Branch Phone" required>
+
+    <!-- Vehicles & Driver Contacts -->
+    <div class="vehicle-wrapper">
+      <label class="vehicle-label">Vehicles & Drivers</label>
+
+      <div *ngFor="let v of newBranch.vehicles; let i=index" class="vehicle-row">
+        <input placeholder="Vehicle No." [(ngModel)]="v.vehicleNo">
+        <input placeholder="Driver Phone" [(ngModel)]="v.driverPhone">
+        <button *ngIf="newBranch.vehicles.length > 1"
+                class="remove-btn"
+                (click)="removeVehicle(i)">🗑️</button>
+      </div>
+
+      <button class="add-vehicle-btn" (click)="addVehicle()">+ Add Vehicle</button>
+    </div>
+
+    <button class="add-btn" (click)="addBranch()">+ Add Branch</button>
   </div>
 
-  <!-- Branches List -->
+  <!-- Branches List Table -->
   <div class="branches-table-wrapper">
     <table>
       <tr>
@@ -22,55 +39,73 @@
         <th>State</th>
         <th>Pin</th>
         <th>GSTIN</th>
+        <th>Phone</th>
+        <th>Vehicles & Drivers</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
+
       <tr *ngFor="let b of branches">
+
         <!-- Branch Name -->
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.branchName }}</span>
-          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingBranch.branchName">
-          </div>
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.branchName">
         </td>
 
         <!-- Address -->
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.address }}</span>
-          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingBranch.address">
-          </div>
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.address">
         </td>
 
         <!-- City -->
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.city }}</span>
-          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingBranch.city">
-          </div>
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.city">
         </td>
 
         <!-- State -->
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.state }}</span>
-          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingBranch.state">
-          </div>
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.state">
         </td>
 
         <!-- Pin Code -->
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.pinCode }}</span>
-          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingBranch.pinCode">
-          </div>
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.pinCode">
         </td>
 
         <!-- GSTIN -->
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.GSTIN }}</span>
-          <div *ngIf="editingBranch?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingBranch.GSTIN">
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.GSTIN">
+        </td>
+
+        <!-- Phone -->
+        <td>
+          <span *ngIf="editingBranch?._id !== b._id">{{ b.phoneNum }}</span>
+          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.phoneNum">
+        </td>
+
+        <!-- Vehicles -->
+        <td>
+          <div *ngIf="editingBranch?._id !== b._id">
+            <div *ngFor="let v of b.vehicles">
+              🚚 {{ v.vehicleNo }} — 📞 {{ v.driverPhone }}
+            </div>
+          </div>
+
+          <div class="vehicle-edit-wrapper" *ngIf="editingBranch?._id === b._id">
+            <div *ngFor="let v of editingBranch.vehicles; let i=index" class="vehicle-row">
+              <input [(ngModel)]="v.vehicleNo" placeholder="Vehicle No.">
+              <input [(ngModel)]="v.driverPhone" placeholder="Driver Phone">
+              <button *ngIf="editingBranch.vehicles.length > 1"
+                      class="remove-btn"
+                      (click)="removeVehicleEdit(i)">🗑️</button>
+            </div>
+            <button class="add-vehicle-btn" (click)="addVehicleEdit()">+ Vehicle</button>
           </div>
         </td>
 
@@ -86,6 +121,7 @@
           <button *ngIf="editingBranch?._id !== b._id" (click)="editBranch(b)">Edit</button>
           <button *ngIf="editingBranch?._id === b._id" (click)="saveEdit()">Save</button>
         </td>
+
       </tr>
     </table>
   </div>

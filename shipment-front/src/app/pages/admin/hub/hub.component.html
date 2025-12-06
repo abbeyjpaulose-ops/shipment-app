@@ -9,85 +9,112 @@
     <input [(ngModel)]="newHub.state" placeholder="State">
     <input [(ngModel)]="newHub.pinCode" placeholder="Pin Code">
     <input [(ngModel)]="newHub.GSTIN" placeholder="GSTIN" required>
-    <input [(ngModel)]="newHub.perRev" placeholder="% of revenue" required>
-    <button (click)="addHub()">+ Add Hub</button>
+    <input [(ngModel)]="newHub.phoneNum" placeholder="Phone Number" required>
+    <input [(ngModel)]="newHub.perRev" placeholder="% of Revenue" required>
+
+    <!-- Vehicles Section -->
+    <div class="vehicle-wrapper">
+      <label>Hub Vehicles & Driver Phones:</label>
+      <div *ngFor="let v of newHub.vehicles; let i=index" class="vehicle-row">
+        <input [(ngModel)]="v.vehicleNo" placeholder="Vehicle No">
+        <input [(ngModel)]="v.driverPhone" placeholder="Driver Phone">
+
+        <button *ngIf="newHub.vehicles.length > 1"
+                class="delete-btn"
+                (click)="removeVehicle(i)">
+          🗑️
+        </button>
+      </div>
+      <button class="add-vehicle-btn" (click)="addVehicle()">+ Add Vehicle</button>
+    </div>
+
+    <button class="add-btn" (click)="addHub()">+ Add Hub</button>
   </div>
 
-  <!-- Hubs List -->
+
+  <!-- List Hubs -->
   <div class="hubs-table-wrapper">
     <table>
       <tr>
         <th>Hub Name</th>
         <th>Address</th>
         <th>City</th>
-        <th>State</th>
-        <th>Pin</th>
+        <th>Phone</th>
         <th>GSTIN</th>
-        <th>% of revenue</th>
+        <th>Vehicles</th>
+        <th>% of Revenue</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
+
       <tr *ngFor="let h of hubs">
+
         <!-- Hub Name -->
         <td>
           <span *ngIf="editingHub?._id !== h._id">{{ h.hubName }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.hubName">
-          </div>
+          <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.hubName">
         </td>
 
         <!-- Address -->
         <td>
           <span *ngIf="editingHub?._id !== h._id">{{ h.address }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.address">
-          </div>
+          <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.address">
         </td>
 
         <!-- City -->
         <td>
           <span *ngIf="editingHub?._id !== h._id">{{ h.city }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.city">
-          </div>
+          <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.city">
         </td>
 
-        <!-- State -->
+        <!-- Phone Number -->
         <td>
-          <span *ngIf="editingHub?._id !== h._id">{{ h.state }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.state">
-          </div>
-        </td>
-
-        <!-- Pin Code -->
-        <td>
-          <span *ngIf="editingHub?._id !== h._id">{{ h.pinCode }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.pinCode">
-          </div>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.phoneNum }}</span>
+          <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.phoneNum">
         </td>
 
         <!-- GSTIN -->
         <td>
           <span *ngIf="editingHub?._id !== h._id">{{ h.GSTIN }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.GSTIN">
+          <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.GSTIN">
+        </td>
+
+        <!-- Vehicles List -->
+        <td>
+          <ng-container *ngIf="editingHub?._id !== h._id">
+            <div *ngFor="let v of h.vehicles">
+              🚛 {{ v.vehicleNo }} <br>
+              📞 {{ v.driverPhone }}
+            </div>
+          </ng-container>
+
+          <!-- Edit Mode Vehicle Section -->
+          <div *ngIf="editingHub?._id === h._id">
+            <div *ngFor="let v of editingHub.vehicles; let i=index" class="vehicle-row">
+              <input [(ngModel)]="v.vehicleNo" placeholder="Vehicle No">
+              <input [(ngModel)]="v.driverPhone" placeholder="Driver Phone">
+
+              <button *ngIf="editingHub.vehicles.length > 1"
+                      class="delete-btn"
+                      (click)="removeVehicleEdit(i)">
+                🗑️
+              </button>
+            </div>
+            <button class="add-vehicle-btn" (click)="addVehicleEdit()">+ Add Vehicle</button>
           </div>
         </td>
 
-        <!-- % of Revenue -->
+        <!-- Revenue -->
         <td>
-          <span *ngIf="editingHub?._id !== h._id">{{ h.perRev }}</span>
-          <div *ngIf="editingHub?._id === h._id" class="edit-field">
-            <input [(ngModel)]="editingHub.perRev">
-          </div>
+          <span *ngIf="editingHub?._id !== h._id">{{ h.perRev }}%</span>
+          <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.perRev">
         </td>
 
-        <!-- Status -->
+        <!-- Status Toggle -->
         <td>
-          <button (click)="toggleStatus(h)">
-            {{ h.status === 'active' ? 'Deactivate' : 'Activate' }}
+          <button (click)="toggleStatus(h)"
+                  [ngClass]="{ 'active-btn': h.status=='active', 'inactive-btn': h.status=='inactive' }">
+            {{ h.status === 'active' ? 'Active' : 'Inactive' }}
           </button>
         </td>
 
@@ -96,7 +123,9 @@
           <button *ngIf="editingHub?._id !== h._id" (click)="editHub(h)">Edit</button>
           <button *ngIf="editingHub?._id === h._id" (click)="saveEdit()">Save</button>
         </td>
+
       </tr>
     </table>
   </div>
+
 </div>

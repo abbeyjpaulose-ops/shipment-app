@@ -1,32 +1,22 @@
-.branches-container {
-  padding: 15px;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-.branches-table-wrapper {
-  overflow-x: auto;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th, td {
-  padding: 8px;
-  border: 1px solid #ddd;
-  vertical-align: top;
-}
-
-.edit-field {
+.contact-row,
+.compact-contact {
   display: flex;
-  flex-direction: column; /* stack input fields vertically */
+  gap: 6px;
 }
 
-.edit-field input {
-  width: 100%;       /* fit inside the cell */
-  max-width: 200px;  /* prevent pushing sidebar */
-  margin-bottom: 5px;
-  box-sizing: border-box;
+.delete-small {
+  background-color: #ffdddd;
+  border: 1px solid red;
+  padding: 2px 6px;
+  cursor: pointer;
 }
+
+.tiny-btn {
+  margin-top: 5px;
+  font-size: 12px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.active-btn { background:#3cb371; color:white; }
+.inactive-btn { background:#777; color:white; }
