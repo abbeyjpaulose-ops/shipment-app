@@ -2,6 +2,11 @@ import mongoose from 'mongoose';
 
 const TransportPartnerSchema = new mongoose.Schema({
   partnerName: { type: String, required: true },
+  address: { type: String, required: true },
+  city: { type: String },
+  state: { type: String },
+  pinCode: { type: String },
+  GSTIN: { type: String, required: true },
 
   vehicleNumbers: [
     {

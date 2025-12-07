@@ -6,6 +6,13 @@
 
     <input [(ngModel)]="newPartner.partnerName" placeholder="Partner Name" required>
 
+    <!-- Address Fields -->
+    <input [(ngModel)]="newPartner.address" placeholder="Address" required>
+    <input [(ngModel)]="newPartner.city" placeholder="City">
+    <input [(ngModel)]="newPartner.state" placeholder="State">
+    <input [(ngModel)]="newPartner.pinCode" placeholder="Pin Code">
+    <input [(ngModel)]="newPartner.GSTIN" placeholder="GSTIN" required>
+
     <!-- Vehicle Number + Phone -->
     <div class="vehicle-entry">
       <input [(ngModel)]="newVehicle.number" placeholder="Vehicle Number" required>
@@ -20,15 +27,17 @@
       <span class="delete-tag" (click)="removeVehicle(i)">✖</span>
     </div>
 
-    <!-- Rate -->
-    <select [(ngModel)]="newPartner.rateType" required>
-      <option value="km">Rate / Km</option>
-      <option value="day">Rate / Day</option>
-    </select>
+    <!-- Rate Section -->
+    <label>Rate Type:
+      <select [(ngModel)]="newPartner.rateType" required>
+        <option value="km">Rate / Km</option>
+        <option value="day">Rate / Day</option>
+      </select>
+    </label>
 
     <input type="number" [(ngModel)]="newPartner.rateValue" placeholder="Rate Value" required>
 
-    <!-- Email & Username (Auto from login saved in TS) -->
+    <!-- Email & Username Readonly -->
     <input [(ngModel)]="newPartner.email" placeholder="Email" readonly>
     <input [(ngModel)]="newPartner.username" placeholder="User" readonly>
 
@@ -41,9 +50,13 @@
     <table>
       <tr>
         <th>Partner Name</th>
-        <th>Vehicles & Phone</th>
-        <th>Rate Type</th>
-        <th>Rate Value</th>
+        <th>Address</th>
+        <th>City</th>
+        <th>State</th>
+        <th>Pin</th>
+        <th>GSTIN</th>
+        <th>Vehicles</th>
+        <th>Rate</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
@@ -53,14 +66,37 @@
         <!-- Partner Name -->
         <td>
           <span *ngIf="editing?._id !== p._id">{{ p.partnerName }}</span>
-          <div *ngIf="editing?._id === p._id" class="edit-field">
-            <input [(ngModel)]="editing.partnerName">
-          </div>
+          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.partnerName">
+        </td>
+
+        <!-- Address -->
+        <td>
+          <span *ngIf="editing?._id !== p._id">{{ p.address }}</span>
+          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.address">
+        </td>
+
+        <td>
+          <span *ngIf="editing?._id !== p._id">{{ p.city }}</span>
+          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.city">
+        </td>
+
+        <td>
+          <span *ngIf="editing?._id !== p._id">{{ p.state }}</span>
+          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.state">
+        </td>
+
+        <td>
+          <span *ngIf="editing?._id !== p._id">{{ p.pinCode }}</span>
+          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.pinCode">
+        </td>
+
+        <td>
+          <span *ngIf="editing?._id !== p._id">{{ p.GSTIN }}</span>
+          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.GSTIN">
         </td>
 
         <!-- Vehicles -->
         <td>
-
           <!-- Normal View -->
           <div *ngIf="editing?._id !== p._id">
             <div class="tag" *ngFor="let v of p.vehicleNumbers">
@@ -71,36 +107,36 @@
           <!-- Edit Mode -->
           <div *ngIf="editing?._id === p._id">
             <div class="tag-edit" *ngFor="let v of editing.vehicleNumbers; let i=index">
-              <input [(ngModel)]="editing.vehicleNumbers[i].number" placeholder="Veh">
-              <input [(ngModel)]="editing.vehicleNumbers[i].phone" placeholder="Phone">
+              <input [(ngModel)]="editing.vehicleNumbers[i].number">
+              <input [(ngModel)]="editing.vehicleNumbers[i].phone">
               <button (click)="removeEditingVehicle(i)">-</button>
             </div>
 
-            <!-- Add More Vehicle -->
-            <input [(ngModel)]="editVehicleField.number" placeholder="Veh">
+            <input [(ngModel)]="editVehicleField.number" placeholder="Vehicle">
             <input [(ngModel)]="editVehicleField.phone" placeholder="Phone">
-            <button class="tiny-btn" (click)="addEditingVehicle()">+ Veh</button>
+            <button (click)="addEditingVehicle()">+ Veh</button>
           </div>
-
         </td>
 
-        <!-- Rate Type -->
+        <!-- Rate -->
         <td>
-          <span *ngIf="editing?._id !== p._id">{{ p.rateType }}</span>
-          <select *ngIf="editing?._id === p._id" [(ngModel)]="editing.rateType">
-            <option value="km">Rate / Km</option>
-            <option value="day">Rate / Day</option>
-          </select>
+          <!-- View -->
+          <span *ngIf="editing?._id !== p._id">
+            {{ p.rateValue }} / 
+            {{ p.rateType === 'km' ? 'Km' : 'Day' }}
+          </span>
+
+          <!-- Edit -->
+          <div *ngIf="editing?._id === p._id">
+            <select [(ngModel)]="editing.rateType">
+              <option value="km">Rate / Km</option>
+              <option value="day">Rate / Day</option>
+            </select>
+            <input type="number" [(ngModel)]="editing.rateValue">
+          </div>
         </td>
 
-        <!-- Rate Value -->
-        <td>
-          <span *ngIf="editing?._id !== p._id">{{ p.rateValue }}</span>
-          <input *ngIf="editing?._id === p._id" type="number"
-                 [(ngModel)]="editing.rateValue">
-        </td>
-
-        <!-- Status -->
+        <!-- Status Toggle -->
         <td>
           <button
             [class.active]="p.status === 'active'"

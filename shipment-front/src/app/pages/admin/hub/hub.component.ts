@@ -11,7 +11,7 @@ import { FormsModule } from '@angular/forms';
   styleUrls: ['./hub.component.css']
 })
 export class HubComponent implements OnInit {
-  
+
   hubs: any[] = [];
 
   newHub: any = {
@@ -23,8 +23,13 @@ export class HubComponent implements OnInit {
     GSTIN: '',
     phoneNum: '',
     perRev: '',
-    vehicles: [
-      { vehicleNo: '', driverPhone: '' }
+    deliveryAddresses: [
+      {
+        location: '',
+        vehicles: [
+          { vehicleNo: '', driverPhone: '' }
+        ]
+      }
     ],
     status: 'active',
     email: localStorage.getItem('email'),
@@ -51,14 +56,6 @@ export class HubComponent implements OnInit {
       });
   }
 
-  addVehicle() {
-    this.newHub.vehicles.push({ vehicleNo: '', driverPhone: '' });
-  }
-
-  removeVehicle(index: number) {
-    this.newHub.vehicles.splice(index, 1);
-  }
-
   addHub() {
     this.http.post('http://localhost:3000/api/hubs/add', this.newHub)
       .subscribe({
@@ -69,7 +66,7 @@ export class HubComponent implements OnInit {
         },
         error: (err) => {
           console.error('Error saving hub:', err);
-          alert('Error: ' + err.error.message);
+          alert('Error: ' + err.error?.message);
         }
       });
   }
@@ -84,8 +81,13 @@ export class HubComponent implements OnInit {
       GSTIN: '',
       phoneNum: '',
       perRev: '',
-      vehicles: [
-        { vehicleNo: '', driverPhone: '' }
+      deliveryAddresses: [
+        {
+          location: '',
+          vehicles: [
+            { vehicleNo: '', driverPhone: '' }
+          ]
+        }
       ],
       status: 'active',
       email: localStorage.getItem('email'),
@@ -93,28 +95,78 @@ export class HubComponent implements OnInit {
     };
   }
 
+
+  /** 🔹 Add / Remove Address in Add Mode */
+  addAddress() {
+    this.newHub.deliveryAddresses.push({
+      location: '',
+      vehicles: [{ vehicleNo: '', driverPhone: '' }]
+    });
+  }
+
+  removeAddress(i: number) {
+    this.newHub.deliveryAddresses.splice(i, 1);
+  }
+
+
+  /** 🔹 Add / Remove Vehicles in Add Mode */
+  addVehicle(addrIndex: number) {
+    this.newHub.deliveryAddresses[addrIndex].vehicles.push({
+      vehicleNo: '', driverPhone: ''
+    });
+  }
+
+  removeVehicle(addrIndex: number, vIndex: number) {
+    this.newHub.deliveryAddresses[addrIndex].vehicles.splice(vIndex, 1);
+  }
+
+
+  /** 🔹 Edit Mode */
   editHub(hub: any) {
     this.editingHub = JSON.parse(JSON.stringify(hub)); // Deep clone
   }
 
-  addVehicleEdit() {
-    this.editingHub.vehicles.push({ vehicleNo: '', driverPhone: '' });
+  addAddressEdit() {
+    this.editingHub.deliveryAddresses.push({
+      location: '',
+      vehicles: [{ vehicleNo: '', driverPhone: '' }]
+    });
   }
 
-  removeVehicleEdit(index: number) {
-    this.editingHub.vehicles.splice(index, 1);
+  removeAddressEdit(i: number) {
+    this.editingHub.deliveryAddresses.splice(i, 1);
   }
+
+  addVehicleEdit(addrIndex: number) {
+    this.editingHub.deliveryAddresses[addrIndex].vehicles.push({
+      vehicleNo: '', driverPhone: ''
+    });
+  }
+
+  removeVehicleEdit(addrIndex: number, vIndex: number) {
+    this.editingHub.deliveryAddresses[addrIndex].vehicles.splice(vIndex, 1);
+  }
+
 
   saveEdit() {
     this.http.put(`http://localhost:3000/api/hubs/${this.editingHub._id}`, this.editingHub)
-      .subscribe(() => {
-        this.loadHubs();
-        this.editingHub = null;
+      .subscribe({
+        next: () => {
+          this.loadHubs();
+          this.editingHub = null;
+        },
+        error: (err) => alert("Update failed!")
       });
   }
 
+
+  /** 🔹 Toggle Active/Inactive */
   toggleStatus(hub: any) {
-    this.http.patch(`http://localhost:3000/api/hubs/${hub._id}/status`, {})
+    this.http.patch(
+      `http://localhost:3000/api/hubs/${hub._id}/status`,
+      { status: hub.status === 'active' ? 'inactive' : 'active' }
+    )
       .subscribe(() => this.loadHubs());
   }
+
 }
