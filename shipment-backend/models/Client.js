@@ -1,6 +1,18 @@
 // shipment-backend/models/Client.js
 import mongoose from 'mongoose';
 
+const DeliveryLocationSchema = new mongoose.Schema({
+  location: { type: String, required: true }
+});
+
+const ProductPricingSchema = new mongoose.Schema({
+  hsnNum: { type: String },
+  productName: { type: String },
+  ratePerNum: { type: Number, default: 0 },
+  ratePerVolume: { type: Number, default: 0 },
+  ratePerKg: { type: Number, default: 0 }
+});
+
 const ClientSchema = new mongoose.Schema({
   clientName: { type: String, required: true },
   address: { type: String, required: true },
@@ -10,16 +22,27 @@ const ClientSchema = new mongoose.Schema({
   GSTIN: { type: String, required: true },
   phoneNum: { type: String, required: true },
   perDis: { type: Number, required: true }, // percentage Discount
-  creditType: { type: String, enum: ['credit', 'no-credit'], default: 'no-credit' },
+
+  creditType: { type: String, enum: ['credit', 'no-credit'], default: 'no-credit' },  
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   branch: { type: String, required: true }, // branch name
-  email: { type: String, required: true },     // from logged-in user
-  username: { type: String, required: true },  // from logged-in user
+  email: { type: String, required: true },  // creator (logged-in user)
+  username: { type: String, required: true },
+
+  products: {
+    type: [ProductPricingSchema],
+    default: []
+  },
+
+  deliveryLocations: {
+    type: [DeliveryLocationSchema],
+    default: []
+  },
+
   createdAt: { type: Date, default: Date.now }
 });
 
-// Unique combo: clientName + address +email
+// Unique combo: clientName + branch + email
 ClientSchema.index({ clientName: 1, branch: 1, email: 1 }, { unique: true });
-
 
 export default mongoose.models.Client || mongoose.model('Client', ClientSchema);
