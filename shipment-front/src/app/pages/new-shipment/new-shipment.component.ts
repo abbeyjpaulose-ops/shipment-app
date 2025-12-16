@@ -72,7 +72,7 @@ export class NewShipmentComponent {
           number: '',
           value: 0,
           packages: [{ type: '', amount: 0 }],
-          products: [{ type: '', amount: 0, instock: 1, intransitstock: 0, deliveredstock: 0 }]
+          products: [{ type: '', amount: 1, instock: 1, intransitstock: 0, deliveredstock: 0 }]
         }
       ]
     }
@@ -142,8 +142,8 @@ export class NewShipmentComponent {
   addProduct(ewaybillIndex: number, invoiceIndex: number) {
     this.ewaybills[ewaybillIndex].invoices[invoiceIndex].products.push({
       type: '',
-      amount: 0,
-      instock: 0,
+      amount: 1,
+      instock: 1,
       intransitstock: 0,
       deliveredstock: 0
     });
@@ -189,8 +189,12 @@ export class NewShipmentComponent {
 
 
   getCurrentConsignmentNumber() {
+    if (!this.branch || this.branch === 'All Branches') {
+      this.consignmentNumber = '-999';
+      return;
+    }
     this.http.get<{ nextNumber: number, fiscalYear: string }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?emailId=${this.email}`
+      `http://localhost:3000/api/newshipments/nextConsignment?emailId=${this.email}&branch=${encodeURIComponent(this.branch)}`
     ).subscribe({
       next: (res) => {
         this.consignmentNumber = res.nextNumber.toString();
@@ -205,6 +209,10 @@ export class NewShipmentComponent {
   // SAVE SHIPMENT (NOW SAVES E-WAYBILLS)
   // ======================================================
   saveShipment() {
+    if (!this.ensureProductAmounts()) {
+      return;
+    }
+
     const shipmentData = {
       email: localStorage.getItem('email'),
       username: localStorage.getItem('username'),
@@ -290,6 +298,25 @@ export class NewShipmentComponent {
     } else {
       alert('Please select a branch before saving.');
     }
+  }
+
+  // Ensure every product has a positive quantity and sync instock with the entered amount
+  private ensureProductAmounts(): boolean {
+    for (const ewb of this.ewaybills) {
+      for (const inv of ewb.invoices || []) {
+        for (const prod of inv.products || []) {
+          if (!prod.amount || prod.amount <= 0) {
+            alert('Please enter a quantity greater than 0 for all products.');
+            return false;
+          }
+          // Keep instock aligned with the entered amount if user did not manually change it
+          if (!prod.instock || prod.instock <= 0) {
+            prod.instock = prod.amount;
+          }
+        }
+      }
+    }
+    return true;
   }
 
   // ======================================================

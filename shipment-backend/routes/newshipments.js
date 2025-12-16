@@ -20,12 +20,17 @@ router.post('/add', async (req, res) => {
 // Get next consignment number for a user (reset on April 1st)
 router.get("/nextConsignment", async (req, res) => {
   const emailId = req.query.emailId;
-  if (!emailId) {
-    return res.status(400).json({ message: "Missing emailId in query parameters" });
+  const branch = req.query.branch;
+
+  if (!emailId || !branch) {
+    return res.status(400).json({ message: "Missing emailId or branch in query parameters" });
+  }
+  if (branch === 'All Branches') {
+    return res.status(400).json({ message: "Please select a specific branch to fetch consignment number" });
   }
   try {
     
-    console.log("Fetching next consignment number for:", emailId);
+    console.log("Fetching next consignment number for:", emailId, "branch:", branch);
     
     // Get today's fiscal year (April 1 – March 31)
     const today = new Date();
@@ -38,6 +43,7 @@ router.get("/nextConsignment", async (req, res) => {
   {
     $match: {
       email: emailId,
+      branch,
       date: { $gte: fiscalYearStart, $lte: fiscalYearEnd }
     }
   },
@@ -62,7 +68,7 @@ console.log("CCCCCCCCCCCCCCConsignment Number (int):", lastShipment?.consignment
     if (lastShipment && lastShipment.consignmentNumber) {
       nextNumber = lastShipment.consignmentNumberInt + 1;
     }
-    console.log(`Next consignment number for ${emailId} in FY ${year}-${year + 1}:`, nextNumber);
+    console.log(`Next consignment number for ${emailId}/${branch} in FY ${year}-${year + 1}:`, nextNumber);
 
     res.json({ nextNumber, fiscalYear: `${year}-${year + 1}` });
   } catch (err) {

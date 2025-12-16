@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
+import { BranchService } from '../../../services/branch.service';
 
 @Component({
   selector: 'app-stocks',
@@ -10,7 +12,7 @@ import { HttpClient, provideHttpClient } from '@angular/common/http';
   templateUrl: './stocks.component.html',
   styleUrls: ['./stocks.component.css']
 })
-export class StocksComponent implements OnInit {
+export class StocksComponent implements OnInit, OnDestroy {
   stocks: any[] = [];
   filteredStocks: any[] = [];
   searchText = '';
@@ -69,12 +71,16 @@ shipmentStatusDetails: string = '';
 
 branches: any[] = [];
 hubs: any[] = [];
-availableRoutePoints: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
-shipmentRoute: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
-selectedRoutePoint: any = null;
+  availableRoutePoints: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
+  shipmentRoute: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
+  selectedRoutePoint: any = null;
+  private branchSub?: Subscription;
 
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private branchService: BranchService
+  ) {}
 
 
 
@@ -134,8 +140,8 @@ calculateFinalAmount() {
   loadStocks() {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
-        email: localStorage.getItem('email') || '',
-        branch: localStorage.getItem('branch') || ''
+        email: this.email || localStorage.getItem('email') || '',
+        branch: this.branch || localStorage.getItem('branch') || ''
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -147,29 +153,26 @@ calculateFinalAmount() {
         .sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
-        this.filteredStocks = [...this.stocks];
+        this.applyFilters();
       },
       error: (err: any) => console.error('❌ Error loading shipments:', err)
     });
   }
 
-    getInvoiceAmountTotal(invoices: any[]): number {
-  if (!invoices) return 0;
+  
 
-  return invoices.reduce((total, invoice) => {
-    const productSum = invoice.products?.reduce((sum: number, prod: any) => sum + (prod.amount || 0), 0) || 0;
-    return total + productSum;
-  }, 0);
-}
+  getProductTotal(ewaybills: any[], field: string): number {
+    let total = 0;
+    ewaybills.forEach(ewaybill => {
+      ewaybill.invoices.forEach((invoice: any) => {
+        invoice.products.forEach((product: any) => {
+          total += product[field] || 0;
+        });
+      });
+    });
+    return total;
+  }
 
-  getInStockAmountTotal(invoices: any[]): number {
-  if (!invoices) return 0;
-
-  return invoices.reduce((total, invoice) => {
-    const productSum = invoice.products?.reduce((sum: number, prod: any) => sum + (prod.instock || 0), 0) || 0;
-    return total + productSum;
-  }, 0);
-}
 
   applyFilters() {
     this.filteredStocks = this.stocks.filter(s =>
@@ -306,10 +309,14 @@ updateAvailableRoutePoints() {
 } 
 
   ngOnInit() {
-    this.loadStocks();
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
-    this.branch = localStorage.getItem('branch') || 'All Branches';  
+    this.branch = this.branchService.currentBranch;
+
+    this.branchSub = this.branchService.branch$.subscribe(branch => {
+      this.branch = branch;
+      this.loadStocks();
+    });
 
     // Clients list
     this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
@@ -350,6 +357,10 @@ updateAvailableRoutePoints() {
     
   }
 
+  ngOnDestroy(): void {
+    this.branchSub?.unsubscribe();
+  }
+
   
   showManifestationPopup = false;
   selectedForManifestation: any[] = [];
@@ -375,13 +386,18 @@ openManifestationPopup() {
     return;
   }
 
-  // Generate unique manifestation number
-  const now = new Date();
-  this.manifestationNumber =
-    'MF-' + now.getFullYear().toString().slice(2) +
-    (now.getMonth() + 1).toString().padStart(2, '0') +
-    now.getDate().toString().padStart(2, '0') +
-    '-' + Math.floor(Math.random() * 10000);
+  // Fetch the next sequential manifestation number from the backend (starts at 1)
+  this.manifestationNumber = '';
+  this.http.get<{ nextManifestationNumber: string }>(
+    'http://localhost:3000/api/manifest/next-number',
+    { params: { email: this.email, username: this.username } }
+  ).subscribe({
+    next: res => this.manifestationNumber = res.nextManifestationNumber || '1',
+    error: err => {
+      console.error('Error fetching next manifestation number:', err);
+      this.manifestationNumber = '1'; // fallback
+    }
+  });
 
   // Initialize manifestQty and eway bill fields
   this.selectedForManifestation = this.selectedForManifestation.map(consignment => {
@@ -412,16 +428,48 @@ closeManifestationPopup() {
   this.showManifestationPopup = false;
 }
 
-finalizeManifestation() {
-  if (this.selectedForManifestation.length === 0) {
-    alert('No consignments selected.');
-    return;
-  }
+  finalizeManifestation() { 
+    if (this.selectedForManifestation.length === 0) {
+      alert('No consignments selected.');
+      return;
+    }
 
   // Convert route points to a travel pattern string
   const routeString = this.shipmentRoute.map(p => `${p.name} (${p.type})`).join(' -> ');
-  console.log('🛤️ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTravel Pattern:', routeString);
+  console.log('🛤️ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTravel Pattern:', this.selectedForManifestation);
 
+
+  const consignmentsPayload = this.selectedForManifestation.map(c => ({
+    consignmentNumber: c.consignmentNumber,
+    consignor: c.consignor,
+    routes: routeString,
+    ewaybills: (c.ewaybills || []).map((s: any) => ({
+      number: s.number || s.ewaybillNumber || '',
+      ewaybillNumber: s.ewaybillNumber || s.number || '',
+      invoices: (s.invoices || []).map((inv: any) => {
+        const products = (inv.products || []).map((p: any) => {
+          const manifestQty = Number(p.manifestQty) || 0;
+          const currentInstock = Number(p.instock) || 0;
+          const newInstock = Math.max(0, currentInstock - manifestQty);
+          const newInTransit = (Number(p.intransitstock) || 0) + manifestQty;
+          return {
+            ...p,
+            type: p.type,
+            instock: newInstock,
+            intransitstock: newInTransit,
+            amount: Number(p.amount) || 0,
+            manifestQty
+          };
+        });
+        return {
+          number: inv.number || inv.invoicenum || '',
+          invoicenum: inv.invoicenum || inv.number || '',
+          value: Number(inv.value) || 0,
+          products
+        };
+      })
+    }))
+  }));
 
   const manifestationData = {
     email: this.email,
@@ -429,21 +477,7 @@ finalizeManifestation() {
     branch: this.branch,
     manifestationNumber: this.manifestationNumber,
     date: new Date(),
-    consignments: this.selectedForManifestation.map(c => ({
-      consignmentNumber: c.consignmentNumber,
-      consignor: c.consignor,
-      routes: routeString,
-      invoices: c.invoices.map((inv: any) => ({
-        number: inv.number,
-        value: inv.value,
-        products: inv.products.map((p: any) => ({
-          type: p.type,
-          instock: p.instock,
-          amount: p.amount,
-          manifestQty: p.manifestQty
-        }))
-      }))
-    }))
+    consignments: consignmentsPayload
   };
 
   console.log('📦 Sending manifestation to backend:', manifestationData);
@@ -454,11 +488,12 @@ finalizeManifestation() {
     next: (res: any) => {
       console.log('✅ Manifestation saved successfully:', res);
       console.log('testttttt', manifestationData);
-      window.location.reload();
+      this.showManifestationPopup = false;
+      this.loadStocks(); // refresh list so instock reflects backend update
     },
     error: (err) => {
-      console.error('❌ Error saving manifestation:', err);
-      alert('Failed to save manifestation. Check server logs.');
+      console.error('❌ Error saving manifestation:', err.message);
+      alert('Failed to save manifestation. Check server logs. ' + err.message);
     }
   });
 }
