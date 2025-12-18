@@ -32,22 +32,30 @@
       </ul>
 
       <!-- Admin -->
-      <li class="menu-item" (click)="toggleMenu('admin')">
-        <span><i class="fas fa-user-shield"></i> Admin</span>
-        <i class="fas fa-caret-down"></i>
-      </li>
-      <ul *ngIf="showAdmin" class="submenu">
-        <li><a routerLink="Clients">Clients</a></li>
-        <li><a routerLink="Guests">Guests</a></li>
-        <li><a routerLink="Branches">Branches</a></li>
-        <li><a routerLink="Hubs">Hubs</a></li>
-        <li><a routerLink="Tpartners">Transport Partners</a></li>
-        <li><a routerLink="Users">Users</a></li>
-        <li><a routerLink="Categories">Categories</a></li>
-        <li><a routerLink="Pkgs">Packages</a></li>
-        <li><a routerLink="Products">Products</a></li>
-        <li *ngIf="isAdmin"><a routerLink="RoleSettings">Roles Settings</a></li>
-      </ul>
+      <ng-container *ngIf="isAdmin; else noAdminMenu">
+        <li class="menu-item" (click)="toggleMenu('admin')">
+          <span><i class="fas fa-user-shield"></i> Admin</span>
+          <i class="fas fa-caret-down"></i>
+        </li>
+        <ul *ngIf="showAdmin" class="submenu">
+          <li><a routerLink="Clients">Clients</a></li>
+          <li><a routerLink="Guests">Guests</a></li>
+          <li><a routerLink="Branches">Branches</a></li>
+          <li><a routerLink="Hubs">Hubs</a></li>
+          <li><a routerLink="Tpartners">Transport Partners</a></li>
+          <li><a routerLink="Users">Users</a></li>
+          <li><a routerLink="Categories">Categories</a></li>
+          <li><a routerLink="Pkgs">Packages</a></li>
+          <li><a routerLink="Products">Products</a></li>
+          <li><a routerLink="RoleSettings">Roles Settings</a></li>
+        </ul>
+      </ng-container>
+
+      <ng-template #noAdminMenu>
+        <li class="menu-item" style="opacity: 0.55; cursor: not-allowed;">
+          <span><i class="fas fa-user-shield"></i> Admin (No privileges)</span>
+        </li>
+      </ng-template>
 
       <!-- Settings -->
       <li class="menu-item" (click)="toggleMenu('settings')">

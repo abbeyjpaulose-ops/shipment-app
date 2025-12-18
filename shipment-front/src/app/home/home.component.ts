@@ -59,7 +59,7 @@ export class HomeComponent implements OnInit {
 
   toggleMenu(menu: string) {
     if (menu === 'shipments') this.showShipments = !this.showShipments;
-    if (menu === 'admin') this.showAdmin = !this.showAdmin;
+    if (menu === 'admin' && this.isAdmin) this.showAdmin = !this.showAdmin;
     if (menu === 'settings') this.showSettings = !this.showSettings;
     if (menu === 'profile') this.showProfile = !this.showProfile;
   }
