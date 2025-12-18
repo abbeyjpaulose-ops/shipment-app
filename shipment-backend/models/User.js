@@ -11,7 +11,7 @@ const UserSchema = new mongoose.Schema(
   {
     // Primary key: auto-generated numeric GSTIN_ID (stored in _id).
     _id: { type: Number, alias: 'GSTIN_ID' },
-    GSTIN: { type: String, required: true, unique: true, trim: true },
+    GSTIN: { type: String, required: true, unique: true, trim: true, uppercase: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     username: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
@@ -19,7 +19,16 @@ const UserSchema = new mongoose.Schema(
     companyName: { type: String, trim: true },
     companyType: { type: String, trim: true },
     phoneNumber: { type: String, trim: true },
-    billingAddress: { type: String, trim: true }
+    billingAddress: { type: String, trim: true },
+
+    // Future: GST verification integration (optional metadata).
+    gstVerification: {
+      status: { type: String },
+      verified: { type: Boolean, default: false },
+      verifiedAt: { type: Date },
+      provider: { type: String },
+      referenceId: { type: String }
+    }
   },
   { timestamps: true }
 );

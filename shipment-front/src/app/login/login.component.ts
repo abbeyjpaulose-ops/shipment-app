@@ -27,6 +27,7 @@ export class LoginComponent {
         const role = res.role;
         const token = res.token;
         const branch = res.branch;
+        const branches = res.branches;
         const gstin = res.GSTIN;
         const gstinId = res.GSTIN_ID;
         localStorage.setItem('username', username);
@@ -35,6 +36,7 @@ export class LoginComponent {
         if (token) localStorage.setItem('token', token);
         if (gstin) localStorage.setItem('GSTIN', gstin);
         if (gstinId !== undefined && gstinId !== null) localStorage.setItem('GSTIN_ID', String(gstinId));
+        if (Array.isArray(branches)) localStorage.setItem('branches', JSON.stringify(branches));
         const isAdmin = String(role || '').toLowerCase() === 'admin';
         if (branch) {
           localStorage.setItem('branch', branch);

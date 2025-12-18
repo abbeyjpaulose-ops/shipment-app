@@ -18,7 +18,7 @@ export class RoleSettingsComponent implements OnInit {
   users: any[] = [];
 
   newUser = {
-    branch: '',
+    branches: [] as string[],
     email: '',
     username: '',
     password: '',
@@ -27,7 +27,7 @@ export class RoleSettingsComponent implements OnInit {
 
   editId: number | null = null;
   editUser = {
-    branch: '',
+    branches: [] as string[],
     email: '',
     username: '',
     password: '',
@@ -68,7 +68,7 @@ export class RoleSettingsComponent implements OnInit {
 
   onNewRoleChange() {
     if (String(this.newUser.role).toLowerCase() === 'admin') {
-      this.newUser.branch = 'All Branches';
+      this.newUser.branches = ['All Branches'];
     }
   }
 
@@ -77,15 +77,15 @@ export class RoleSettingsComponent implements OnInit {
       alert('Email, username, and password are required');
       return;
     }
-    if (String(this.newUser.role).toLowerCase() !== 'admin' && !this.newUser.branch) {
-      alert('Branch is required');
+    if (String(this.newUser.role).toLowerCase() !== 'admin' && !this.newUser.branches.length) {
+      alert('At least one branch is required');
       return;
     }
 
     this.http.post('http://localhost:3000/api/admin/users', this.newUser)
       .subscribe({
         next: () => {
-          this.newUser = { branch: '', email: '', username: '', password: '', role: 'user' };
+          this.newUser = { branches: [], email: '', username: '', password: '', role: 'user' };
           this.loadUsers();
         },
         error: (err) => {
@@ -97,7 +97,7 @@ export class RoleSettingsComponent implements OnInit {
   startEdit(row: any) {
     this.editId = Number(row?._id);
     this.editUser = {
-      branch: row?.branch || '',
+      branches: Array.isArray(row?.branches) ? row.branches : (row?.branch ? [row.branch] : []),
       email: row?.email || '',
       username: row?.username || '',
       password: '',
@@ -107,12 +107,12 @@ export class RoleSettingsComponent implements OnInit {
 
   cancelEdit() {
     this.editId = null;
-    this.editUser = { branch: '', email: '', username: '', password: '', role: 'user' };
+    this.editUser = { branches: [], email: '', username: '', password: '', role: 'user' };
   }
 
   onEditRoleChange() {
     if (String(this.editUser.role).toLowerCase() === 'admin') {
-      this.editUser.branch = 'All Branches';
+      this.editUser.branches = ['All Branches'];
     }
   }
 
@@ -120,7 +120,7 @@ export class RoleSettingsComponent implements OnInit {
     if (this.editId === null) return;
 
     const payload: any = {
-      branch: this.editUser.branch,
+      branches: this.editUser.branches,
       email: this.editUser.email,
       username: this.editUser.username,
       role: this.editUser.role

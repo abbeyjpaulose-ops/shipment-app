@@ -24,17 +24,36 @@ export class HomeComponent implements OnInit {
   showProfile = false;
 
   // Branch data
-  branches: any[] = [];
+  branchOptions: string[] = [];
   selectedBranch: string = localStorage.getItem('branch') || '';
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    if (this.isAdmin && this.username && this.email) {
-      this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${this.username}?email=${this.email}`)
+    if (this.isAdmin && this.username) {
+      this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${this.username}`)
         .subscribe(data => {
-          this.branches = data;
+          const names = (data || []).map((b: any) => b.branchName).filter(Boolean);
+          this.branchOptions = names;
         });
+      if (!this.selectedBranch) {
+        this.selectedBranch = 'All Branches';
+        localStorage.setItem('branch', this.selectedBranch);
+      }
+      return;
+    }
+
+    // Non-admin: use branches assigned in Profile (stored at login).
+    try {
+      const stored = JSON.parse(localStorage.getItem('branches') || '[]');
+      if (Array.isArray(stored)) this.branchOptions = stored;
+    } catch {
+      this.branchOptions = [];
+    }
+
+    if (!this.selectedBranch && this.branchOptions.length) {
+      this.selectedBranch = this.branchOptions[0];
+      localStorage.setItem('branch', this.selectedBranch);
     }
   }
 

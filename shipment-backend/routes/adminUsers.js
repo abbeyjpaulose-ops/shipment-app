@@ -35,6 +35,7 @@ router.post('/', async (req, res) => {
     const password = String(req.body.password || '');
     const role = normalizeText(req.body.role) || 'user';
     const branchInput = normalizeText(req.body.branch);
+    const branchesInput = Array.isArray(req.body.branches) ? req.body.branches : null;
 
     if (!email || !username || !password) {
       return res.status(400).json({ message: 'email, username, and password are required' });
@@ -44,12 +45,21 @@ router.post('/', async (req, res) => {
     if (existing) return res.status(409).json({ message: 'User already exists for this email' });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const branch = String(role).toLowerCase() === 'admin' ? 'All Branches' : branchInput;
-    if (!branch) return res.status(400).json({ message: 'branch is required' });
+
+    let branches =
+      branchesInput?.map((b) => normalizeText(b)).filter(Boolean) ||
+      (branchInput ? [branchInput] : []);
+
+    if (String(role).toLowerCase() === 'admin') {
+      branches = ['All Branches'];
+    }
+
+    if (!branches.length) return res.status(400).json({ message: 'branches is required' });
 
     const profile = await Profile.create({
       GSTIN_ID: gstinId,
-      branch,
+      branches,
+      branch: branches[0],
       email,
       username,
       passwordHash,
@@ -77,13 +87,22 @@ router.put('/:id', async (req, res) => {
     if (req.body.role !== undefined) update.role = normalizeText(req.body.role) || 'user';
 
     const role = update.role;
-    if (req.body.branch !== undefined) {
-      update.branch =
-        String(role || '').toLowerCase() === 'admin'
-          ? 'All Branches'
-          : normalizeText(req.body.branch);
-    } else if (String(role || '').toLowerCase() === 'admin') {
+    const isAdminRole = String(role || '').toLowerCase() === 'admin';
+
+    if (req.body.branches !== undefined) {
+      const branchesInput = Array.isArray(req.body.branches) ? req.body.branches : [];
+      update.branches = branchesInput.map((b) => normalizeText(b)).filter(Boolean);
+    } else if (req.body.branch !== undefined) {
+      update.branches = [normalizeText(req.body.branch)].filter(Boolean);
+    }
+
+    if (isAdminRole) {
+      update.branches = ['All Branches'];
       update.branch = 'All Branches';
+    } else {
+      if (update.branches && update.branches.length) {
+        update.branch = update.branches[0];
+      }
     }
 
     if (req.body.password) {

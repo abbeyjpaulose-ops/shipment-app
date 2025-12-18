@@ -41,6 +41,12 @@ router.post('/login', async (req, res) => {
         : accountType === 'profile'
           ? account.branch
           : 'All Branches';
+    const branches =
+      String(account.role || '').toLowerCase() === 'admin'
+        ? ['All Branches']
+        : accountType === 'profile'
+          ? (Array.isArray(account.branches) && account.branches.length ? account.branches : (account.branch ? [account.branch] : []))
+          : ['All Branches'];
 
     let gstin = accountType === 'user' ? account.GSTIN : null;
     if (!gstin) {
@@ -68,6 +74,7 @@ router.post('/login', async (req, res) => {
       email: account.email,
       accountType,
       branch,
+      branches,
       GSTIN_ID: gstinId,
       GSTIN: gstin
     });

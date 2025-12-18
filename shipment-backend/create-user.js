@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
 import User from './models/User.js';
 import Profile from './models/Profile.js';
+import { ensureGSTINVerifiedOrThrow, normalizeGSTIN } from './services/gstVerification.js';
 
 dotenv.config();
 
@@ -58,18 +59,21 @@ const main = async () => {
       process.exit(1);
     }
 
+    const verification = await ensureGSTINVerifiedOrThrow(gstin);
+    const normalizedGSTIN = verification.normalizedGSTIN || normalizeGSTIN(gstin);
+
     const email = normalizeEmail(adminEmailArg);
     const username = normalizeUsername(adminUsernameArg);
     const passwordHash = await bcrypt.hash(adminPassword, 10);
 
-    const existingCompany = await User.findOne({ $or: [{ GSTIN: gstin }, { email }] });
+    const existingCompany = await User.findOne({ $or: [{ GSTIN: normalizedGSTIN }, { email }] });
     if (existingCompany) {
       console.error('Company already exists for this GSTIN/email');
       process.exit(1);
     }
 
     const user = await User.create({
-      GSTIN: gstin,
+      GSTIN: normalizedGSTIN,
       email,
       username,
       passwordHash,
@@ -77,11 +81,19 @@ const main = async () => {
       companyName: normalizeText(companyNameArg),
       companyType: normalizeText(companyTypeArg),
       phoneNumber: normalizeText(phoneNumberArg),
-      billingAddress: normalizeText(billingAddressArg)
+      billingAddress: normalizeText(billingAddressArg),
+      gstVerification: {
+        status: verification.status,
+        verified: Boolean(verification.verified),
+        verifiedAt: verification.verified ? new Date() : undefined,
+        provider: process.env.GST_VERIFY_PROVIDER || undefined,
+        referenceId: verification.referenceId
+      }
     });
 
     const profile = await Profile.create({
       GSTIN_ID: user._id,
+      branches: ['All Branches'],
       branch: 'All Branches',
       email,
       username,
@@ -128,12 +140,18 @@ const main = async () => {
     }
 
     const passwordHash = await bcrypt.hash(password, 10);
-    const branch =
-      String(role).toLowerCase() === 'admin' ? 'All Branches' : normalizeText(branchArg);
+    const isAdmin = String(role).toLowerCase() === 'admin';
+    const branches = isAdmin
+      ? ['All Branches']
+      : normalizeText(branchArg)
+          .split(',')
+          .map((b) => normalizeText(b))
+          .filter(Boolean);
 
     const profile = await Profile.create({
       GSTIN_ID: company._id,
-      branch,
+      branches,
+      branch: branches[0],
       email,
       username,
       passwordHash,
@@ -146,7 +164,7 @@ const main = async () => {
       user_id: profile._id,
       email,
       role,
-      branch
+      branches
     });
     return;
   }

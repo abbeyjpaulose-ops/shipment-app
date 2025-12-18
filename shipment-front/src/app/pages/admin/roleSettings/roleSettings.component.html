@@ -31,10 +31,13 @@
 
       <div>
         <label>Branch</label>
-        <select [(ngModel)]="newUser.branch" [disabled]="newUser.role === 'admin'" style="width: 100%;">
-          <option value="">Select branch</option>
-          <option value="All Branches">All Branches</option>
-          <option *ngFor="let b of branches" [value]="b.branchName">{{ b.branchName }}</option>
+        <select
+          multiple
+          [(ngModel)]="newUser.branches"
+          [disabled]="newUser.role === 'admin'"
+          style="width: 100%; min-height: 80px;"
+        >
+          <option *ngFor="let b of branches" [ngValue]="b.branchName">{{ b.branchName }}</option>
         </select>
       </div>
 
@@ -63,7 +66,7 @@
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.email }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.username }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.role }}</td>
-          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.branch }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ (u.branches && u.branches.length) ? u.branches.join(', ') : u.branch }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
             <button (click)="startEdit(u)">Edit</button>
             <button (click)="deleteUser(u._id)" style="margin-left: 6px;">Delete</button>
@@ -85,9 +88,13 @@
             </select>
           </td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
-            <select [(ngModel)]="editUser.branch" [disabled]="editUser.role === 'admin'" style="width: 100%;">
-              <option value="All Branches">All Branches</option>
-              <option *ngFor="let b of branches" [value]="b.branchName">{{ b.branchName }}</option>
+            <select
+              multiple
+              [(ngModel)]="editUser.branches"
+              [disabled]="editUser.role === 'admin'"
+              style="width: 100%; min-height: 80px;"
+            >
+              <option *ngFor="let b of branches" [ngValue]="b.branchName">{{ b.branchName }}</option>
             </select>
             <div style="margin-top: 6px;">
               <input [(ngModel)]="editUser.password" type="password" placeholder="new password (optional)" style="width: 100%;" />
