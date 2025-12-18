@@ -4,9 +4,12 @@
       <h3><i class="fas fa-user-circle"></i> Welcome, {{ username }}, {{ email }}</h3>
  
       <!-- Branch Dropdown --> 
-      <select [(ngModel)]="selectedBranch" (change)="onBranchChange($event)"> 
-        <option value="All Branches">All Branches</option> 
-        <option *ngFor="let b of branches" [value]="b.branchName">{{ b.branchName }}</option>
+      <select [(ngModel)]="selectedBranch" (change)="onBranchChange($event)" [disabled]="!isAdmin"> 
+        <option *ngIf="isAdmin" value="All Branches">All Branches</option>
+        <option *ngIf="!isAdmin" [value]="selectedBranch">{{ selectedBranch }}</option>
+        <ng-container *ngIf="isAdmin">
+          <option *ngFor="let b of branches" [value]="b.branchName">{{ b.branchName }}</option>
+        </ng-container>
       </select>
  
     </div>
@@ -42,7 +45,7 @@
         <li><a routerLink="Categories">Categories</a></li>
         <li><a routerLink="Pkgs">Packages</a></li>
         <li><a routerLink="Products">Products</a></li>
-        <li><a routerLink="RoleSettings">Roles Settings</a></li>
+        <li *ngIf="isAdmin"><a routerLink="RoleSettings">Roles Settings</a></li>
       </ul>
 
       <!-- Settings -->

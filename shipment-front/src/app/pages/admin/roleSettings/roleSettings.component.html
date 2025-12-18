@@ -1,1 +1,109 @@
-<h2>rolesetting</h2>
+<ng-container *ngIf="isAdmin; else noPrivileges">
+  <h2>Roles Settings</h2>
+  <p>Create/manage users for this company here.</p>
+
+  <div style="margin: 12px 0; padding: 12px; border: 1px solid #ddd; border-radius: 8px;">
+    <h3 style="margin-top: 0;">Add User</h3>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+      <div>
+        <label>Email</label>
+        <input [(ngModel)]="newUser.email" placeholder="user@example.com" style="width: 100%;" />
+      </div>
+
+      <div>
+        <label>Username</label>
+        <input [(ngModel)]="newUser.username" placeholder="username" style="width: 100%;" />
+      </div>
+
+      <div>
+        <label>Password</label>
+        <input [(ngModel)]="newUser.password" type="password" placeholder="password" style="width: 100%;" />
+      </div>
+
+      <div>
+        <label>Role</label>
+        <select [(ngModel)]="newUser.role" (change)="onNewRoleChange()" style="width: 100%;">
+          <option value="user">User</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Branch</label>
+        <select [(ngModel)]="newUser.branch" [disabled]="newUser.role === 'admin'" style="width: 100%;">
+          <option value="">Select branch</option>
+          <option value="All Branches">All Branches</option>
+          <option *ngFor="let b of branches" [value]="b.branchName">{{ b.branchName }}</option>
+        </select>
+      </div>
+
+      <div>
+        <button (click)="createUser()" style="width: 100%;">Add</button>
+      </div>
+    </div>
+  </div>
+
+  <h3>Users</h3>
+  <table style="width: 100%; border-collapse: collapse;">
+    <thead>
+      <tr>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">User ID</th>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Email</th>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Username</th>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Role</th>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Branch</th>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let u of users">
+        <ng-container *ngIf="editId !== u._id; else editRow">
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u._id }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.email }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.username }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.role }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.branch }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <button (click)="startEdit(u)">Edit</button>
+            <button (click)="deleteUser(u._id)" style="margin-left: 6px;">Delete</button>
+          </td>
+        </ng-container>
+
+        <ng-template #editRow>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u._id }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <input [(ngModel)]="editUser.email" style="width: 100%;" />
+          </td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <input [(ngModel)]="editUser.username" style="width: 100%;" />
+          </td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <select [(ngModel)]="editUser.role" (change)="onEditRoleChange()" style="width: 100%;">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <select [(ngModel)]="editUser.branch" [disabled]="editUser.role === 'admin'" style="width: 100%;">
+              <option value="All Branches">All Branches</option>
+              <option *ngFor="let b of branches" [value]="b.branchName">{{ b.branchName }}</option>
+            </select>
+            <div style="margin-top: 6px;">
+              <input [(ngModel)]="editUser.password" type="password" placeholder="new password (optional)" style="width: 100%;" />
+            </div>
+          </td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <button (click)="saveEdit()">Save</button>
+            <button (click)="cancelEdit()" style="margin-left: 6px;">Cancel</button>
+          </td>
+        </ng-template>
+      </tr>
+    </tbody>
+  </table>
+</ng-container>
+
+<ng-template #noPrivileges>
+  <h2>No privileges</h2>
+  <p>Only admins can access Roles Settings.</p>
+</ng-template>

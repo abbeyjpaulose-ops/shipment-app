@@ -11,7 +11,6 @@ import { FormsModule } from '@angular/forms';
   styleUrls: ['./branch.component.css']
 })
 export class BranchComponent implements OnInit {
-
   branches: any[] = [];
 
   newBranch: any = {
@@ -20,14 +19,9 @@ export class BranchComponent implements OnInit {
     city: '',
     state: '',
     pinCode: '',
-    GSTIN: '',
     phoneNum: '',
-    vehicles: [
-      { vehicleNo: '', driverPhone: '' }
-    ],
-    status: 'active',
-    email: localStorage.getItem('email'),
-    username: localStorage.getItem('username')
+    vehicles: [{ vehicleNo: '', driverPhone: '' }],
+    status: 'active'
   };
 
   editingBranch: any = null;
@@ -40,54 +34,80 @@ export class BranchComponent implements OnInit {
 
   // Load Branches
   loadBranches() {
-    const email = localStorage.getItem('email');
-    this.http.get<any[]>(`http://localhost:3000/api/branches?email=${email}`)
-      .subscribe({
-        next: (data) => {
-          console.log("Branches Loaded:", data);
-          this.branches = data;
-        },
-        error: (err) => console.error("Error loading branches:", err)
-      });
+    this.http.get<any[]>(`http://localhost:3000/api/branches`).subscribe({
+      next: (data) => {
+        this.branches = data;
+      },
+      error: (err) => console.error('Error loading branches:', err)
+    });
   }
 
-  // ➕ Add Vehicle in Add Form
+  // Add Vehicle in Add Form
   addVehicle() {
     this.newBranch.vehicles.push({ vehicleNo: '', driverPhone: '' });
   }
 
-  // ❌ Remove Vehicle in Add Form
+  // Remove Vehicle in Add Form
   removeVehicle(index: number) {
     this.newBranch.vehicles.splice(index, 1);
   }
 
-  // ➕ Add Vehicle while Editing
+  // Add Vehicle while Editing
   addVehicleEdit() {
     this.editingBranch.vehicles.push({ vehicleNo: '', driverPhone: '' });
   }
 
-  // ❌ Remove Vehicle while Editing
+  // Remove Vehicle while Editing
   removeVehicleEdit(index: number) {
     this.editingBranch.vehicles.splice(index, 1);
   }
 
   // Add Branch
   addBranch() {
-    console.log('📤 Sending Branch:', this.newBranch);
+    if (!this.newBranch.branchName || !this.newBranch.address || !this.newBranch.phoneNum) {
+      alert('Branch Name, Address, and Branch Phone are required.');
+      return;
+    }
 
-    this.http.post('http://localhost:3000/api/branches/add', this.newBranch, {
-      headers: { 'Content-Type': 'application/json' }
-    }).subscribe({
-      next: () => {
-        alert('Branch added successfully!');
-        this.loadBranches();
-        this.resetNewBranch();
-      },
-      error: (err) => {
-        console.error('❌ Error saving branch:', err);
-        alert('Error: ' + err.error.message);
-      }
-    });
+    const hasIncompleteVehicle =
+      Array.isArray(this.newBranch.vehicles) &&
+      this.newBranch.vehicles.some(
+        (v: any) => (v?.vehicleNo || v?.driverPhone) && !(v?.vehicleNo && v?.driverPhone)
+      );
+    if (hasIncompleteVehicle) {
+      alert('Each vehicle must have both Vehicle No. and Driver Phone (or leave the row empty).');
+      return;
+    }
+
+    const vehicles = Array.isArray(this.newBranch.vehicles)
+      ? this.newBranch.vehicles.filter((v: any) => v?.vehicleNo && v?.driverPhone)
+      : [];
+
+    const payload = {
+      branchName: this.newBranch.branchName,
+      address: this.newBranch.address,
+      city: this.newBranch.city,
+      state: this.newBranch.state,
+      pinCode: this.newBranch.pinCode,
+      phoneNum: this.newBranch.phoneNum,
+      vehicles
+    };
+
+    this.http
+      .post('http://localhost:3000/api/branches/add', payload, {
+        headers: { 'Content-Type': 'application/json' }
+      })
+      .subscribe({
+        next: () => {
+          alert('Branch added successfully!');
+          this.loadBranches();
+          this.resetNewBranch();
+        },
+        error: (err) => {
+          console.error('Error saving branch:', err);
+          alert('Error: ' + (err?.error?.message || err?.message || 'Bad Request'));
+        }
+      });
   }
 
   // Reset Form
@@ -98,14 +118,9 @@ export class BranchComponent implements OnInit {
       city: '',
       state: '',
       pinCode: '',
-      GSTIN: '',
       phoneNum: '',
-      vehicles: [
-        { vehicleNo: '', driverPhone: '' }
-      ],
-      status: 'active',
-      email: localStorage.getItem('email'),
-      username: localStorage.getItem('username')
+      vehicles: [{ vehicleNo: '', driverPhone: '' }],
+      status: 'active'
     };
   }
 
@@ -116,28 +131,24 @@ export class BranchComponent implements OnInit {
 
   // Save Edited Branch
   saveEdit() {
-    this.http.put(`http://localhost:3000/api/branches/${this.editingBranch._id}`, this.editingBranch)
-      .subscribe({
-        next: () => {
-          alert('Branch updated successfully!');
-          this.editingBranch = null;
-          this.loadBranches();
-        },
-        error: (err) => {
-          console.error('❌ Error updating branch:', err);
-          alert('Error: ' + err.error.message);
-        }
-      });
+    this.http.put(`http://localhost:3000/api/branches/${this.editingBranch._id}`, this.editingBranch).subscribe({
+      next: () => {
+        alert('Branch updated successfully!');
+        this.editingBranch = null;
+        this.loadBranches();
+      },
+      error: (err) => {
+        console.error('Error updating branch:', err);
+        alert('Error: ' + (err?.error?.message || err?.message || 'Bad Request'));
+      }
+    });
   }
 
   // Toggle Status Active / Inactive
   toggleStatus(branch: any) {
-    const email = localStorage.getItem('email');
-    this.http.patch(
-      `http://localhost:3000/api/branches/${branch._id}/status?email=${email}`,
-      {}
-    ).subscribe(() => {
+    this.http.patch(`http://localhost:3000/api/branches/${branch._id}/status`, {}).subscribe(() => {
       this.loadBranches();
     });
   }
 }
+

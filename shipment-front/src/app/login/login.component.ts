@@ -24,20 +24,23 @@ export class LoginComponent {
       next: (res: any) => {
         const username = res.username;
         const email = res.email;
+        const role = res.role;
+        const token = res.token;
+        const branch = res.branch;
+        const gstin = res.GSTIN;
+        const gstinId = res.GSTIN_ID;
         localStorage.setItem('username', username);
         localStorage.setItem('email', email);
-        localStorage.setItem('branch', 'All Branches');
-
-
-        this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
-        .subscribe({
-          next: (data) => {
- 
-            localStorage.setItem('companyType', data[0].businessType || '');
-             
-          },
-          error: (err) => console.error("Error loading products:", err)
-        });
+        if (role) localStorage.setItem('role', role);
+        if (token) localStorage.setItem('token', token);
+        if (gstin) localStorage.setItem('GSTIN', gstin);
+        if (gstinId !== undefined && gstinId !== null) localStorage.setItem('GSTIN_ID', String(gstinId));
+        const isAdmin = String(role || '').toLowerCase() === 'admin';
+        if (branch) {
+          localStorage.setItem('branch', branch);
+        } else {
+          localStorage.setItem('branch', isAdmin ? 'All Branches' : '');
+        }
 
         console.log('✅ Login successful for user:', localStorage.getItem('companyType'));        
 

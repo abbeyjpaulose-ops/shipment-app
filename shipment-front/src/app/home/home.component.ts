@@ -14,6 +14,8 @@ import { HttpClient } from '@angular/common/http';
 export class HomeComponent implements OnInit {
   username: string | null = localStorage.getItem('username');
   email: string | null = localStorage.getItem('email');
+  role: string | null = localStorage.getItem('role');
+  isAdmin = String(localStorage.getItem('role') || '').toLowerCase() === 'admin';
 
   // Dropdown states
   showShipments = false;
@@ -23,12 +25,12 @@ export class HomeComponent implements OnInit {
 
   // Branch data
   branches: any[] = [];
-  selectedBranch: string = localStorage.getItem('branch') || 'All Branches';
+  selectedBranch: string = localStorage.getItem('branch') || '';
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
-    if (this.username && this.email) {
+    if (this.isAdmin && this.username && this.email) {
       this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${this.username}?email=${this.email}`)
         .subscribe(data => {
           this.branches = data;

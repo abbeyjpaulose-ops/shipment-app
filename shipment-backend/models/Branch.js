@@ -1,36 +1,39 @@
-// shipment-backend/models/Branch.js
 import mongoose from 'mongoose';
 
 // Sub-schema for vehicles under a branch
-const VehicleSchema = new mongoose.Schema({
-  vehicleNo: { type: String, required: true },
-  driverPhone: { type: String, required: true }
-});
-
-const BranchSchema = new mongoose.Schema({
-  branchName: { type: String, required: true },
-  address: { type: String, required: true },
-  city: { type: String },
-  state: { type: String },
-  pinCode: { type: String },
-  GSTIN: { type: String, required: true },
-
-  phoneNum: { type: String, required: true },
-
-  vehicles: {
-    type: [VehicleSchema],
-    default: []
+const VehicleSchema = new mongoose.Schema(
+  {
+    vehicleNo: { type: String, required: true, trim: true },
+    driverPhone: { type: String, required: true, trim: true }
   },
+  { _id: false }
+);
 
-  status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+export const BranchSchema = new mongoose.Schema(
+  {
+    // Company link (User.GSTIN_ID == User._id)
+    GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
 
-  email: { type: String, required: true },     // Who added this
-  username: { type: String, required: true },  // Who added this
+    branchName: { type: String, required: true, trim: true },
+    address: { type: String, required: true, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    pinCode: { type: String, trim: true },
+    phoneNum: { type: String, required: true, trim: true },
 
-  createdAt: { type: Date, default: Date.now }
-});
+    vehicles: { type: [VehicleSchema], default: [] },
 
-// Unique Index: branchName + address + email = unique per user
-BranchSchema.index({ branchName: 1, address: 1, email: 1 }, { unique: true });
+    status: { type: String, enum: ['active', 'inactive'], default: 'active' },
+
+    // Audit fields
+    createdByEmail: { type: String, trim: true, lowercase: true },
+    createdByUsername: { type: String, trim: true }
+  },
+  { timestamps: true }
+);
+
+// Unique per company: branchName
+BranchSchema.index({ GSTIN_ID: 1, branchName: 1 }, { unique: true });
 
 export default mongoose.models.Branch || mongoose.model('Branch', BranchSchema);
+

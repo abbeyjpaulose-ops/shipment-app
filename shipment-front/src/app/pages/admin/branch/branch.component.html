@@ -8,7 +8,6 @@
     <input [(ngModel)]="newBranch.city" placeholder="City">
     <input [(ngModel)]="newBranch.state" placeholder="State">
     <input [(ngModel)]="newBranch.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newBranch.GSTIN" placeholder="GSTIN" required>
     <input [(ngModel)]="newBranch.phoneNum" placeholder="Branch Phone" required>
 
     <!-- Vehicles & Driver Contacts -->
@@ -38,7 +37,6 @@
         <th>City</th>
         <th>State</th>
         <th>Pin</th>
-        <th>GSTIN</th>
         <th>Phone</th>
         <th>Vehicles & Drivers</th>
         <th>Status</th>
@@ -75,12 +73,6 @@
         <td>
           <span *ngIf="editingBranch?._id !== b._id">{{ b.pinCode }}</span>
           <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.pinCode">
-        </td>
-
-        <!-- GSTIN -->
-        <td>
-          <span *ngIf="editingBranch?._id !== b._id">{{ b.GSTIN }}</span>
-          <input *ngIf="editingBranch?._id === b._id" [(ngModel)]="editingBranch.GSTIN">
         </td>
 
         <!-- Phone -->

@@ -1,10 +1,11 @@
 import express from 'express';
 import Profile from '../models/Profile.js';
+import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // Create or update profile
-router.post('/save', async (req, res) => {
+router.post('/save', requireAuth, requireAdmin, async (req, res) => {
   try {
     console.log('📥 Incoming profile data:', req.body);
 
@@ -23,7 +24,7 @@ router.post('/save', async (req, res) => {
 });
 
 // Get profile by email
-router.get('/', async (req, res) => {
+router.get('/', requireAuth, async (req, res) => {
   try {
     const username = req.params.username;
     const email = req.query.email;  // frontend will send ?email=user@example.com
@@ -36,7 +37,7 @@ router.get('/', async (req, res) => {
 });
 
 // Update profile by ID
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireAuth, async (req, res) => {
   try {
     const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
     res.json({ success: true, profile });
@@ -46,7 +47,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Delete profile by ID
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
     const profile = await Profile.findByIdAndDelete(req.params.id);
     if (!profile) return res.status(404).json({ message: 'Profile not found' });
