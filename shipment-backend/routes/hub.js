@@ -1,67 +1,122 @@
-// shipment-backend/routes/hub.js
 import express from 'express';
 import Hub from '../models/Hub.js';
+import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Create new hub
-router.post('/add', async (req, res) => {
+// Create new hub (admin only)
+router.post('/add', requireAuth, requireAdmin, async (req, res) => {
   try {
-    console.log('📥 Incoming hub data:', req.body);  // 👈 debug log
-  
-    const hub = new Hub(req.body);
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) {
+      return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    }
+
+    const hub = new Hub({
+      ...req.body,
+      GSTIN_ID: gstinId,
+      email: req.user.email,
+      username: req.user.username
+    });
+
     await hub.save();
     res.status(201).json(hub);
   } catch (err) {
-    console.error('❌ Error saving hub:', err.message);
-    res.status(400).json({ message: err.message });
+    if (err && err.code === 11000) {
+      return res.status(409).json({
+        message: 'Duplicate key error while saving hub',
+        index: err.index,
+        keyPattern: err.keyPattern,
+        keyValue: err.keyValue
+      });
+    }
+    if (err && err.name === 'ValidationError') {
+      const details = Object.values(err.errors || {}).map((e) => e.message);
+      return res.status(400).json({ message: err.message, details });
+    }
+    console.error('Error saving hub:', err);
+    return res.status(400).json({ message: err?.message || 'Bad Request' });
   }
 });
 
-// Get hubs for a specific user
-router.get('/', async (req, res) => {
+// Get hubs for current company (auth required)
+router.get('/', requireAuth, async (req, res) => {
   try {
-    const email = req.query.email;  // frontend will send ?email=user@example.com
-    const query = email ? { email } : {};
-    const hubs = await Hub.find(query).sort({ createdAt: -1 });
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) {
+      return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    }
+
+    const hubs = await Hub.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
     res.json(hubs);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
 
-// Update hub
-router.put('/:id', async (req, res) => {
+// Update hub (admin only)
+router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const hub = await Hub.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) {
+      return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    }
+
+    const hub = await Hub.findOneAndUpdate(
+      { _id: req.params.id, GSTIN_ID: gstinId },
+      req.body,
+      { new: true }
+    );
+    if (!hub) return res.status(404).json({ message: 'Hub not found' });
+
     res.json({ success: true, hub });
   } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Duplicate key error while updating hub',
+        index: err.index,
+        keyPattern: err.keyPattern,
+        keyValue: err.keyValue
+      });
+    }
+    if (err && err.name === 'ValidationError') {
+      const details = Object.values(err.errors || {}).map((e) => e.message);
+      return res.status(400).json({ success: false, message: err.message, details });
+    }
     res.status(400).json({ success: false, message: err.message });
   }
 });
 
-// Toggle status
-router.patch('/:id/status', async (req, res) => {
+// Toggle status (admin only)
+router.patch('/:id/status', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const hub = await Hub.findById(req.params.id);
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) {
+      return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    }
+
+    const hub = await Hub.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
     if (!hub) return res.status(404).json({ message: 'Hub not found' });
+
     hub.status = hub.status === 'active' ? 'inactive' : 'active';
     await hub.save();
+
     res.json({ success: true, hub });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
 });
 
-// Get hubs by user
-router.get('/by-user/:username', async (req, res) => {
-  try {   
-    const hubs = await Hub.find({
-      email: req.query.email
-    }).sort({ createdAt: -1 });
+// Backwards-compatible endpoint used by the frontend; now auth-scoped.
+router.get('/by-user/:username', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) {
+      return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    }
 
-    console.log('📥 Hub:', req.query.email, hubs);
-
+    const hubs = await Hub.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
     res.json(hubs);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -69,3 +124,4 @@ router.get('/by-user/:username', async (req, res) => {
 });
 
 export default router;
+

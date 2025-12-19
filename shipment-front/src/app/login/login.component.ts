@@ -46,15 +46,19 @@ export class LoginComponent {
 
         console.log('✅ Login successful for user:', localStorage.getItem('companyType'));        
 
-        this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${res.username}?email=${res.email}`)
-          .subscribe(branches => {
-            
-            if (branches.length === 0) {
+        this.http.get<any[]>(`http://localhost:3000/api/branches`)
+          .subscribe({
+            next: (branches) => {
+              if (!branches || branches.length === 0) {
+                window.location.href = '/home/Branches';
+              } else {
+                window.location.href = '/home/dashboard';
+              }
+            },
+            error: () => {
               window.location.href = '/home/Branches';
-            } else {
-              window.location.href = '/home/dashboard';
             }
-          }); 
+          });
       },
       error: (err) => {
         console.error(err);

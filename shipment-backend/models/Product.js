@@ -2,18 +2,21 @@
 import mongoose from 'mongoose';
 
 const ProductSchema = new mongoose.Schema({
-  hsnNum: { type: String, required: true },
-  productName: { type: String, required: true },
+  // Company link (User.GSTIN_ID == User._id)
+  GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
+  branch: { type: String, required: true, trim: true },
+
+  hsnNum: { type: String, required: true, trim: true },
+  productName: { type: String, required: true, trim: true },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   ratePerNum: { type: Number, default: 0 },
   ratePerVolume: { type: Number, default: 0 },
   ratePerKg: { type: Number, default: 0 },
-  email: { type: String, required: true },     // from logged-in user
-  username: { type: String, required: true },  // from logged-in user
+  user_id: { type: Number, required: true }, // creator (Profile _id)
   createdAt: { type: Date, default: Date.now }
 });
 
-// Unique combo: productName + address + email
-ProductSchema.index({ hsnNum : 1, productName: 1, email: 1 }, { unique: true });
+// Unique product per company + branch
+ProductSchema.index({ GSTIN_ID: 1, branch: 1, hsnNum: 1, productName: 1 }, { unique: true });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

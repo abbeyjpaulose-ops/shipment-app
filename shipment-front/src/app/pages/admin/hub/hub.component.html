@@ -8,7 +8,6 @@
     <input [(ngModel)]="newHub.city" placeholder="City">
     <input [(ngModel)]="newHub.state" placeholder="State">
     <input [(ngModel)]="newHub.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newHub.GSTIN" placeholder="GSTIN" required>
     <input [(ngModel)]="newHub.phoneNum" placeholder="Phone Number" required>
     <input [(ngModel)]="newHub.perRev" placeholder="% of Revenue" required>
 
@@ -57,7 +56,6 @@
           <th>Address</th>
           <th>City</th>
           <th>Phone</th>
-          <th>GSTIN</th>
           <th>Delivery / Pickup (with Vehicles)</th>
           <th>% of Revenue</th>
           <th>Status</th>
@@ -90,12 +88,6 @@
           <td>
             <span *ngIf="editingHub?._id !== h._id">{{ h.phoneNum }}</span>
             <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.phoneNum" />
-          </td>
-
-          <!-- GSTIN -->
-          <td>
-            <span *ngIf="editingHub?._id !== h._id">{{ h.GSTIN }}</span>
-            <input *ngIf="editingHub?._id === h._id" [(ngModel)]="editingHub.GSTIN" />
           </td>
 
           <!-- Delivery / Pickup Addresses column (each with nested vehicles) -->

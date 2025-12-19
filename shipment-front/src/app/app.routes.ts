@@ -27,6 +27,7 @@ import { LocationsComponent } from './pages/settings/locations/locations.compone
 import { LogsComponent } from './pages/settings/logs/logs.component';
 import { ChangePassComponent } from './pages/profile/changePass/changePass.component';
 import { RolesComponent } from './pages/profile/roles/roles.component';
+import { branchRequiredGuard } from './guards/branch-required.guard';
 
 
 
@@ -35,6 +36,7 @@ export const routes: Routes = [
   {
     path: 'home',
     component: HomeComponent, 
+    canActivateChild: [branchRequiredGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent },
       { path: 'new-shipment', component: NewShipmentComponent },

@@ -20,7 +20,6 @@ export class HubComponent implements OnInit {
     city: '',
     state: '',
     pinCode: '',
-    GSTIN: '',
     phoneNum: '',
     perRev: '',
     deliveryAddresses: [
@@ -32,8 +31,6 @@ export class HubComponent implements OnInit {
       }
     ],
     status: 'active',
-    email: localStorage.getItem('email'),
-    username: localStorage.getItem('username')
   };
 
   editingHub: any = null;
@@ -45,8 +42,7 @@ export class HubComponent implements OnInit {
   }
 
   loadHubs() {
-    const email = localStorage.getItem('email');
-    this.http.get<any[]>(`http://localhost:3000/api/hubs?email=${email}`)
+    this.http.get<any[]>(`http://localhost:3000/api/hubs`)
       .subscribe({
         next: (data) => {
           console.log("Hubs loaded:", data);
@@ -78,7 +74,6 @@ export class HubComponent implements OnInit {
       city: '',
       state: '',
       pinCode: '',
-      GSTIN: '',
       phoneNum: '',
       perRev: '',
       deliveryAddresses: [
@@ -90,8 +85,6 @@ export class HubComponent implements OnInit {
         }
       ],
       status: 'active',
-      email: localStorage.getItem('email'),
-      username: localStorage.getItem('username')
     };
   }
 
