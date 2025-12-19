@@ -16,6 +16,7 @@ import newShipmentRoutes from './routes/newShipments.js';
 import manifestRoutes from './routes/manifest.js';
 import profileRoutes from './routes/profile.js';
 import adminUsersRoutes from './routes/adminUsers.js';
+import pricingRoutes from './routes/pricing.js';
 
 
 
@@ -42,6 +43,7 @@ app.use('/api/newshipments', newShipmentRoutes);
 app.use('/api/manifest', manifestRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/admin/users', adminUsersRoutes);
+app.use('/api/pricing', pricingRoutes);
 
 
 app.listen(3000, () => console.log('🚀 Server running on port 3000'));
