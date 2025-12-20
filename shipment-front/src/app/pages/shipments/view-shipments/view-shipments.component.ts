@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -19,7 +19,7 @@ export class ViewShipmentsComponent implements OnInit {
   filterStatus: string = '';
   filterConsignor: string = '';
 
-  selectedShipment: any | null = null;   // ✅ for modal popup
+  selectedShipment: any | null = null;   // âœ… for modal popup
 
   constructor(private http: HttpClient) {}
 
@@ -30,29 +30,46 @@ export class ViewShipmentsComponent implements OnInit {
   loadShipments(): void {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
-        email: localStorage.getItem('email') || '',
-        branch: localStorage.getItem('branch') || ''
+        username: localStorage.getItem('username') || '',
+        branch: localStorage.getItem('branch') || 'All Branches'
       }
     }).subscribe({
       next: (res: any[]) => {
-        this.shipments = res;
-        this.filteredShipments = res;
+        const normalized = (res || []).map((shipment) => ({
+          ...shipment,
+          invoices: this.flattenInvoices(shipment.ewaybills || shipment.invoices || [])
+        }));
+        this.shipments = normalized;
+        this.filteredShipments = normalized;
       },
-      error: (err: any) => console.error('❌ Error loading shipments:', err)
+      error: (err: any) => console.error('Error loading shipments:', err)
     });
   }
 
+  private flattenInvoices(ewaybills: any[]): any[] {
+    return (ewaybills || []).flatMap((ewb) => ewb.invoices || []);
+  }
   getProductTotal(invoices: any[], key: 'amount' | 'instock' | 'intransitstock' | 'deliveredstock'): number {
   if (!invoices) return 0;
 
   return invoices.reduce((total, invoice) => {
     const productSum = invoice.products?.reduce(
-      (sum: number, prod: any) => sum + (prod[key] || 0),
+      (sum: number, prod: any) => sum + Number(prod[key] || 0),
       0
     ) || 0;
-    return total + productSum;
+    return total + Number(productSum || 0);
   }, 0);
 }
+
+  getInStockAmountTotal(invoices: any[]): number {
+    return this.getProductTotal(invoices, 'instock');
+  }
+
+  getInvoiceAmountTotal(invoices: any[]): number {
+    return this.getInStockAmountTotal(invoices)
+      + this.getProductTotal(invoices, 'intransitstock')
+      + this.getProductTotal(invoices, 'deliveredstock');
+  }
 
 
   applyFilters(): void {
@@ -78,13 +95,15 @@ export class ViewShipmentsComponent implements OnInit {
     });
   }
 
-  // ✅ open details modal
+  // âœ… open details modal
   openShipmentDetails(shipment: any): void {
     this.selectedShipment = shipment;
   }
 
-  // ✅ close details modal
+  // âœ… close details modal
   closeShipmentDetails(): void {
     this.selectedShipment = null;
   }
 }
+
+

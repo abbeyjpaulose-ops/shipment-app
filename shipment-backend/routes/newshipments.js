@@ -1,186 +1,299 @@
 // shipment-backend/routes/newshipments.js
 import express from 'express';
-import NewShipment from '../models/NewShipment.js';
+import Shipment from '../models/NewShipment/Shipment.js';
+import Ewaybill from '../models/NewShipment/Ewaybill.js';
+import Invoice from '../models/NewShipment/Invoice.js';
+import InvoiceProduct from '../models/NewShipment/InvoiceProduct.js';
+import InvoicePackage from '../models/NewShipment/InvoicePackage.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+async function buildShipmentViews(shipments) {
+  const shipmentIds = shipments.map((s) => s._id);
+  const ewaybills = await Ewaybill.find({ shipmentId: { $in: shipmentIds } }).lean();
+  const ewaybillIds = ewaybills.map((e) => e._id);
+  const invoices = await Invoice.find({ ewaybillId: { $in: ewaybillIds } }).lean();
+  const invoiceIds = invoices.map((i) => i._id);
+  const products = await InvoiceProduct.find({ invoiceId: { $in: invoiceIds } }).lean();
+  const packages = await InvoicePackage.find({ invoiceId: { $in: invoiceIds } }).lean();
+
+  const productsByInvoice = new Map();
+  for (const prod of products) {
+    const key = prod.invoiceId.toString();
+    if (!productsByInvoice.has(key)) productsByInvoice.set(key, []);
+    productsByInvoice.get(key).push({
+      type: prod.type,
+      amount: prod.amount,
+      instock: prod.instock,
+      intransitstock: prod.intransitstock,
+      deliveredstock: prod.deliveredstock
+    });
+  }
+
+  const packagesByInvoice = new Map();
+  for (const pack of packages) {
+    const key = pack.invoiceId.toString();
+    if (!packagesByInvoice.has(key)) packagesByInvoice.set(key, []);
+    packagesByInvoice.get(key).push({
+      type: pack.type,
+      amount: pack.amount
+    });
+  }
+
+  const invoicesByEwaybill = new Map();
+  for (const inv of invoices) {
+    const key = inv.ewaybillId.toString();
+    if (!invoicesByEwaybill.has(key)) invoicesByEwaybill.set(key, []);
+    invoicesByEwaybill.get(key).push({
+      number: inv.number,
+      value: inv.value,
+      products: productsByInvoice.get(inv._id.toString()) || [],
+      packages: packagesByInvoice.get(inv._id.toString()) || []
+    });
+  }
+
+  const ewaybillsByShipment = new Map();
+  for (const ewb of ewaybills) {
+    const key = ewb.shipmentId.toString();
+    if (!ewaybillsByShipment.has(key)) ewaybillsByShipment.set(key, []);
+    ewaybillsByShipment.get(key).push({
+      number: ewb.number,
+      date: ewb.date,
+      invoices: invoicesByEwaybill.get(ewb._id.toString()) || []
+    });
+  }
+
+  return shipments.map((shipment) => {
+    const data = shipment.toObject ? shipment.toObject() : shipment;
+    data.ewaybills = ewaybillsByShipment.get(shipment._id.toString()) || [];
+    return data;
+  });
+}
+
+async function replaceShipmentLines(shipmentId, ewaybills, options = {}) {
+  const defaultInstockToAmount = Boolean(options.defaultInstockToAmount);
+  const existingEwaybills = await Ewaybill.find({ shipmentId }).select('_id');
+  const ewaybillIds = existingEwaybills.map((e) => e._id);
+  const invoices = await Invoice.find({ ewaybillId: { $in: ewaybillIds } }).select('_id');
+  const invoiceIds = invoices.map((i) => i._id);
+
+  await InvoiceProduct.deleteMany({ invoiceId: { $in: invoiceIds } });
+  await InvoicePackage.deleteMany({ invoiceId: { $in: invoiceIds } });
+  await Invoice.deleteMany({ ewaybillId: { $in: ewaybillIds } });
+  await Ewaybill.deleteMany({ shipmentId });
+
+  const ewaybillDocs = await Ewaybill.insertMany(
+    (ewaybills || []).map((ewb) => ({
+      shipmentId,
+      number: ewb.number,
+      date: ewb.date
+    }))
+  );
+
+  const invoiceDocs = [];
+  const productDocs = [];
+  const packageDocs = [];
+
+  for (let e = 0; e < (ewaybills || []).length; e += 1) {
+    const ewb = ewaybills[e];
+    const ewaybillId = ewaybillDocs[e]._id;
+    for (const inv of ewb.invoices || []) {
+      invoiceDocs.push({
+        ewaybillId,
+        number: inv.number,
+        value: inv.value
+      });
+    }
+  }
+
+  const createdInvoices = await Invoice.insertMany(invoiceDocs);
+
+  let invoiceCursor = 0;
+  for (let e = 0; e < (ewaybills || []).length; e += 1) {
+    const ewb = ewaybills[e];
+    for (const inv of ewb.invoices || []) {
+      const invoiceId = createdInvoices[invoiceCursor]._id;
+      invoiceCursor += 1;
+
+      for (const prod of inv.products || []) {
+        const amount = Number(prod.amount) || 0;
+        const instock = defaultInstockToAmount
+          ? amount
+          : Number(prod.instock) || 0;
+        productDocs.push({
+          invoiceId,
+          type: prod.type,
+          amount,
+          instock,
+          intransitstock: Number(prod.intransitstock) || 0,
+          deliveredstock: Number(prod.deliveredstock) || 0
+        });
+      }
+
+      for (const pack of inv.packages || []) {
+        packageDocs.push({
+          invoiceId,
+          type: pack.type,
+          amount: pack.amount
+        });
+      }
+    }
+  }
+
+  if (productDocs.length) await InvoiceProduct.insertMany(productDocs);
+  if (packageDocs.length) await InvoicePackage.insertMany(packageDocs);
+}
+
 // Create new shipment
-router.post('/add', async (req, res) => {
+router.post('/add', requireAuth, async (req, res) => {
   try {
-    console.log('📥 Incoming New shipment data:', req.body);  // 👈 debug log
-    const newshipments = new NewShipment(req.body);
-    await newshipments.save();
-    res.status(201).json(newshipments);
-  } catch (err) { 
-    console.error('❌ Error saving New shipment:', err.message);
+    const { ewaybills, ...shipmentData } = req.body;
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const username = req.user.username || shipmentData.username;
+    if (!username) return res.status(400).json({ message: 'Invalid username' });
+
+    const shipment = await Shipment.create({
+      ...shipmentData,
+      GSTIN_ID: gstinId,
+      username
+    });
+    await replaceShipmentLines(shipment._id, ewaybills || [], { defaultInstockToAmount: true });
+    const view = (await buildShipmentViews([shipment]))[0];
+    res.status(201).json(view);
+  } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-// Get next consignment number for a user (reset on April 1st)
-router.get("/nextConsignment", async (req, res) => {
-  const emailId = req.query.emailId;
+// Get next consignment number for a company/branch (reset on April 1st)
+router.get('/nextConsignment', requireAuth, async (req, res) => {
   const branch = req.query.branch;
 
-  if (!emailId || !branch) {
-    return res.status(400).json({ message: "Missing emailId or branch in query parameters" });
+  if (!branch) {
+    return res.status(400).json({ message: 'Missing branch in query parameters' });
   }
   if (branch === 'All Branches') {
-    return res.status(400).json({ message: "Please select a specific branch to fetch consignment number" });
+    return res.status(400).json({ message: 'Please select a specific branch to fetch consignment number' });
   }
+
   try {
-    
-    console.log("Fetching next consignment number for:", emailId, "branch:", branch);
-    
-    // Get today's fiscal year (April 1 – March 31)
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
     const today = new Date();
     const year = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-    const fiscalYearStart = new Date(year, 3, 1); // April 1
-    const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59); // March 31
+    const fiscalYearStart = new Date(year, 3, 1);
+    const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59);
 
-    // Find last shipment in this fiscal year for this user
-   const result = await NewShipment.aggregate([
-  {
-    $match: {
-      email: emailId,
-      branch,
-      date: { $gte: fiscalYearStart, $lte: fiscalYearEnd }
-    }
-  },
-  {
-    $addFields: {
-      consignmentNumberInt: { $toInt: "$consignmentNumber" }
-    }
-  },
-  {
-    $sort: { consignmentNumberInt: -1 }
-  },
-  {
-    $limit: 1
-  }
-]);
+    const result = await Shipment.aggregate([
+      {
+        $match: {
+          GSTIN_ID: gstinId,
+          branch,
+          date: { $gte: fiscalYearStart, $lte: fiscalYearEnd }
+        }
+      },
+      { $addFields: { consignmentNumberInt: { $toInt: '$consignmentNumber' } } },
+      { $sort: { consignmentNumberInt: -1 } },
+      { $limit: 1 }
+    ]);
 
-const lastShipment = result[0]; // Access first item in array
-console.log("CCCCCCCCCCCCCCConsignment Number (int):", lastShipment?.consignmentNumberInt);
-
-
+    const lastShipment = result[0];
     let nextNumber = 1;
-    if (lastShipment && lastShipment.consignmentNumber) {
+    if (lastShipment && lastShipment.consignmentNumberInt) {
       nextNumber = lastShipment.consignmentNumberInt + 1;
     }
-    console.log(`Next consignment number for ${emailId}/${branch} in FY ${year}-${year + 1}:`, nextNumber);
 
     res.json({ nextNumber, fiscalYear: `${year}-${year + 1}` });
   } catch (err) {
-    res.status(500).json({ error: "Failed to get next consignment number", details: err });
+    res.status(500).json({ error: 'Failed to get next consignment number', details: err });
   }
 });
 
-// GET all shipments for logged-in user
-router.get('/', async (req, res) => {
+// GET all shipments for a company/branch
+router.get('/', requireAuth, async (req, res) => {
   try {
-    const { email, branch } = req.query; // extract both email and branch
-
-    if (!email || !branch) {
-      return res.status(400).json({ message: 'Email and branch are required' });
+    const { branch } = req.query;
+    if (!branch) {
+      return res.status(400).json({ message: 'Branch is required' });
     }
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
     let shipments;
     if (branch === 'All Branches') {
-      shipments = await NewShipment.find({ email }).sort({ createdAt: -1 });
+      shipments = await Shipment.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
     } else {
-      shipments = await NewShipment.find({ email, branch }).sort({ createdAt: -1 });
+      shipments = await Shipment.find({ GSTIN_ID: gstinId, branch }).sort({ createdAt: -1 });
     }
 
-    // Custom status order
-    const statusOrder = {
-      "Pending": 1,
-      "In Transit/Pending": 2,      
-      "In Transit": 3,
-      "Delivered": 4,
-      "Invoiced": 5,
-      "Income Tax filed": 6,
-      "Cancel": 7
-    };
-
-    // Sort shipments by status group first, then by createdAt (descending)
-    shipments.sort((a, b) => {
-      const orderA = statusOrder[a.shipmentStatus] || 99; // default 99 for "rest"
-      const orderB = statusOrder[b.shipmentStatus] || 99;
-      console.log('📦 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSShipments loaded:', a.shipmentStatus, b.shipmentStatus);
-
-      if (orderA !== orderB) {
-        return orderA - orderB; // sort by group
-      }
-      return new Date(b.createdAt) - new Date(a.createdAt); // then by createdAt
-    });
-       
-    
-
-    res.json(shipments);
+    const views = await buildShipmentViews(shipments);
+    res.json(views);
   } catch (err) {
-    console.error('Error fetching shipments:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-
-///stocks page edit shipment
-router.put('/:consignmentNumber', async (req, res) => {
+// Edit shipment (stocks page)
+router.put('/:consignmentNumber', requireAuth, async (req, res) => {
   try {
-    const shipment = await NewShipment.findOneAndUpdate(
-      { consignmentNumber: req.params.consignmentNumber },
-      req.body,
+    const { ewaybills, ...shipmentData } = req.body;
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const shipment = await Shipment.findOneAndUpdate(
+      { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId },
+      shipmentData,
       { new: true }
     );
-    res.json(shipment);
+    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
+    if (ewaybills) {
+      await replaceShipmentLines(shipment._id, ewaybills, { defaultInstockToAmount: false });
+    }
+    const view = (await buildShipmentViews([shipment]))[0];
+    res.json(view);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
 });
 
-router.post('/updateConsignment', async (req, res) => {
-  const { email, updatedConsignment } = req.body;
-
-  console.log('📥 UUUUUUUUUUUUUpdate request received for:', { email });
-  console.log('📦 Updated Consignment:', updatedConsignment);
-
+// Update consignment by payload
+router.post('/updateConsignment', requireAuth, async (req, res) => {
+  const { updatedConsignment } = req.body;
+  if (!updatedConsignment?.consignmentNumber) {
+    return res.status(400).json({ message: 'Missing consignmentNumber' });
+  }
   try {
-    // Log each invoice and its products
-    updatedConsignment.invoices.forEach(async invoice => {
-        // Update logic (assuming consignmentNumber is unique within a shipment document)   
-        const result = await NewShipment.findOneAndUpdate(
-          {'consignments.email': email, 'consignments.consignmentNumber': consignmentNumber, 'consignments.invoices': consignmentNumber },
-          { $set: { 'consignments.$': updatedConsignment } },
-          { new: true }
-        );
-        if (!result) {
-          console.warn('⚠️ No matching consignment found.');
-          return res.status(404).json({ error: 'Consignment not found' });
-        }
-      });    
-
-    console.log('✅ Consignment updated successfully.');
-    res.status(200).json({ message: 'Consignment updated', data: result });
-  } catch (error) {
-    console.error('❌ Error updating consignment:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    const { ewaybills, ...shipmentData } = updatedConsignment;
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const shipment = await Shipment.findOneAndUpdate(
+      { consignmentNumber: updatedConsignment.consignmentNumber, GSTIN_ID: gstinId },
+      shipmentData,
+      { new: true }
+    );
+    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
+    if (ewaybills) {
+      await replaceShipmentLines(shipment._id, ewaybills, { defaultInstockToAmount: false });
+    }
+    const view = (await buildShipmentViews([shipment]))[0];
+    res.json({ message: 'Consignment updated', data: view });
+  } catch (err) {
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-router.get('/getConsignment', async (req, res) => {
+// Get specific consignment
+router.get('/getConsignment', requireAuth, async (req, res) => {
   try {
-    const { email, consignmentNumber } = req.query; // extract both email and branch
-
-    let conshipments;
-    conshipments = await NewShipment.find({ email, consignmentNumber }).sort({ createdAt: -1 });
-
-    console.log('FFFFFFFFFFFFFetched consignment:', email, consignmentNumber, conshipments);
-  
-
-    res.json(conshipments);
+    const { consignmentNumber } = req.query;
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const shipments = await Shipment.find({ GSTIN_ID: gstinId, consignmentNumber }).sort({ createdAt: -1 });
+    const views = await buildShipmentViews(shipments);
+    res.json(views);
   } catch (err) {
-    console.error('Error fetching shipments:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

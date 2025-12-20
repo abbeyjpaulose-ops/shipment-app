@@ -24,7 +24,6 @@ const TransportPartnerSchema = new mongoose.Schema(
 
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 
-    email: { type: String, required: true, lowercase: true, trim: true }, // audit
     username: { type: String, required: true, trim: true }, // audit
 
     createdAt: { type: Date, default: Date.now }

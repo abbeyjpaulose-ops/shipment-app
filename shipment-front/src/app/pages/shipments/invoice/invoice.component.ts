@@ -31,7 +31,7 @@ export class InvoiceComponent implements OnInit {
   loadInvoices() {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
-        email: localStorage.getItem('email') || '',
+        username: localStorage.getItem('username') || '',
         branch: localStorage.getItem('branch') || ''
       }
     }).subscribe({

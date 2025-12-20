@@ -6,7 +6,7 @@ import { FormsModule } from '@angular/forms';
 @Component({
   selector: 'app-product',
   standalone: true,
-  imports: [CommonModule, FormsModule],  // 👈 add here
+  imports: [CommonModule, FormsModule],
   templateUrl: './product.component.html',
   styleUrls: ['./product.component.css']
 })
@@ -14,6 +14,7 @@ export class ProductComponent implements OnInit {
   products: any[] = [];
   newProduct: any = {
     productName: '',
+    branch: localStorage.getItem('branch') || 'All Branches',
     status: 'active',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')
@@ -27,30 +28,31 @@ export class ProductComponent implements OnInit {
   }
 
   loadProducts() {
-    const email = localStorage.getItem('email'); // set during login
+    const email = localStorage.getItem('email');
     this.http.get<any[]>(`http://localhost:3000/api/products?email=${email}`)
-    .subscribe({
-      next: (data) => {
-        console.log("Products loaded:", data); // 👈 log to browser console
-        this.products = data;
-      },
-      error: (err) => console.error("Error loading products:", err)
-    });
-}
+      .subscribe({
+        next: (data) => {
+          this.products = data;
+        },
+        error: (err) => console.error('Error loading products:', err)
+      });
+  }
 
   addProduct() {
-    console.log('📤 Sending product data:', this.newProduct.ratePerNum, this.newProduct.hsnNum);
+    this.newProduct.branch = localStorage.getItem('branch') || 'All Branches';
+    if (this.newProduct.branch === 'All Branches') {
+      alert('Please select a specific branch before adding a product.');
+      return;
+    }
     this.http.post('http://localhost:3000/api/products/add', this.newProduct, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
-      next: (res) => {
-        console.log('✅ Product type saved', res);
+      next: () => {
         alert('Product type added successfully!');
         window.location.reload();
       },
       error: (err) => {
-        console.error('❌ Error saving product:', err);
-        alert('Error12: ' + err.error.message);
+        alert('Error: ' + err.error?.message);
       }
     });
   }

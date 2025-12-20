@@ -71,10 +71,12 @@ shipmentStatusDetails: string = '';
 
 branches: any[] = [];
 hubs: any[] = [];
-  availableRoutePoints: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
-  shipmentRoute: { name: string; type: 'Branch' | 'Hub'; email: string }[] = [];
+  availableRoutePoints: { name: string; type: 'Branch' | 'Hub'; vehicles: string[] }[] = [];
+  shipmentRoute: { name: string; type: 'Branch' | 'Hub'; vehicleNo: string }[] = [];
   selectedRoutePoint: any = null;
+  selectedRouteVehicle: string = '';
   private branchSub?: Subscription;
+  private branchCheck: any;
 
 
   constructor(
@@ -138,29 +140,60 @@ calculateFinalAmount() {
 
 
   loadStocks() {
+    const username = this.username || localStorage.getItem('username') || '';
+    const branch = this.branch || localStorage.getItem('branch') || 'All Branches';
+    if (!username) {
+      console.error('Missing username for loading stocks');
+      return;
+    }
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
-        email: this.email || localStorage.getItem('email') || '',
-        branch: this.branch || localStorage.getItem('branch') || ''
+        username,
+        branch
       }
     }).subscribe({
       next: (res: any[]) => {
-        this.stocks = res
-        .filter(stock =>
-          stock.shipmentStatus === 'Pending' ||
-          stock.shipmentStatus === 'In Transit/Pending'
-        )
-        .sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
+        const normalized = (res || []).map((stock) => ({
+          ...stock,
+          invoices: this.flattenInvoices(stock.ewaybills || stock.invoices || [])
+        }));
+        this.stocks = normalized
+          .filter(stock =>
+            stock.shipmentStatus === 'Pending' ||
+            stock.shipmentStatus === 'In Transit/Pending'
+          )
+          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         this.applyFilters();
       },
-      error: (err: any) => console.error('❌ Error loading shipments:', err)
+      error: (err: any) => console.error('Error loading shipments:', err)
     });
   }
 
-  
+  private flattenInvoices(ewaybills: any[]): any[] {
+    return (ewaybills || []).flatMap((ewb) => ewb.invoices || []);
+  }
 
+  getInStockAmountTotal(invoices: any[]): number {
+    let total = 0;
+    (invoices || []).forEach((inv) => {
+      (inv.products || []).forEach((prod: any) => {
+        total += Number(prod.instock || 0);
+      });
+    });
+    return total;
+  }
+
+  getInvoiceAmountTotal(invoices: any[]): number {
+    let total = 0;
+    (invoices || []).forEach((inv) => {
+      (inv.products || []).forEach((prod: any) => {
+        total += Number(prod.instock || 0)
+          + Number(prod.intransitstock || 0)
+          + Number(prod.deliveredstock || 0);
+      });
+    });
+    return total;
+  }
   getProductTotal(ewaybills: any[], field: string): number {
     let total = 0;
     ewaybills.forEach(ewaybill => {
@@ -265,10 +298,16 @@ calculateFinalAmount() {
     const selectedproduct = this.productList.find(c => c.productName === name);
   }
 
-  addRoutePoint() {
+addRoutePoint() {
   if (!this.selectedRoutePoint) return;
-  this.shipmentRoute.push({ ...this.selectedRoutePoint });
+  const vehicleNo = this.selectedRouteVehicle || '';
+  this.shipmentRoute.push({
+    name: this.selectedRoutePoint.name,
+    type: this.selectedRoutePoint.type,
+    vehicleNo
+  });
   this.selectedRoutePoint = null;
+  this.selectedRouteVehicle = '';
 }
 
 removeRoutePoint(index: number) {
@@ -303,20 +342,46 @@ loadHubs() {
 
 updateAvailableRoutePoints() {
   this.availableRoutePoints = [
-    ...this.branches.map(b => ({ name: b.branchName, type: "Branch" as const, email: b.email })),
-    ...this.hubs.map(h => ({ name: h.hubName, type: "Hub" as const, email: h.email }))
+    ...this.branches.map(b => ({
+      name: b.branchName,
+      type: "Branch" as const,
+      vehicles: (b.vehicles || []).map((v: any) => v.vehicleNo).filter(Boolean)
+    })),
+    ...this.hubs.map(h => ({
+      name: h.hubName,
+      type: "Hub" as const,
+      vehicles: (h.deliveryAddresses || [])
+        .flatMap((addr: any) => (addr.vehicles || []).map((v: any) => v.vehicleNo))
+        .filter(Boolean)
+    }))
   ];
 } 
+
+onRoutePointChange() {
+  this.selectedRouteVehicle = this.selectedRoutePoint?.vehicles?.[0] || '';
+}
 
   ngOnInit() {
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
-    this.branch = this.branchService.currentBranch;
+    this.branch = this.branchService.currentBranch || localStorage.getItem('branch') || 'All Branches';
 
     this.branchSub = this.branchService.branch$.subscribe(branch => {
       this.branch = branch;
       this.loadStocks();
     });
+
+    // react to branch changes (same tab)
+    this.branchCheck = setInterval(() => {
+      const current = localStorage.getItem('branch') || 'All Branches';
+      if (current !== this.branch) {
+        this.branch = current;
+        this.loadStocks();
+      }
+    }, 1000);
+
+    // react to branch changes (other tabs)
+    window.addEventListener('storage', this.onStorageChange);
 
     // Clients list
     this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
@@ -359,7 +424,16 @@ updateAvailableRoutePoints() {
 
   ngOnDestroy(): void {
     this.branchSub?.unsubscribe();
+    if (this.branchCheck) clearInterval(this.branchCheck);
+    window.removeEventListener('storage', this.onStorageChange);
   }
+
+  private onStorageChange = (e: StorageEvent) => {
+    if (e.key === 'branch' && e.newValue && e.newValue !== this.branch) {
+      this.branch = e.newValue;
+      this.loadStocks();
+    }
+  };
 
   
   showManifestationPopup = false;
@@ -377,6 +451,10 @@ updateAvailableRoutePoints() {
   
 
 openManifestationPopup() {
+  if (this.branch === 'All Branches') {
+    alert('Please select a specific branch before manifesting consignments.');
+    return;
+  }
   // Filter selected consignments
   this.selectedForManifestation = this.filteredStocks.filter(s => s.selected);
 
@@ -411,7 +489,16 @@ openManifestationPopup() {
     // Set manifestQty = instock for each product
     updatedConsignment.invoices?.forEach((invoice: any) => {
       invoice.products?.forEach((product: any) => {
-        product.manifestQty = product.instock;
+        const amount = Number(product.amount) || 0;
+        const inTransit = Number(product.intransitstock) || 0;
+        const delivered = Number(product.deliveredstock) || 0;
+        const available = Math.max(0, amount - inTransit - delivered);
+        const currentInstock = Number(product.instock) || 0;
+        if (!currentInstock && available > 0) {
+          product.instock = available;
+        }
+        product.manifestQty = Number(product.instock) || available;
+        product.manifestQtyTouched = false;
       });
     });
 
@@ -435,7 +522,9 @@ closeManifestationPopup() {
     }
 
   // Convert route points to a travel pattern string
-  const routeString = this.shipmentRoute.map(p => `${p.name} (${p.type})`).join(' -> ');
+  const routeString = this.shipmentRoute
+    .map(p => `${p.name} (${p.type})${p.vehicleNo ? ' - Vehicle: ' + p.vehicleNo : ''}`)
+    .join(' -> ');
   console.log('🛤️ TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTravel Pattern:', this.selectedForManifestation);
 
 
@@ -443,36 +532,45 @@ closeManifestationPopup() {
     consignmentNumber: c.consignmentNumber,
     consignor: c.consignor,
     routes: routeString,
+    invoices: (c.invoices || []).map((inv: any) => {
+      const products = (inv.products || []).map((p: any) => {
+        const currentInstock = Number(p.instock) || 0;
+        const rawManifestQty = p.manifestQty;
+        const shouldDefaultQty = !p.manifestQtyTouched ||
+          rawManifestQty === null || rawManifestQty === undefined || rawManifestQty === '';
+        const manifestQty = shouldDefaultQty
+          ? currentInstock
+          : Math.max(0, Number(rawManifestQty) || 0);
+        const newInstock = Math.max(0, currentInstock - manifestQty);
+        const newInTransit = (Number(p.intransitstock) || 0) + manifestQty;
+        return {
+          ...p,
+          type: p.type,
+          instock: newInstock,
+          intransitstock: newInTransit,
+          amount: Number(p.amount) || 0,
+          manifestQty
+        };
+      });
+      return {
+        number: inv.number || inv.invoicenum || '',
+        invoicenum: inv.invoicenum || inv.number || '',
+        value: Number(inv.value) || 0,
+        products
+      };
+    }),
     ewaybills: (c.ewaybills || []).map((s: any) => ({
       number: s.number || s.ewaybillNumber || '',
       ewaybillNumber: s.ewaybillNumber || s.number || '',
-      invoices: (s.invoices || []).map((inv: any) => {
-        const products = (inv.products || []).map((p: any) => {
-          const manifestQty = Number(p.manifestQty) || 0;
-          const currentInstock = Number(p.instock) || 0;
-          const newInstock = Math.max(0, currentInstock - manifestQty);
-          const newInTransit = (Number(p.intransitstock) || 0) + manifestQty;
-          return {
-            ...p,
-            type: p.type,
-            instock: newInstock,
-            intransitstock: newInTransit,
-            amount: Number(p.amount) || 0,
-            manifestQty
-          };
-        });
-        return {
-          number: inv.number || inv.invoicenum || '',
-          invoicenum: inv.invoicenum || inv.number || '',
-          value: Number(inv.value) || 0,
-          products
-        };
-      })
+      invoices: (s.invoices || []).map((inv: any) => ({
+        number: inv.number || inv.invoicenum || '',
+        invoicenum: inv.invoicenum || inv.number || '',
+        value: Number(inv.value) || 0
+      }))
     }))
   }));
 
   const manifestationData = {
-    email: this.email,
     username: this.username,
     branch: this.branch,
     manifestationNumber: this.manifestationNumber,
@@ -501,6 +599,7 @@ closeManifestationPopup() {
 
 
 validateManifestQty(product: any) {
+  product.manifestQtyTouched = true;
   if (product.manifestQty > product.instock) {
     alert(`⚠️ Manifest quantity cannot exceed available stock (${product.instock}).`);
     product.manifestQty = product.instock;
@@ -579,3 +678,5 @@ printReceipts() {
 }
 
 }
+
+

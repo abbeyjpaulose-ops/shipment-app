@@ -29,6 +29,7 @@ export class BranchComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
+    localStorage.setItem('branch', 'All Branches');
     this.loadBranches();
   }
 
@@ -151,4 +152,3 @@ export class BranchComponent implements OnInit {
     });
   }
 }
-

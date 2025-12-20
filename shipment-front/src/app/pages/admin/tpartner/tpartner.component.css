@@ -5,21 +5,27 @@
 
 .add-partner-form {
   margin-bottom: 15px;
-  display: grid;
-  gap: 6px;
-  grid-template-columns: repeat(3, 1fr);
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.add-partner-form input, select {
+.add-partner-form input,
+.add-partner-form select {
   padding: 4px;
   font-size: 14px;
 }
 
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .vehicle-entry {
-  grid-column: span 3;
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .vehicle-tag {
@@ -42,7 +48,7 @@
   color: white;
   border-radius: 4px;
   padding: 6px;
-  grid-column: span 3;
+  width: fit-content;
 }
 
 table {
@@ -70,4 +76,19 @@ th, td {
   padding: 4px;
   margin-bottom: 4px;
   border-radius: 4px;
+}
+
+.edit-field {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+@media (max-width: 720px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+  .edit-field {
+    grid-template-columns: 1fr;
+  }
 }

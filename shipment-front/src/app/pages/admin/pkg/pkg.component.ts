@@ -14,6 +14,7 @@ export class PkgComponent implements OnInit {
   pkgs: any[] = [];
   newPkg: any = {
     pkgName: '',
+    rate: 0,
     status: 'active',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')

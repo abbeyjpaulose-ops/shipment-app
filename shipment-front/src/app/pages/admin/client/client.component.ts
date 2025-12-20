@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -13,8 +13,11 @@ import { FormsModule } from '@angular/forms';
 export class ClientComponent implements OnInit {
 
   clients: any[] = [];
+  productOptions: any[] = [];
   showAddClientPopup = false;
-  cbranch: string = 'All Branches';
+  showEditClientPopup = false;
+  cbranch: string = localStorage.getItem('branch') || 'All Branches';
+  private branchCheck: any;
 
   newClient: any = {
     clientName: '',
@@ -40,7 +43,32 @@ export class ClientComponent implements OnInit {
 
   ngOnInit() {
     this.loadClients();
+    this.loadProducts();
+    // react to branch changes (same tab)
+    this.branchCheck = setInterval(() => {
+      const current = localStorage.getItem('branch') || 'All Branches';
+      if (current !== this.cbranch) {
+        this.cbranch = current;
+        this.loadClients();
+        this.loadProducts();
+      }
+    }, 1000);
+    // react to branch changes (other tabs)
+    window.addEventListener('storage', this.onStorage);
   }
+
+  ngOnDestroy() {
+    if (this.branchCheck) clearInterval(this.branchCheck);
+    window.removeEventListener('storage', this.onStorage);
+  }
+
+  private onStorage = (e: StorageEvent) => {
+    if (e.key === 'branch' && e.newValue && e.newValue !== this.cbranch) {
+      this.cbranch = e.newValue;
+      this.loadClients();
+      this.loadProducts();
+    }
+  };
 
   /** Load Clients */
   loadClients() {
@@ -57,6 +85,20 @@ export class ClientComponent implements OnInit {
       });
   }
 
+  /** Load Products for dropdown */
+  loadProducts() {
+    const branch = localStorage.getItem('branch') || 'All Branches';
+    this.http.get<any[]>(`http://localhost:3000/api/products`)
+      .subscribe({
+        next: (data) => {
+          this.productOptions = (data || []).filter((p: any) =>
+            branch === 'All Branches' ? true : p.branch === branch
+          );
+        },
+        error: (err) => console.error('Error loading products:', err)
+      });
+  }
+
   /** Popup Control */
   openAddClientPopup() {
     this.showAddClientPopup = true;
@@ -64,6 +106,20 @@ export class ClientComponent implements OnInit {
 
   closeAddClientPopup() {
     this.showAddClientPopup = false;
+  }
+
+  openEditClientPopup(client: any) {
+    this.editingClient = JSON.parse(JSON.stringify(client));
+    if (!Array.isArray(this.editingClient.products)) this.editingClient.products = [];
+    if (!Array.isArray(this.editingClient.deliveryLocations)) {
+      this.editingClient.deliveryLocations = [{ location: '' }];
+    }
+    this.showEditClientPopup = true;
+  }
+
+  closeEditClientPopup() {
+    this.showEditClientPopup = false;
+    this.editingClient = null;
   }
 
   /** Product Functions */
@@ -77,8 +133,29 @@ export class ClientComponent implements OnInit {
     });
   }
 
+  onProductSelect(row: any) {
+    const match = this.productOptions.find((p) => p.productName === row.productName);
+    if (match) {
+      row.hsnNum = match.hsnNum;
+    }
+  }
+
   removeProduct(index: number) {
     this.newClient.products.splice(index, 1);
+  }
+
+  addProductEdit() {
+    this.editingClient.products.push({
+      hsnNum: '',
+      productName: '',
+      ratePerNum: 0,
+      ratePerVolume: 0,
+      ratePerKg: 0
+    });
+  }
+
+  removeProductEdit(index: number) {
+    this.editingClient.products.splice(index, 1);
   }
 
   /** Delivery Location Functions */
@@ -88,6 +165,14 @@ export class ClientComponent implements OnInit {
 
   removeDeliveryLocation(index: number) {
     this.newClient.deliveryLocations.splice(index, 1);
+  }
+
+  addDeliveryLocationEdit() {
+    this.editingClient.deliveryLocations.push({ location: '' });
+  }
+
+  removeDeliveryLocationEdit(index: number) {
+    this.editingClient.deliveryLocations.splice(index, 1);
   }
 
   /** Add Client */
@@ -117,15 +202,11 @@ export class ClientComponent implements OnInit {
   }
 
   /** Edit Functions */
-  editClient(client: any) {
-    this.editingClient = { ...client };
-  }
-
   saveEdit() {
     this.http.put(`http://localhost:3000/api/clients/${this.editingClient._id}`, this.editingClient)
       .subscribe(() => {
         this.loadClients();
-        this.editingClient = null;
+        this.closeEditClientPopup();
       });
   }
 

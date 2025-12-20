@@ -1,7 +1,7 @@
-<div class="stocks-container">
+﻿<div class="stocks-container">
   <h2>Stocks</h2>
 
-  <!-- 🔍 Search and Filters (no status filter here) -->
+  <!-- ðŸ” Search and Filters (no status filter here) -->
   <div class="filters">
     <input
       type="text"
@@ -21,8 +21,8 @@
       (input)="applyFilters()" />
       
       <button (click)="openManifestationPopup()">Manifestation</button>
-      <button (click)="printReceipts()">🖨️ Print Receipts</button>
-       <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
+      <button (click)="printReceipts()">ðŸ–¨ï¸ Print Receipts</button>
+       <!--<button (click)="downloadReceipts()">ðŸ“„ Download Receipts</button> -->
   </div>
 
     <!-- Manifestation Button -->
@@ -30,7 +30,7 @@
     
   </div>
 
-  <!-- 📦 Stocks Table -->
+  <!-- ðŸ“¦ Stocks Table -->
   <table class="stocks-table">
     <thead>
       <tr>
@@ -63,7 +63,7 @@
 
 </div>
 
-<!-- 📑 Shipment Details Modal -->
+<!-- ðŸ“‘ Shipment Details Modal -->
 <div class="modal" *ngIf="selectedStock">
   <div class="modal-content">
     <span class="close" (click)="closeStockDetails()">&times;</span>
@@ -95,7 +95,7 @@
   </div>
 </div>
 
-<!-- ✅ Edit Modal -->
+<!-- âœ… Edit Modal -->
 <div class="modal" *ngIf="editingStock">
   <div class="modal-content">
     <h3>Edit Stock</h3>
@@ -200,7 +200,7 @@
     <div class="grid-3">
       <input placeholder="Invoice Number" [(ngModel)]="invoice.number" />
       <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value" />
-      <button type="button" (click)="deleteInvoice(i)">🗑️ Delete Invoice</button>
+      <button type="button" (click)="deleteInvoice(i)">ðŸ—‘ï¸ Delete Invoice</button>
     </div>
 
     <!-- Package Details for this Invoice -->
@@ -210,7 +210,7 @@
         <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
       </select>
       <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount" />
-      <button type="button" (click)="deletePackage(i, j)">🗑️ Delete Package {{i}}/{{j}}</button>
+      <button type="button" (click)="deletePackage(i, j)">ðŸ—‘ï¸ Delete Package {{i}}/{{j}}</button>
     </div>
     <button type="button" (click)="addPackage(i)">+ Add Package</button>
 
@@ -223,7 +223,7 @@
         </option>
       </select>
       <input placeholder="Amount*" type="number" [(ngModel)]="product.amount" (ngModelChange)="product.instock = $event" />
-      <button type="button" (click)="deleteProduct(i, k)">🗑️ Delete Product {{i}}/{{k}}</button>
+      <button type="button" (click)="deleteProduct(i, k)">ðŸ—‘ï¸ Delete Product {{i}}/{{k}}</button>
     </div>
     <button type="button" (click)="addProduct(i)">+ Add Product</button>
   </div>
@@ -250,7 +250,7 @@
   </div>
 </div>
 
-<!-- 🧾 Manifestation Terminal Popup -->
+<!-- ðŸ§¾ Manifestation Terminal Popup -->
 <div class="modal" *ngIf="showManifestationPopup">
   <div class="modal-content terminal-style">
     <span class="close" (click)="closeManifestationPopup()">&times;</span>
@@ -319,22 +319,26 @@
       <div class="routing-section">
         <h3>Shipment Routing</h3>
         <div class="routing-controls">
-          <select [(ngModel)]="selectedRoutePoint">
+          <select [(ngModel)]="selectedRoutePoint" (change)="onRoutePointChange()">
             <option *ngFor="let location of availableRoutePoints" [ngValue]="location">
               {{ location.name }} ({{ location.type }})
+            </option>
+          </select>
+          <select [(ngModel)]="selectedRouteVehicle" [disabled]="!selectedRoutePoint?.vehicles?.length">
+            <option value="">Select Vehicle</option>
+            <option *ngFor="let v of selectedRoutePoint?.vehicles" [value]="v">
+              {{ v }}
             </option>
           </select>
           <button (click)="addRoutePoint()">Add</button>
         </div>
         <ul class="route-list">
           <li *ngFor="let point of shipmentRoute; let i = index">
-            {{ i + 1 }}. {{ point.name }} ({{ point.type }})
-            <button class="remove-btn" (click)="removeRoutePoint(i)">✖</button>
+            {{ i + 1 }}. {{ point.name }} ({{ point.type }}) <span *ngIf="point.vehicleNo">- {{ point.vehicleNo }}</span>
+            <button class="remove-btn" (click)="removeRoutePoint(i)">x</button>
           </li>
         </ul>
       </div>
-
-
       <!-- Terminal Buttons -->
       <div class="terminal-buttons">
         <button (click)="finalizeManifestation()">Manifest</button>
@@ -349,6 +353,7 @@
     </ng-template>
   </div>
 </div>
+
 
 
 

@@ -12,10 +12,14 @@ router.post('/add', requireAuth, requireAdmin, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     if (!Number.isFinite(userId)) return res.status(400).json({ message: 'Invalid user_id' });
 
+    const username = req.user.username || req.body.username || String(req.user.userId || req.user.id || '');
+    if (!username) return res.status(400).json({ message: 'Invalid username' });
+
     const partner = new TransportPartner({
       ...req.body,
       GSTIN_ID: gstinId,
-      user_id: userId
+      user_id: userId,
+      username
     });
 
     await partner.save();
@@ -122,4 +126,3 @@ router.get('/tpartnerslist', requireAuth, async (req, res) => {
 });
 
 export default router;
-

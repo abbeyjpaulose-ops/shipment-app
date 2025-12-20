@@ -24,9 +24,7 @@ export class TpartnerComponent implements OnInit {
     vehicleNumbers: [] as { number: string; phone: string }[],
     rateType: 'km',
     rateValue: 0,
-    status: 'active',
-    email: localStorage.getItem('email'),
-    username: localStorage.getItem('username')
+    status: 'active'
   };
 
   newVehicle = { number: '', phone: '' };
@@ -66,8 +64,7 @@ export class TpartnerComponent implements OnInit {
 
   // Fetch Data
   loadPartners() {
-    const email = localStorage.getItem('email');
-    this.http.get<any[]>(`http://localhost:3000/api/tpartners?email=${email}`)
+    this.http.get<any[]>(`http://localhost:3000/api/tpartners`)
       .subscribe(res => this.partners = res);
   }
 
@@ -96,9 +93,7 @@ export class TpartnerComponent implements OnInit {
       vehicleNumbers: [],
       rateType: 'km',
       rateValue: 0,
-      status: 'active',
-      email: localStorage.getItem('email'),
-      username: localStorage.getItem('username')
+      status: 'active'
     };
   }
 
@@ -118,8 +113,7 @@ export class TpartnerComponent implements OnInit {
 
   // Status Toggle
   toggleStatus(p: any) {
-    this.http.patch(`http://localhost:3000/api/tpartners/${p._id}/status`, {
-      email: localStorage.getItem('email')
-    }).subscribe(() => this.loadPartners());
+    this.http.patch(`http://localhost:3000/api/tpartners/${p._id}/status`, {})
+      .subscribe(() => this.loadPartners());
   }
 }

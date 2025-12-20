@@ -4,6 +4,7 @@
   <!-- Add Pkg Form -->
   <div class="add-pkg-form">
     <input [(ngModel)]="newPkg.pkgName" placeholder="Package Type" required>
+    <input [(ngModel)]="newPkg.rate" type="number" placeholder="Rate" required>
     <button (click)="addPkg()">+ Add Package</button>
   </div>
 
@@ -12,6 +13,7 @@
     <table>
       <tr>
         <th>Package Type</th>
+        <th>Rate</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
@@ -21,6 +23,12 @@
           <span *ngIf="editingPkg?._id !== b._id">{{ b.pkgName }}</span>
           <div *ngIf="editingPkg?._id === b._id" class="edit-field">
             <input [(ngModel)]="editingPkg.pkgName">
+          </div>
+        </td>
+        <td>
+          <span *ngIf="editingPkg?._id !== b._id">{{ b.rate }}</span>
+          <div *ngIf="editingPkg?._id === b._id" class="edit-field">
+            <input type="number" [(ngModel)]="editingPkg.rate">
           </div>
         </td>
 

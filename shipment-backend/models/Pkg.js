@@ -5,6 +5,7 @@ const PkgSchema = new mongoose.Schema({
   // Company link (User.GSTIN_ID == User._id)
   GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
   pkgName: { type: String, required: true, trim: true },
+  rate: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
   user_id: { type: Number, required: true }, // creator (Profile _id)
   createdAt: { type: Date, default: Date.now }

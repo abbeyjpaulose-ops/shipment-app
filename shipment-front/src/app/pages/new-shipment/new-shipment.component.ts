@@ -14,6 +14,37 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   private DRAFT_PREFIX = 'newShipmentDraft';
   private branchCheckInterval: any;
 
+  showClientModal = false;
+  showGuestModal = false;
+  clientError = '';
+  guestError = '';
+
+  newClient = {
+    clientName: '',
+    address: '',
+    city: '',
+    state: '',
+    pinCode: '',
+    GSTIN: '',
+    phoneNum: '',
+    perDis: 0,
+    creditType: 'no-credit',
+    products: [] as any[],
+    deliveryLocations: [{ location: '' }],
+    status: 'active',
+    branch: ''
+  };
+
+  newGuest = {
+    guestName: '',
+    address: '',
+    city: '',
+    state: '',
+    pinCode: '',
+    phoneNum: '',
+    perDis: 0
+  };
+
   // Billing
   billingType: 'consignor' | 'different' = 'consignor';
   billingName = '';
@@ -41,7 +72,6 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   consignorTab: 'consignor' | 'guest' = 'consignor';
   consigneeTab: 'consignee' | 'guest' = 'consignee';
 
-  email: string = '';
   username: string = '';
   branch: string = localStorage.getItem('branch') || 'All Branches';
   selectedConsignorId: string | null = null;
@@ -82,15 +112,16 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   shipmentStatus: string = 'Pending';
   shipmentStatusDetails: string = '';
+  isSaving = false;
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
     if (typeof window === 'undefined') return;
 
-    this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';
+    this.newClient.branch = this.branch;
 
     this.loadDraft(this.branch);
     this.getCurrentConsignmentNumber();
@@ -133,6 +164,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.saveDraft(oldBranch);
     }
     this.branch = newBranch || 'All Branches';
+    this.newClient.branch = this.branch;
     this.loadDraft(this.branch);
     this.getCurrentConsignmentNumber();
     this.loadLists();
@@ -231,7 +263,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   private loadLists() {
     // Client list
-    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist`)
+    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?branch=${encodeURIComponent(this.branch)}`)
       .subscribe(res => this.clientList = res);
 
     // Guest list
@@ -344,7 +376,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       return;
     }
     this.http.get<{ nextNumber: number, fiscalYear: string }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?emailId=${this.email}&branch=${encodeURIComponent(this.branch)}`
+      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&branch=${encodeURIComponent(this.branch)}`
     ).subscribe({
       next: (res) => {
         this.consignmentNumber = res.nextNumber.toString();
@@ -356,13 +388,14 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   // SAVE SHIPMENT
   saveShipment() {
+    if (this.isSaving) return;
     if (!this.ensureProductAmounts()) return;
+    this.isSaving = true;
     const shipmentData: any = {
-      email: localStorage.getItem('email'),
       username: localStorage.getItem('username'),
       branch: localStorage.getItem('branch'),
       shipmentStatus: this.shipmentStatus,
-      shipmentStatusDetails: `${localStorage.getItem('email')}$$${this.date}$$${this.shipmentStatus}`,
+      shipmentStatusDetails: `${localStorage.getItem('username')}$$${this.date}$$${this.shipmentStatus}`,
       consignmentNumber: this.consignmentNumber,
       date: this.date,
       paymentMode: this.paymentMode,
@@ -415,6 +448,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
 
     if (shipmentData.branch !== 'All Branches') {
+      shipmentData.ewaybills = this.sanitizeEwaybills(shipmentData.ewaybills);
       this.http.post(
         'http://localhost:3000/api/newshipments/add',
         shipmentData,
@@ -425,12 +459,34 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
           this.getCurrentConsignmentNumber();
           this.resetForm();
           this.clearDraft(this.branch);
+          this.isSaving = false;
         },
-        error: err => alert('Error: ' + err.message)
+        error: err => {
+          const msg = err?.error?.message || err?.message || 'Bad Request';
+          if (msg.includes('E11000')) {
+            alert('Consignment number already used. Refreshing number and please try again.');
+            this.getCurrentConsignmentNumber();
+          } else {
+            alert('Error: ' + msg);
+          }
+          this.isSaving = false;
+        }
       });
     } else {
       alert('Please select a branch before saving.');
+      this.isSaving = false;
     }
+  }
+
+  private sanitizeEwaybills(ewaybills: any[]): any[] {
+    return (ewaybills || []).map((ewb) => ({
+      ...ewb,
+      invoices: (ewb.invoices || []).map((inv: any) => ({
+        ...inv,
+        packages: (inv.packages || []).filter((p: any) => p?.type && Number(p?.amount) > 0),
+        products: (inv.products || []).filter((p: any) => p?.type && Number(p?.amount) > 0)
+      }))
+    }));
   }
 
   private ensureProductAmounts(): boolean {
@@ -522,5 +578,115 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         },
         error: () => { /* ignore to keep UI working */ }
       });
+  }
+
+  // QUICK ADD CLIENT/GUEST
+  openClientModal() {
+    if (!this.branch || this.branch === 'All Branches') {
+      alert('Select a branch before adding a client.');
+      return;
+    }
+    this.newClient = {
+      clientName: '',
+      address: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      GSTIN: '',
+      phoneNum: '',
+      perDis: 0,
+      creditType: 'no-credit',
+      products: [],
+      deliveryLocations: [{ location: '' }],
+      status: 'active',
+      branch: this.branch
+    };
+    this.clientError = '';
+    this.showClientModal = true;
+  }
+
+  openGuestModal() {
+    this.newGuest = {
+      guestName: '',
+      address: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      phoneNum: '',
+      perDis: 0
+    };
+    this.guestError = '';
+    this.showGuestModal = true;
+  }
+
+  saveNewClient() {
+    this.clientError = '';
+    if (!this.newClient.clientName || !this.newClient.address || !this.newClient.GSTIN || !this.newClient.phoneNum || !this.newClient.branch) {
+      this.clientError = 'Please fill required fields (name, address, GSTIN, phone, branch).';
+      return;
+    }
+    if (this.newClient.branch === 'All Branches') {
+      this.clientError = 'Select a specific branch before adding a client.';
+      return;
+    }
+    this.http.post('http://localhost:3000/api/clients/add', this.newClient).subscribe({
+      next: (client: any) => {
+        this.clientList = [client, ...this.clientList];
+        this.consignor = client.clientName;
+        this.onConsignorSelect(this.consignor);
+        this.showClientModal = false;
+      },
+      error: (err) => {
+        this.clientError = err?.error?.message || 'Failed to save client.';
+      }
+    });
+  }
+
+  saveNewGuest() {
+    this.guestError = '';
+    if (!this.newGuest.guestName || !this.newGuest.address || !this.newGuest.phoneNum) {
+      this.guestError = 'Please fill required fields (name, address, phone).';
+      return;
+    }
+    this.http.post('http://localhost:3000/api/guests/add', this.newGuest).subscribe({
+      next: (guest: any) => {
+        this.guestList = [guest, ...this.guestList];
+        if (this.consignorTab === 'guest') {
+          this.consignor = guest.guestName;
+          this.onConsignorGuestSelect(this.consignor);
+        }
+        this.showGuestModal = false;
+      },
+      error: (err) => {
+        this.guestError = err?.error?.message || 'Failed to save guest.';
+      }
+    });
+  }
+
+  closeModals() {
+    this.showClientModal = false;
+    this.showGuestModal = false;
+  }
+
+  addClientProduct() {
+    this.newClient.products.push({
+      hsnNum: '',
+      productName: '',
+      ratePerNum: 0,
+      ratePerVolume: 0,
+      ratePerKg: 0
+    });
+  }
+
+  removeClientProduct(index: number) {
+    this.newClient.products.splice(index, 1);
+  }
+
+  addDeliveryLocation() {
+    this.newClient.deliveryLocations.push({ location: '' });
+  }
+
+  removeDeliveryLocation(index: number) {
+    this.newClient.deliveryLocations.splice(index, 1);
   }
 }

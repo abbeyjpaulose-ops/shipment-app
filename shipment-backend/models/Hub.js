@@ -43,9 +43,8 @@ export const HubSchema = new mongoose.Schema(
 );
 
 // Branch lookups within a company
-HubSchema.index({ GSTIN_ID: 1, branch: 1 });
 
-// Unique hub within a company + branch
-HubSchema.index({ GSTIN_ID: 1, branch: 1, hubName: 1, address: 1 }, { unique: true });
+// Unique hub within a company (regardless of branch)
+HubSchema.index({ GSTIN_ID: 1, hubName: 1, address: 1 }, { unique: true });
 
 export default mongoose.models.Hub || mongoose.model('Hub', HubSchema);

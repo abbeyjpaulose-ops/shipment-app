@@ -136,7 +136,10 @@ router.get('/clientslist', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const clients = await Client.find({ GSTIN_ID: gstinId, status: 'active' }).select('clientName GSTIN address phoneNum branch');
+    const { branch } = req.query;
+    const query = { GSTIN_ID: gstinId, status: 'active' };
+    if (branch && branch !== 'All Branches') query.branch = branch;
+    const clients = await Client.find(query).select('clientName GSTIN address phoneNum branch');
     res.json(clients);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -144,4 +147,3 @@ router.get('/clientslist', requireAuth, async (req, res) => {
 });
 
 export default router;
-

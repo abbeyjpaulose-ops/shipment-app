@@ -8,15 +8,18 @@ const router = express.Router();
 router.post('/add', requireAuth, requireAdmin, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
+    const userId = Number(req.user.userId);
     if (!Number.isFinite(gstinId)) {
       return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    }
+    if (!Number.isFinite(userId)) {
+      return res.status(400).json({ message: 'Invalid user_id' });
     }
 
     const hub = new Hub({
       ...req.body,
       GSTIN_ID: gstinId,
-      email: req.user.email,
-      username: req.user.username
+      user_id: userId
     });
 
     await hub.save();
@@ -124,4 +127,3 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
 });
 
 export default router;
-

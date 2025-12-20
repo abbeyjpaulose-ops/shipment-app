@@ -23,6 +23,7 @@ export class ManifestComponent implements OnInit {
   email: string = '';
   username: string = '';
   branch: string = localStorage.getItem('branch') || 'All Branches';
+  private branchCheck: any;
 
   showCancelPopup: boolean = false;
   selectedForCancel: any[] = [];
@@ -52,7 +53,7 @@ finalizeEdit() {
     next: () => {
       console.log('✅ Manifest updated in DDDDDDDDDB', this.selectedManifest.consignments);
       this.selectedManifest.consignments.forEach((cons: any) => {
-        this.updateConsignment(email, cons);
+        this.updateConsignment(this.username, cons);
       });
       
       console.log('✅ Manifest updated successfully');
@@ -73,6 +74,14 @@ finalizeEdit() {
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';
     this.loadManifests();
+
+    this.branchCheck = setInterval(() => {
+      const current = localStorage.getItem('branch') || 'All Branches';
+      if (current !== this.branch) {
+        this.branch = current;
+        this.loadManifests();
+      }
+    }, 1000);
   }
 
   // ✅ Load all manifests from backend
@@ -110,6 +119,10 @@ finalizeEdit() {
 
   // ✅ Open delivery popup
   openDeliveryPopup() {
+    if (this.branch === 'All Branches') {
+      alert('Please select a specific branch before confirming delivery.');
+      return;
+    }
     this.selectedForDelivery = this.filteredManifests.filter(m => m.selected);
 
     if (this.selectedForDelivery.length === 0) {
@@ -128,6 +141,10 @@ finalizeEdit() {
 
  
   finalizeDelivery() {
+    if (this.branch === 'All Branches') {
+      alert('Please select a specific branch before confirming delivery.');
+      return;
+    }
     if (this.selectedForDelivery.length === 0) {
       alert('No manifests selected for delivery.');
       return;
@@ -138,29 +155,34 @@ finalizeEdit() {
         // Update product delivery status
         cons.invoices.forEach((inv: any) => {
           inv.products.forEach((p: any) => {
-            if (p.intransitstock > 0) {
-              p.deliveredstock = (p.deliveredstock || 0) + p.intransitstock;
+            const deliveredQty = Number(p.intransitstock) || 0;
+            if (deliveredQty > 0) {
+              p.deliveredstock = (p.deliveredstock || 0) + deliveredQty;
+              p.manifestQty = deliveredQty;
             }
             p.intransitstock = 0;
           });
         });
       // Check if all products are fully delivered
       const allDelivered = cons.invoices.every((inv: any) =>
-        inv.products.every((p: any) => p.instock != 0)
+        inv.products.every((p: any) =>
+          (Number(p.deliveredstock) || 0) >= (Number(p.amount) || 0) ||
+          ((Number(p.instock) || 0) === 0 && (Number(p.intransitstock) || 0) === 0)
+        )
       );
       // Prepare updated consignment
       console.log(`🚚 Updating consignment1  to status:`, allDelivered);
  
       const updatedConsignment = {
         ...cons,
-        mshipmentStatus: allDelivered ? 'In Transit' : 'Delivered'
+        mshipmentStatus: 'Delivered'
       };
 
       console.log(`🚚 Updating consignment1  to status:`, updatedConsignment.mshipmentStatus);
 
       // Send updated consignment using helper method
   
-      this.updateConsignment(userEmail, updatedConsignment);
+    this.updateConsignment(this.username, updatedConsignment);
   
     });
     manifest = {
@@ -202,52 +224,56 @@ updatedstkConsignmentfn(updatedConsignment: any) {
 
 
 
-updateConsignment(email: string, updatedConsignment: any) {
-  const payload = {
-    email,
-    updatedConsignment
-  };
-  //console.log('📤 SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSending update payload:', payload.updatedConsignment.invoices[0].products);
-  let i=0;
-
+updateConsignment(username: string, updatedConsignment: any) {
   this.http.get<any[]>('http://localhost:3000/api/newshipments/getConsignment', {
       params: {
-        email: email,
+        username: username,
         consignmentNumber: updatedConsignment.consignmentNumber
       }
     }).subscribe({
       next: (res: any[]) => {
-        let stkupdatedConsignment = res[0];
-        
-        console.log('📥 SSRRRRRRRRRRRRRRRRRRRRRRRReceived consignment data:', stkupdatedConsignment);  
-        stkupdatedConsignment.invoices?.forEach((invoice: any) => {
-          i=0;
-          invoice.products?.forEach((product: any) => {
-            
-            product.deliveredstock += updatedConsignment.invoices[0].products[i].manifestQty;
-            console.log('📥 OOOOOOOOOUpdating product stock:', product.intransitstock);
-            product.intransitstock -= updatedConsignment.invoices[0].products[i].manifestQty;
-            console.log('📥 OOOOOOOOOUpdating product stock:', product.intransitstock);
-            ++i;
-            
+        const stkupdatedConsignment = res[0];
+        if (!stkupdatedConsignment) return;
+
+        const manifestQtyByType = new Map<string, number>();
+        (updatedConsignment.invoices || []).forEach((inv: any) => {
+          (inv.products || []).forEach((p: any) => {
+            const key = String(p.type || '').trim();
+            if (!key) return;
+            const qty = Number(p.manifestQty) || 0;
+            if (qty <= 0) return;
+            manifestQtyByType.set(key, (manifestQtyByType.get(key) || 0) + qty);
           });
         });
-        // Check if all products are fully delivered
-        const allDelivered = stkupdatedConsignment.invoices.every((inv: any) =>
-          inv.products.every((p: any) => p.deliveredstock === p.amount)
+
+        const ewaybills = stkupdatedConsignment.ewaybills || [];
+        ewaybills.forEach((ewb: any) => {
+          (ewb.invoices || []).forEach((inv: any) => {
+            (inv.products || []).forEach((product: any) => {
+              const key = String(product.type || '').trim();
+              const qty = manifestQtyByType.get(key) || 0;
+              if (!qty) return;
+              product.deliveredstock = (Number(product.deliveredstock) || 0) + qty;
+              product.intransitstock = Math.max(0, (Number(product.intransitstock) || 0) - qty);
+            });
+          });
+        });
+
+        const allDelivered = ewaybills.every((ewb: any) =>
+          (ewb.invoices || []).every((inv: any) =>
+            (inv.products || []).every((p: any) => (Number(p.deliveredstock) || 0) >= (Number(p.amount) || 0))
+          )
         );
-        // Prepare updated consignment
-        stkupdatedConsignment.shipmentStatus = allDelivered ? 'Delivered' : 'In Transit/Pending'
+
+        stkupdatedConsignment.shipmentStatus = allDelivered ? 'Delivered' : 'In Transit/Pending';
+        stkupdatedConsignment.ewaybills = ewaybills;
         this.updatedstkConsignmentfn(stkupdatedConsignment);
       },
-      error: (err: any) => console.error('❌ Error loading shipments:', err)
+      error: (err: any) => console.error('Error loading shipments:', err)
     });
-
- 
 }
 
-// ✅ (Deletion)Open cancel popup
-  openCancelPopup() {
+openCancelPopup() {
     this.selectedForCancel = this.filteredManifests.filter(m => m.selected);
 
     if (this.selectedForCancel.length === 0) {
@@ -278,7 +304,7 @@ updateConsignment(email: string, updatedConsignment: any) {
           ...cons,
           shipmentStatus: 'Pending'
         };
-        this.updateConsignment(userEmail, updatedConsignment);
+        this.updateConsignment(this.username, updatedConsignment);
       });
 
       // Update manifest in manifest DB
@@ -303,19 +329,30 @@ updateConsignment(email: string, updatedConsignment: any) {
                 next: (res: any[]) => {
      
                   let stkupdatedConsignment = res[0];
-                  console.log(`🗑️ Manifest1 ${stkupdatedConsignment.manifestationNumber} cancelled`, stkupdatedConsignment)
+                  console.log('Manifest cancelled', stkupdatedConsignment);
 
-                stkupdatedConsignment.invoices?.forEach((invoice: any) => {
-          
-                  let i=0;
-                  invoice.products?.forEach((product: any) => {
-                    product.intransitstock -= cons.invoices[0].products[i].manifestQty;
-                    product.instock += cons.invoices[0].products[i].manifestQty;
-                    ++i;
-            
-          });
-        });
-        // Check if all products are fully delivered
+                  const cancelQtyByType = new Map<string, number>();
+                  (cons.invoices || []).forEach((inv: any) => {
+                    (inv.products || []).forEach((p: any) => {
+                      const key = String(p.type || '').trim();
+                      if (!key) return;
+                      const qty = Number(p.manifestQty) || 0;
+                      if (qty <= 0) return;
+                      cancelQtyByType.set(key, (cancelQtyByType.get(key) || 0) + qty);
+                    });
+                  });
+
+                  stkupdatedConsignment.invoices?.forEach((invoice: any) => {
+                    invoice.products?.forEach((product: any) => {
+                      const key = String(product.type || '').trim();
+                      const qty = cancelQtyByType.get(key) || 0;
+                      if (!qty) return;
+                      product.intransitstock = Math.max(0, (Number(product.intransitstock) || 0) - qty);
+                      product.instock = (Number(product.instock) || 0) + qty;
+                    });
+                  });
+
+                  // Check if all products are fully delivered
         const allDelivered = stkupdatedConsignment.invoices.every((inv: any) =>
           inv.products.every((p: any) => p.deliveredstock != 0)
         );
@@ -420,3 +457,4 @@ updateConsignment(email: string, updatedConsignment: any) {
 }
 
 }
+

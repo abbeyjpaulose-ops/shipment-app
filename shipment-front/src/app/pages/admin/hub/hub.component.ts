@@ -22,6 +22,7 @@ export class HubComponent implements OnInit {
     pinCode: '',
     phoneNum: '',
     perRev: '',
+    branch: localStorage.getItem('branch') || 'All Branches',
     deliveryAddresses: [
       {
         location: '',
@@ -38,6 +39,8 @@ export class HubComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
+    localStorage.setItem('branch', 'All Branches');
+    this.newHub.branch = localStorage.getItem('branch') || 'All Branches';
     this.loadHubs();
   }
 
@@ -53,6 +56,7 @@ export class HubComponent implements OnInit {
   }
 
   addHub() {
+    this.newHub.branch = localStorage.getItem('branch') || 'All Branches';
     this.http.post('http://localhost:3000/api/hubs/add', this.newHub)
       .subscribe({
         next: () => {
@@ -76,6 +80,7 @@ export class HubComponent implements OnInit {
       pinCode: '',
       phoneNum: '',
       perRev: '',
+      branch: localStorage.getItem('branch') || 'All Branches',
       deliveryAddresses: [
         {
           location: '',
