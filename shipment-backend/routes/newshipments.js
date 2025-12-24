@@ -153,6 +153,7 @@ router.post('/add', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const username = req.user.username || shipmentData.username;
     if (!username) return res.status(400).json({ message: 'Invalid username' });
+    const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     const shipment = await Shipment.create({
       ...shipmentData,
@@ -160,6 +161,18 @@ router.post('/add', requireAuth, async (req, res) => {
       username
     });
     await replaceShipmentLines(shipment._id, ewaybills || [], { defaultInstockToAmount: true });
+    if (wantsSummary) {
+      res.status(201).json({
+        _id: shipment._id,
+        consignmentNumber: shipment.consignmentNumber,
+        branch: shipment.branch,
+        shipmentStatus: shipment.shipmentStatus,
+        date: shipment.date,
+        username: shipment.username,
+        GSTIN_ID: shipment.GSTIN_ID
+      });
+      return;
+    }
     const view = (await buildShipmentViews([shipment]))[0];
     res.status(201).json(view);
   } catch (err) {
@@ -221,6 +234,7 @@ router.get('/', requireAuth, async (req, res) => {
     }
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     let shipments;
     if (branch === 'All Branches') {
@@ -229,6 +243,10 @@ router.get('/', requireAuth, async (req, res) => {
       shipments = await Shipment.find({ GSTIN_ID: gstinId, branch }).sort({ createdAt: -1 });
     }
 
+    if (wantsSummary) {
+      res.json(shipments);
+      return;
+    }
     const views = await buildShipmentViews(shipments);
     res.json(views);
   } catch (err) {
@@ -295,6 +313,60 @@ router.get('/getConsignment', requireAuth, async (req, res) => {
     res.json(views);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Apply delivery updates without sending the full shipment payload
+router.post('/deliver', requireAuth, async (req, res) => {
+  try {
+    const { consignmentNumber, items } = req.body || {};
+    if (!consignmentNumber || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Missing consignmentNumber or items' });
+    }
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const shipment = await Shipment.findOne({ GSTIN_ID: gstinId, consignmentNumber });
+    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
+
+    const ewaybills = await Ewaybill.find({ shipmentId: shipment._id }).select('_id');
+    const ewaybillIds = ewaybills.map((e) => e._id);
+    const invoices = await Invoice.find({ ewaybillId: { $in: ewaybillIds } }).select('_id');
+    const invoiceIds = invoices.map((i) => i._id);
+
+    for (const item of items) {
+      const type = String(item.type || '').trim();
+      let remainingQty = Number(item.qty) || 0;
+      if (!type || remainingQty <= 0) continue;
+
+      const products = await InvoiceProduct.find({
+        invoiceId: { $in: invoiceIds },
+        type,
+        intransitstock: { $gt: 0 }
+      }).sort({ intransitstock: -1 });
+
+      for (const product of products) {
+        if (remainingQty <= 0) break;
+        const take = Math.min(Number(product.intransitstock) || 0, remainingQty);
+        if (take <= 0) continue;
+        product.intransitstock = Math.max(0, (Number(product.intransitstock) || 0) - take);
+        product.deliveredstock = (Number(product.deliveredstock) || 0) + take;
+        await product.save();
+        remainingQty -= take;
+      }
+    }
+
+    const stillOpen = await InvoiceProduct.exists({
+      invoiceId: { $in: invoiceIds },
+      $or: [{ instock: { $gt: 0 } }, { intransitstock: { $gt: 0 } }]
+    });
+    shipment.shipmentStatus = stillOpen ? 'In Transit/Pending' : 'Delivered';
+    await shipment.save();
+
+    const view = (await buildShipmentViews([shipment]))[0];
+    res.json({ message: 'Delivery updated', data: view });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

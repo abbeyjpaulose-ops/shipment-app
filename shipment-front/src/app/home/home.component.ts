@@ -3,6 +3,7 @@ import { RouterOutlet, RouterLink } from '@angular/router';
 import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { BranchService } from '../services/branch.service';
 
 @Component({
   selector: 'app-home',
@@ -27,7 +28,7 @@ export class HomeComponent implements OnInit {
   branchOptions: string[] = [];
   selectedBranch: string = localStorage.getItem('branch') || '';
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private branchService: BranchService) {}
 
   ngOnInit() {
     if (this.isAdmin && this.username) {
@@ -40,6 +41,7 @@ export class HomeComponent implements OnInit {
         this.selectedBranch = 'All Branches';
         localStorage.setItem('branch', this.selectedBranch);
       }
+      this.branchService.setBranch(this.selectedBranch);
       return;
     }
 
@@ -68,6 +70,7 @@ export class HomeComponent implements OnInit {
     const branch = event.target.value;
     this.selectedBranch = branch;
     localStorage.setItem('branch', branch);
+    this.branchService.setBranch(branch);
     //reload for the view shipments to reflect branch change
     const currentUrl = window.location.href;
     if (currentUrl.includes("/shipments")) {
@@ -75,3 +78,4 @@ export class HomeComponent implements OnInit {
     }
   }
 }
+

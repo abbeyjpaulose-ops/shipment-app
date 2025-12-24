@@ -76,7 +76,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   branch: string = localStorage.getItem('branch') || 'All Branches';
   selectedConsignorId: string | null = null;
 
-  consignmentNumber: string = '-999';
+  consignmentNumber: string = 'nil';
   date: string = new Date().toISOString().split('T')[0];
 
   consignor: string = '';
@@ -372,7 +372,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   // CONSIGNMENT NUMBER
   getCurrentConsignmentNumber() {
     if (!this.branch || this.branch === 'All Branches') {
-      this.consignmentNumber = '-999';
+      this.consignmentNumber = 'nil';
       return;
     }
     this.http.get<{ nextNumber: number, fiscalYear: string }>(
@@ -450,7 +450,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (shipmentData.branch !== 'All Branches') {
       shipmentData.ewaybills = this.sanitizeEwaybills(shipmentData.ewaybills);
       this.http.post(
-        'http://localhost:3000/api/newshipments/add',
+        'http://localhost:3000/api/newshipments/add?summary=true',
         shipmentData,
         { headers: { 'Content-Type': 'application/json' } }
       ).subscribe({

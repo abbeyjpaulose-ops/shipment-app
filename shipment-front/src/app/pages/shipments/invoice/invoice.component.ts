@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
+import { BranchService } from '../../../services/branch.service';
 
 @Component({
   selector: 'app-invoice',
@@ -10,7 +12,7 @@ import { HttpClient } from '@angular/common/http';
   templateUrl: './invoice.component.html',
   styleUrls: ['./invoice.component.css']
 })
-export class InvoiceComponent implements OnInit {
+export class InvoiceComponent implements OnInit, OnDestroy {
   invoices: any[] = [];
   filteredInvoices: any[] = [];
   searchText = '';
@@ -18,21 +20,36 @@ export class InvoiceComponent implements OnInit {
   filterConsignor: string = '';
   selectedInvoice: any = null;
   showInvoiceModal = false;
+  branch: string = localStorage.getItem('branch') || 'All Branches';
+  private branchSub?: Subscription;
 
   editingInvoice: any = null;   // ✅ Track the invoice being edited
   showEditPopup: boolean = false; // ✅ Control popup visibility
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private branchService: BranchService) {}
 
   ngOnInit() {
+    this.branch = this.branchService.currentBranch || this.branch;
+    this.branchSub = this.branchService.branch$.subscribe(branch => {
+      if (branch !== this.branch) {
+        this.branch = branch;
+        this.loadInvoices();
+      }
+    });
+    window.addEventListener('storage', this.onStorageChange);
     this.loadInvoices();
+  }
+
+  ngOnDestroy(): void {
+    this.branchSub?.unsubscribe();
+    window.removeEventListener('storage', this.onStorageChange);
   }
 
   loadInvoices() {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branch: localStorage.getItem('branch') || ''
+        branch: this.branch || localStorage.getItem('branch') || ''
       }
     }).subscribe({
       next: (res) => {
@@ -46,6 +63,13 @@ export class InvoiceComponent implements OnInit {
       error: (err) => console.error('❌ Error loading invoices:', err)
     });
   }
+
+  private onStorageChange = (e: StorageEvent) => {
+    if (e.key === 'branch' && e.newValue && e.newValue !== this.branch) {
+      this.branch = e.newValue;
+      this.loadInvoices();
+    }
+  };
 
   applyFilters() {
     this.filteredInvoices = this.invoices.filter(s =>
@@ -254,3 +278,8 @@ export class InvoiceComponent implements OnInit {
   .catch(err => console.error('Error loading invoice template:', err));
 }
 }
+
+
+
+
+

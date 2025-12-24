@@ -225,52 +225,29 @@ updatedstkConsignmentfn(updatedConsignment: any) {
 
 
 updateConsignment(username: string, updatedConsignment: any) {
-  this.http.get<any[]>('http://localhost:3000/api/newshipments/getConsignment', {
-      params: {
-        username: username,
-        consignmentNumber: updatedConsignment.consignmentNumber
-      }
-    }).subscribe({
-      next: (res: any[]) => {
-        const stkupdatedConsignment = res[0];
-        if (!stkupdatedConsignment) return;
-
-        const manifestQtyByType = new Map<string, number>();
-        (updatedConsignment.invoices || []).forEach((inv: any) => {
-          (inv.products || []).forEach((p: any) => {
-            const key = String(p.type || '').trim();
-            if (!key) return;
-            const qty = Number(p.manifestQty) || 0;
-            if (qty <= 0) return;
-            manifestQtyByType.set(key, (manifestQtyByType.get(key) || 0) + qty);
-          });
-        });
-
-        const ewaybills = stkupdatedConsignment.ewaybills || [];
-        ewaybills.forEach((ewb: any) => {
-          (ewb.invoices || []).forEach((inv: any) => {
-            (inv.products || []).forEach((product: any) => {
-              const key = String(product.type || '').trim();
-              const qty = manifestQtyByType.get(key) || 0;
-              if (!qty) return;
-              product.deliveredstock = (Number(product.deliveredstock) || 0) + qty;
-              product.intransitstock = Math.max(0, (Number(product.intransitstock) || 0) - qty);
-            });
-          });
-        });
-
-        const allDelivered = ewaybills.every((ewb: any) =>
-          (ewb.invoices || []).every((inv: any) =>
-            (inv.products || []).every((p: any) => (Number(p.deliveredstock) || 0) >= (Number(p.amount) || 0))
-          )
-        );
-
-        stkupdatedConsignment.shipmentStatus = allDelivered ? 'Delivered' : 'In Transit/Pending';
-        stkupdatedConsignment.ewaybills = ewaybills;
-        this.updatedstkConsignmentfn(stkupdatedConsignment);
-      },
-      error: (err: any) => console.error('Error loading shipments:', err)
+  const items: Array<{ type: string; qty: number }> = [];
+  (updatedConsignment.invoices || []).forEach((inv: any) => {
+    (inv.products || []).forEach((p: any) => {
+      const type = String(p.type || '').trim();
+      const qty = Number(p.manifestQty) || 0;
+      if (!type || qty <= 0) return;
+      items.push({ type, qty });
     });
+  });
+
+  if (!items.length) return;
+
+  const payload = {
+    consignmentNumber: updatedConsignment.consignmentNumber,
+    items
+  };
+
+  this.http.post('http://localhost:3000/api/newshipments/deliver', payload).subscribe({
+    next: () => {
+      this.loadManifests();
+    },
+    error: (err: any) => console.error('Error updating delivery:', err)
+  });
 }
 
 openCancelPopup() {
