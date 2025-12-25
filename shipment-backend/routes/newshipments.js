@@ -1,10 +1,10 @@
 // shipment-backend/routes/newshipments.js
 import express from 'express';
-import Shipment from '../models/NewShipment/Shipment.js';
-import Ewaybill from '../models/NewShipment/Ewaybill.js';
-import Invoice from '../models/NewShipment/Invoice.js';
-import InvoiceProduct from '../models/NewShipment/InvoiceProduct.js';
-import InvoicePackage from '../models/NewShipment/InvoicePackage.js';
+import Shipment from '../models/NewShipment/NewShipmentShipment.js';
+import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
+import Invoice from '../models/NewShipment/NewShipmentInvoice.js';
+import InvoiceProduct from '../models/NewShipment/NewShipmentInvoiceProduct.js';
+import InvoicePackage from '../models/NewShipment/NewShipmentInvoicePackage.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();

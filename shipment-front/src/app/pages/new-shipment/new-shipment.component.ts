@@ -18,6 +18,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   showGuestModal = false;
   clientError = '';
   guestError = '';
+  clientModalTab: 'add' | 'edit' = 'add';
+  editClientError = '';
 
   newClient = {
     clientName: '',
@@ -33,6 +35,21 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     deliveryLocations: [{ location: '' }],
     status: 'active',
     branch: ''
+  };
+
+  editableClientList: any[] = [];
+  selectedEditClientId: string = '';
+  editClient: any = {
+    _id: '',
+    clientName: '',
+    GSTIN: '',
+    phoneNum: '',
+    address: '',
+    city: '',
+    state: '',
+    pinCode: '',
+    branch: '',
+    deliveryLocations: [] as any[]
   };
 
   newGuest = {
@@ -165,6 +182,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
     this.branch = newBranch || 'All Branches';
     this.newClient.branch = this.branch;
+    this.editClient.branch = this.branch;
     this.loadDraft(this.branch);
     this.getCurrentConsignmentNumber();
     this.loadLists();
@@ -556,6 +574,19 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.productList.find(x => x.productName === name);
   }
 
+  formatClientOption(client: any): string {
+    const gstin = client?.GSTIN || '-';
+    const name = client?.clientName || '-';
+    const address = client?.address || '-';
+    return `${gstin} | ${name} | ${address}`;
+  }
+
+  formatGuestOption(guest: any): string {
+    const name = guest?.guestName || '-';
+    const address = guest?.address || '-';
+    return `- | ${name} | ${address}`;
+  }
+
   private loadPricingSuggestions(clientId: string | null) {
     if (!this.branch || this.branch === 'All Branches') return;
     const params = clientId
@@ -586,6 +617,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       alert('Select a branch before adding a client.');
       return;
     }
+    this.clientModalTab = 'add';
     this.newClient = {
       clientName: '',
       address: '',
@@ -602,7 +634,59 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       branch: this.branch
     };
     this.clientError = '';
+    this.editClientError = '';
+    this.selectedEditClientId = '';
     this.showClientModal = true;
+  }
+
+  setClientModalTab(tab: 'add' | 'edit') {
+    this.clientModalTab = tab;
+    if (tab === 'edit') {
+      this.loadEditableClients();
+    }
+  }
+
+  private loadEditableClients() {
+    if (!this.branch || this.branch === 'All Branches') return;
+    this.http.get<any[]>(`http://localhost:3000/api/clients?branch=${encodeURIComponent(this.branch)}`)
+      .subscribe({
+        next: (res) => this.editableClientList = res || [],
+        error: () => { this.editableClientList = []; }
+      });
+  }
+
+  onEditClientSelect(id: string) {
+    const c = this.editableClientList.find(x => x._id === id);
+    if (!c) return;
+    this.editClient = {
+      _id: c._id,
+      clientName: c.clientName || '',
+      GSTIN: c.GSTIN || '',
+      phoneNum: c.phoneNum || '',
+      address: c.address || '',
+      city: c.city || '',
+      state: c.state || '',
+      pinCode: c.pinCode || '',
+      branch: c.branch || '',
+      deliveryLocations: Array.isArray(c.deliveryLocations)
+        ? c.deliveryLocations.map((d: any) => ({ location: d.location || '' }))
+        : []
+    };
+    if (!this.editClient.deliveryLocations.length) {
+      this.editClient.deliveryLocations = [{ location: '' }];
+    }
+    this.editClientError = '';
+  }
+
+  addEditDeliveryLocation() {
+    if (!Array.isArray(this.editClient.deliveryLocations)) {
+      this.editClient.deliveryLocations = [];
+    }
+    this.editClient.deliveryLocations.push({ location: '' });
+  }
+
+  removeEditDeliveryLocation(index: number) {
+    this.editClient.deliveryLocations.splice(index, 1);
   }
 
   openGuestModal() {
@@ -640,6 +724,26 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         this.clientError = err?.error?.message || 'Failed to save client.';
       }
     });
+  }
+
+  saveEditedClient() {
+    this.editClientError = '';
+    if (!this.selectedEditClientId) {
+      this.editClientError = 'Select a client to edit.';
+      return;
+    }
+    const payload = {
+      deliveryLocations: (this.editClient.deliveryLocations || []).filter((d: any) => d?.location)
+    };
+    this.http.put(`http://localhost:3000/api/clients/${this.selectedEditClientId}`, payload)
+      .subscribe({
+        next: () => {
+          this.showClientModal = false;
+        },
+        error: (err) => {
+          this.editClientError = err?.error?.message || 'Failed to update client.';
+        }
+      });
   }
 
   saveNewGuest() {

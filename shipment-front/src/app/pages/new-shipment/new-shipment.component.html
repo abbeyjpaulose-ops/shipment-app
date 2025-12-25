@@ -63,23 +63,14 @@
             <div *ngIf="consignorTab==='consignor'" class="panel-body">
               <div class="inline-actions">
                 <span class="muted">Saved clients</span>
-                <button class="tiny-btn" (click)="openClientModal()">+ New Client</button>
+                <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
               </div>
               <label>Sender Name
                 <select [(ngModel)]="consignor" (change)="onConsignorSelect(consignor)">
                   <option *ngFor="let c of clientList" [value]="c.clientName">
-                    {{ c.clientName }} - {{ c.address }}
+                    {{ formatClientOption(c) }}
                   </option>
                 </select>
-              </label>
-              <label>GSTIN
-                <input [(ngModel)]="consignorGST" readonly>
-              </label>
-              <label>Phone
-                <input [(ngModel)]="consignorPhone" readonly>
-              </label>
-              <label>Address
-                <textarea [(ngModel)]="consignorAddress" readonly></textarea>
               </label>
             </div>
 
@@ -91,15 +82,9 @@
               <label>Guest Sender
                 <select [(ngModel)]="consignor" (change)="onConsignorGuestSelect(consignor)">
                   <option *ngFor="let g of guestList" [value]="g.guestName">
-                    {{ g.guestName }} - {{ g.address }}
+                    {{ formatGuestOption(g) }}
                   </option>
                 </select>
-              </label>
-              <label>Phone
-                <input [(ngModel)]="consignorPhone" readonly>
-              </label>
-              <label>Address
-                <textarea [(ngModel)]="consignorAddress" readonly></textarea>
               </label>
             </div>
           </div>
@@ -117,23 +102,14 @@
             <div *ngIf="consigneeTab==='consignee'" class="panel-body">
               <div class="inline-actions">
                 <span class="muted">Saved clients</span>
-                <button class="tiny-btn" (click)="openClientModal()">+ New Client</button>
+                <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
               </div>
               <label>Receiver Name
                 <select [(ngModel)]="consignee" (change)="onConsigneeSelect(consignee)">
                   <option *ngFor="let c of clientList" [value]="c.clientName">
-                    {{ c.clientName }} - {{ c.address }}
+                    {{ formatClientOption(c) }}
                   </option>
                 </select>
-              </label>
-              <label>GSTIN
-                <input [(ngModel)]="consigneeGST" readonly>
-              </label>
-              <label>Phone
-                <input [(ngModel)]="consigneePhone" readonly>
-              </label>
-              <label>Address
-                <textarea [(ngModel)]="consigneeAddress" readonly></textarea>
               </label>
             </div>
 
@@ -145,15 +121,9 @@
               <label>Guest Receiver
                 <select [(ngModel)]="consignee" (change)="onConsigneeGuestSelect(consignee)">
                   <option *ngFor="let g of guestList" [value]="g.guestName">
-                    {{ g.guestName }} - {{ g.address }}
+                    {{ formatGuestOption(g) }}
                   </option>
                 </select>
-              </label>
-              <label>Phone
-                <input [(ngModel)]="consigneePhone" readonly>
-              </label>
-              <label>Address
-                <textarea [(ngModel)]="consigneeAddress" readonly></textarea>
               </label>
             </div>
           </div>
@@ -351,48 +321,67 @@
   <div class="modal">
     <div class="modal-head">
       <h3>Add Client</h3>
-      <button class="icon-btn" (click)="closeModals()">✕</button>
+      <button class="icon-btn" (click)="closeModals()">?</button>
     </div>
-    <label>Name* <input [(ngModel)]="newClient.clientName" /></label>
-    <label>GSTIN* <input [(ngModel)]="newClient.GSTIN" /></label>
-    <label>Phone* <input [(ngModel)]="newClient.phoneNum" /></label>
-    <label>Discount % <input type="number" [(ngModel)]="newClient.perDis" /></label>
-    <label>Credit Type
-      <select [(ngModel)]="newClient.creditType">
-        <option value="no-credit">No Credit</option>
-        <option value="credit">Credit Allowed</option>
-      </select>
-    </label>
-    <label>Branch* <input [(ngModel)]="newClient.branch" readonly /></label>
-    <label>Address* <textarea [(ngModel)]="newClient.address"></textarea></label>
-    <div class="grid-3">
-      <input placeholder="City" [(ngModel)]="newClient.city" />
-      <input placeholder="State" [(ngModel)]="newClient.state" />
-      <input placeholder="PIN" [(ngModel)]="newClient.pinCode" />
+    <div class="tab-buttons" style="margin-bottom: 12px;">
+      <button (click)="setClientModalTab('add')" [class.active]="clientModalTab==='add'">New Client</button>
+      <button (click)="setClientModalTab('edit')" [class.active]="clientModalTab==='edit'">Edit Client</button>
     </div>
 
-    <h4>Delivery Locations</h4>
-    <div *ngFor="let d of newClient.deliveryLocations; let i = index" class="inline-fields">
-      <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.location" />
-      <button class="tiny-btn" (click)="removeDeliveryLocation(i)">Remove</button>
-    </div>
-    <button class="tiny-btn" (click)="addDeliveryLocation()">+ Add Delivery Location</button>
+    <div *ngIf="clientModalTab==='add'">
+      <label>Name* <input [(ngModel)]="newClient.clientName" /></label>
+      <label>GSTIN* <input [(ngModel)]="newClient.GSTIN" /></label>
+      <label>Phone* <input [(ngModel)]="newClient.phoneNum" /></label>
+      <label>Branch* <input [(ngModel)]="newClient.branch" readonly /></label>
+      <label>Address* <textarea [(ngModel)]="newClient.address"></textarea></label>
+      <div class="grid-3">
+        <input placeholder="City" [(ngModel)]="newClient.city" />
+        <input placeholder="State" [(ngModel)]="newClient.state" />
+        <input placeholder="PIN" [(ngModel)]="newClient.pinCode" />
+      </div>
 
-    <h4>Product Pricing</h4>
-    <div *ngFor="let p of newClient.products; let i = index" class="product-row">
-      <input placeholder="HSN" [(ngModel)]="p.hsnNum" class="extra-small-input" />
-      <input placeholder="Product" [(ngModel)]="p.productName" class="small-input" />
-      <input type="number" placeholder="Rate / Num" [(ngModel)]="p.ratePerNum" class="extra-small-input" />
-      <input type="number" placeholder="Rate / Volume" [(ngModel)]="p.ratePerVolume" class="extra-small-input" />
-      <input type="number" placeholder="Rate / Kg" [(ngModel)]="p.ratePerKg" class="extra-small-input" />
-      <button class="tiny-btn" (click)="removeClientProduct(i)">Remove</button>
-    </div>
-    <button class="tiny-btn" (click)="addClientProduct()">+ Add Product Rate</button>
+      <h4>Delivery Locations</h4>
+      <div *ngFor="let d of newClient.deliveryLocations; let i = index" class="inline-fields">
+        <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.location" />
+        <button class="tiny-btn" (click)="removeDeliveryLocation(i)">Remove</button>
+      </div>
+      <button class="tiny-btn" (click)="addDeliveryLocation()">+ Add Delivery Location</button>
 
-    <div class="error" *ngIf="clientError">{{ clientError }}</div>
-    <div class="modal-actions">
-      <button (click)="saveNewClient()">Save</button>
-      <button (click)="closeModals()">Cancel</button>
+      <div class="error" *ngIf="clientError">{{ clientError }}</div>
+      <div class="modal-actions">
+        <button (click)="saveNewClient()">Save</button>
+        <button (click)="closeModals()">Cancel</button>
+      </div>
+    </div>
+
+    <div *ngIf="clientModalTab==='edit'">
+      <label>Select Client
+        <select [(ngModel)]="selectedEditClientId" (change)="onEditClientSelect(selectedEditClientId)">
+          <option value="">Select...</option>
+          <option *ngFor="let c of editableClientList" [value]="c._id">{{ formatClientOption(c) }}</option>
+        </select>
+      </label>
+
+      <div *ngIf="editClient?._id">
+        <label>Name <input [ngModel]="editClient.clientName" readonly /></label>
+        <label>GSTIN <input [ngModel]="editClient.GSTIN" readonly /></label>
+        <label>Phone <input [ngModel]="editClient.phoneNum" readonly /></label>
+        <label>Branch <input [ngModel]="editClient.branch" readonly /></label>
+        <label>Address <textarea [ngModel]="editClient.address" readonly></textarea></label>
+
+        <h4>Delivery Locations</h4>
+        <div *ngFor="let d of editClient.deliveryLocations; let i = index" class="inline-fields">
+          <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.location" />
+          <button class="tiny-btn" (click)="removeEditDeliveryLocation(i)">Remove</button>
+        </div>
+        <button class="tiny-btn" (click)="addEditDeliveryLocation()">+ Add Delivery Location</button>
+      </div>
+
+      <div class="error" *ngIf="editClientError">{{ editClientError }}</div>
+      <div class="modal-actions">
+        <button (click)="saveEditedClient()" [disabled]="!selectedEditClientId">Save</button>
+        <button (click)="closeModals()">Cancel</button>
+      </div>
     </div>
   </div>
 </div>
@@ -420,3 +409,4 @@
     </div>
   </div>
 </div>
+

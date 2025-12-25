@@ -30,7 +30,7 @@ const ClientSchema = new mongoose.Schema({
   pinCode: { type: String },
   GSTIN: { type: String, required: true, trim: true, uppercase: true },
   phoneNum: { type: String, required: true },
-  perDis: { type: Number, required: true }, // percentage Discount
+  perDis: { type: Number, required: true, default: 0 }, // percentage Discount
 
   creditType: { type: String, enum: ['credit', 'no-credit'], default: 'no-credit' },  
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
