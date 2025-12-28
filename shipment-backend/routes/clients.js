@@ -139,7 +139,7 @@ router.get('/clientslist', requireAuth, async (req, res) => {
     const { branch } = req.query;
     const query = { GSTIN_ID: gstinId, status: 'active' };
     if (branch && branch !== 'All Branches') query.branch = branch;
-    const clients = await Client.find(query).select('clientName GSTIN address phoneNum branch');
+    const clients = await Client.find(query).select('clientName GSTIN address phoneNum branch creditType');
     res.json(clients);
   } catch (err) {
     res.status(500).json({ error: err.message });

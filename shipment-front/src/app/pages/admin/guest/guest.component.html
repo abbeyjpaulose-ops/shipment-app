@@ -1,16 +1,25 @@
 <div class="guests-container">
   <h2>Manage Guests</h2>
 
-  <!-- Add Guest Form -->
-  <div class="add-guest-form">
-    <input [(ngModel)]="newGuest.guestName" placeholder="Guest Name" required>
-    <input [(ngModel)]="newGuest.address" placeholder="Address" required>
-    <input [(ngModel)]="newGuest.city" placeholder="City">
-    <input [(ngModel)]="newGuest.state" placeholder="State">
-    <input [(ngModel)]="newGuest.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newGuest.phoneNum" placeholder="Contact Number" required>
-    <input [(ngModel)]="newGuest.perDis" placeholder="% of Discount" required>
-    <button (click)="addGuest()">+ Add Guest</button>
+  <!-- Add Guest Button -->
+  <button class="add-guest-btn" type="button" (click)="openAddGuestPopup()">+ Add Guest</button>
+
+  <!-- Add Guest Popup -->
+  <div class="modal" *ngIf="showAddGuestPopup">
+    <div class="modal-content">
+      <span class="close" (click)="closeAddGuestPopup()">&times;</span>
+      <h3>Add Guest</h3>
+      <div class="add-guest-form">
+        <input [(ngModel)]="newGuest.guestName" placeholder="Guest Name" required>
+        <input [(ngModel)]="newGuest.address" placeholder="Address" required>
+        <input [(ngModel)]="newGuest.city" placeholder="City">
+        <input [(ngModel)]="newGuest.state" placeholder="State">
+        <input [(ngModel)]="newGuest.pinCode" placeholder="Pin Code">
+        <input [(ngModel)]="newGuest.phoneNum" placeholder="Contact Number" required>
+        <input [(ngModel)]="newGuest.perDis" placeholder="% of Discount" required>
+        <button type="button" (click)="addGuest()">+ Add Guest</button>
+      </div>
+    </div>
   </div>
 
   <!-- Guests List -->

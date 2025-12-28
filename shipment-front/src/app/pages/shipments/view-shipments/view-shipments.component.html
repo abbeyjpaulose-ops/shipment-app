@@ -1,7 +1,7 @@
 <div class="shipments-container">
   <h2>View Shipments</h2>
 
-  <!-- 🔍 Search and Filters -->
+  <!-- dY"? Search and Filters -->
   <div class="filters">
     <input
       type="text"
@@ -28,7 +28,7 @@
       (input)="applyFilters()" />
   </div>
 
-  <!-- 📦 Shipments Table -->
+  <!-- dY"İ Shipments Table -->
   <table class="shipments-table">
     <thead>
       <tr>
@@ -36,9 +36,6 @@
         <th>Status</th>
         <th>Consignor</th>
         <th>Delivery Address</th>
-        <th>Products in stock</th>
-        <th>Products in Transit</th>
-        <th>Products Delivered</th>
         <th>No. of Products</th>
       </tr>
     </thead>
@@ -48,22 +45,25 @@
         <td>{{ s.shipmentStatus }}</td>
         <td>{{ s.consignor }}</td>
         <td>{{ s.deliveryAddress }}</td>
-        <td>{{ getProductTotal(s.invoices, 'instock') }}</td>
-        <td>{{ getProductTotal(s.invoices, 'intransitstock') }}</td>
-        <td>{{ getProductTotal(s.invoices, 'deliveredstock') }}</td>
         <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
       </tr>
     </tbody>
   </table>
 </div>
 
-<!-- 📑 Shipment Details Modal -->
-<div class="modal" *ngIf="selectedShipment">
-  <div class="modal-content">
-    <span class="close" (click)="closeShipmentDetails()">&times;</span>
-    <h2>Shipment Details</h2>
+<!-- dY"` Shipment Details Modal -->
+<div class="modal details-modal" *ngIf="selectedShipment">
+  <div class="modal-content details-content">
+    <button class="details-close" type="button" (click)="closeShipmentDetails()">&times;</button>
+    <div class="details-header">
+      <div>
+        <h2>Shipment Details</h2>
+        <p class="details-sub">Consignment {{ selectedShipment.consignmentNumber }}</p>
+      </div>
+      <span class="details-status">{{ selectedShipment.shipmentStatus }}</span>
+    </div>
 
-    <div class="shipment-details">
+    <div class="shipment-details details-grid">
       <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
       <p><strong>Consignor:</strong> {{ selectedShipment.consignor }}</p>
@@ -74,17 +74,18 @@
       <p><strong>No. of Products:</strong> {{ getInvoiceAmountTotal(selectedShipment.invoices) }}</p>
     </div>
 
-
     <h3>Products</h3>
-    <ul>
-      <li *ngFor="let invoice of selectedShipment.invoices">
-        {{ invoice.number }}:
-        <ul>
+    <div class="details-products">
+      <div class="details-invoice" *ngFor="let invoice of selectedShipment.invoices">
+        <div class="details-invoice-title">Invoice #{{ invoice.number }}</div>
+        <ul class="details-product-list">
           <li *ngFor="let product of invoice.products">
-            {{ product.type }} (In Stock Qty: {{ product.instock }}) (Total Qty: {{ product.amount }})
+            <span class="product-name">{{ product.type }}</span>
+            <span class="product-meta">In Stock: {{ product.instock }}</span>
+            <span class="product-meta">Total: {{ product.amount }}</span>
           </li>
         </ul>
-      </li>
-    </ul>
+      </div>
+    </div>
   </div>
 </div>

@@ -66,11 +66,16 @@
                 <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
               </div>
               <label>Sender Name
-                <select [(ngModel)]="consignor" (change)="onConsignorSelect(consignor)">
+                <input
+                  type="search"
+                  list="consignor-client-list"
+                  [(ngModel)]="consignor"
+                  (change)="onConsignorSelect(consignor)">
+                <datalist id="consignor-client-list">
                   <option *ngFor="let c of clientList" [value]="c.clientName">
                     {{ formatClientOption(c) }}
                   </option>
-                </select>
+                </datalist>
               </label>
             </div>
 
@@ -105,11 +110,16 @@
                 <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
               </div>
               <label>Receiver Name
-                <select [(ngModel)]="consignee" (change)="onConsigneeSelect(consignee)">
+                <input
+                  type="search"
+                  list="consignee-client-list"
+                  [(ngModel)]="consignee"
+                  (change)="onConsigneeSelect(consignee)">
+                <datalist id="consignee-client-list">
                   <option *ngFor="let c of clientList" [value]="c.clientName">
                     {{ formatClientOption(c) }}
                   </option>
-                </select>
+                </datalist>
               </label>
             </div>
 
@@ -195,18 +205,28 @@
     <!-- Right column -->
     <div class="col">
       <div class="card">
-        <div class="card-head">
-          <div>
-            <p class="eyebrow">Items</p>
-            <h3>E-Waybills & Invoices</h3>
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Items</p>
+          <h3>E-Waybills & Invoices</h3>
+        </div>
+        <div class="head-actions">
+          <div class="rate-unit">
+            <span>Rate Unit</span>
+            <select [(ngModel)]="rateUnit">
+              <option value="box">Rate / Box</option>
+              <option value="cm3">Rate / cmA3</option>
+              <option value="kg">Rate / Kg</option>
+            </select>
           </div>
           <button class="tiny-btn primary black" (click)="addEwaybill()">+ E-Waybill</button>
         </div>
+      </div>
 
         <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill">
           <div class="line-header">
             <div class="eyebrow">E-Waybill {{ e + 1 }}</div>
-            <button class="icon-btn" (click)="deleteEwaybill(e)">✕</button>
+            <button class="icon-btn" (click)="deleteEwaybill(e)">バ</button>
           </div>
           <div class="grid-3 compact">
             <input placeholder="Customer Eway-bill No" [(ngModel)]="ewb.number">
@@ -218,7 +238,7 @@
               <div>
                 <div class="eyebrow">Invoice {{ i + 1 }}</div>
               </div>
-              <button class="icon-btn" (click)="deleteInvoice(e, i)">✕</button>
+              <button class="icon-btn" (click)="deleteInvoice(e, i)">バ</button>
             </div>
             <div class="grid-3 compact">
               <input placeholder="Customer INV No" [(ngModel)]="invoice.number">
@@ -227,14 +247,17 @@
 
             <div class="subsection">
               <div class="subsection-title">Products</div>
-              <div *ngFor="let product of invoice.products; let p=index" class="compact-row">
-                <select [(ngModel)]="product.type">
-                  <option *ngFor="let prod of productList" [value]="prod.productName">
-                    {{ prod.hsnNum }} - {{ prod.productName }}
-                  </option>
-                </select>
-                <input type="number" placeholder="Qty" [(ngModel)]="product.amount">
-                <button class="icon-btn" (click)="deleteProduct(e, i, p)">✕</button>
+              <div *ngFor="let product of invoice.products; let p=index" class="product-row">
+                <div class="compact-row">
+                  <select [(ngModel)]="product.type">
+                    <option *ngFor="let prod of productList" [value]="prod.productName">
+                      {{ prod.hsnNum }} - {{ prod.productName }}
+                    </option>
+                  </select>
+                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount">
+                  <button class="icon-btn" (click)="deleteProduct(e, i, p)">バ</button>
+                </div>
+                <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer">
               </div>
               <button class="tiny-btn" (click)="addProduct(e, i)">+ Product</button>
             </div>
@@ -246,7 +269,7 @@
                   <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
                 </select>
                 <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount">
-                <button class="icon-btn" (click)="deletePackage(e, i, j)">✕</button>
+                <button class="icon-btn" (click)="deletePackage(e, i, j)">バ</button>
               </div>
               <button class="tiny-btn" (click)="addPackage(e, i)">+ Package</button>
             </div>
@@ -270,9 +293,9 @@
         </div>
         <div class="grid-2">
           <label>Payment Mode
-            <select [(ngModel)]="paymentMode">
+            <select [(ngModel)]="paymentMode" [disabled]="!isPaymentModeEnabled()">
               <option>To Pay</option>
-              <option>Account Credit</option>
+              <option *ngIf="allowAccountCredit">Account Credit</option>
               <option>Paid</option>
             </select>
           </label>
@@ -391,7 +414,7 @@
   <div class="modal">
     <div class="modal-head">
       <h3>Add Guest</h3>
-      <button class="icon-btn" (click)="closeModals()">✕</button>
+      <button class="icon-btn" (click)="closeModals()">バ</button>
     </div>
     <label>Name* <input [(ngModel)]="newGuest.guestName" /></label>
     <label>Phone* <input [(ngModel)]="newGuest.phoneNum" /></label>
@@ -409,4 +432,3 @@
     </div>
   </div>
 </div>
-

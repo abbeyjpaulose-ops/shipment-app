@@ -1,133 +1,449 @@
-<div class="manifest-container">
-  <h2>📦 Manifest Records</h2>
+<div class="stocks-container">
+  <h2>In Transit/ On Delivery</h2>
 
-  <!-- Filters -->
+  <!-- 🔍 Search and Filters (no status filter here) -->
   <div class="filters">
     <input
       type="text"
+      placeholder="Search by consignment no. or consignor"
       [(ngModel)]="searchText"
-      placeholder="🔍 Search Consignor / Manifest #"
-      (input)="applyFilters()"
-    />
-    <input type="date" [(ngModel)]="filterDate" (change)="applyFilters()" />
+      (input)="applyFilters()" />
+
+    <input
+      type="date"
+      [(ngModel)]="filterDate"
+      (change)="applyFilters()" />
+
     <input
       type="text"
+      placeholder="Filter by consignor"
       [(ngModel)]="filterConsignor"
-      placeholder="🏷️ Filter by Consignor"
-      (input)="applyFilters()"
-    />
+      (input)="applyFilters()" />
+      
+      <button (click)="openManifestationPopup()">Delivery</button>
+      <button (click)="printReceipts()">🖨️ Print Receipts</button>
+       <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
   </div>
 
-    <!-- Deliver Button -->
+    <!-- Manifestation Button -->
   <div class="actions">
-    <button class="delivery-btn" (click)="openDeliveryPopup()">🚚 Deliver</button>
-    <button class="delete-btn" (click)="openCancelPopup()">🗑️ Delete</button>
-    <button class="print-btn" (click)="printManifest()">🖨️ Print Manifest</button>
+    
   </div>
 
-  <!-- Responsive Table Wrapper -->
-  <div class="table-wrapper">
-    <table class="manifest-table">
-      <thead>
-        <tr>
-          <th style="width: 50px"><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
-          <th>Manifest #</th>
-          <th>Status #</th>
-          <th>Date</th>
-          <th>Consignor / Consignment Details</th>
-          <th>Branch</th>
-        </tr>
-      </thead>
- 
-      <tbody>
-        <tr *ngFor="let manifest of filteredManifests">
-          <td><input type="checkbox" [(ngModel)]="manifest.selected" /></td>
-          <td>{{ manifest.manifestationNumber }}</td>
-          <td>{{ manifest.mshipmentStatus }}</td>
-          <td>{{ manifest.date | date: 'mediumDate' }}</td>
-          <td>
-            <div class="manifest-consignments">
-              <div *ngFor="let c of manifest.consignments" class="consignment-card">
-                <strong>Consignment:</strong> {{ c.consignmentNumber }}<br />
-                <strong>Consignor:</strong> {{ c.consignor }}<br />
-                <strong>Invoices:</strong>
-                <ul>
-                  <li *ngFor="let inv of c.invoices">
-                    <b>#{{ inv.number }}</b> (₹{{ inv.value }})
-                    <ul>
-                      <li *ngFor="let p of inv.products">
-                        {{ p.type }} — Manifested: {{ p.manifestQty }} / Stock: {{ p.instock }}
-                      </li>
-                    </ul>
-                  </li>
-                </ul>
-              </div>
-            </div>
-          </td>
-          <td>{{ manifest.branch }}</td>
-          <td>
-            <!-- ✏️ Edit Button -->
-            <button class="edit-btn" (click)="openEditPopup(manifest)">✏️ Edit</button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+  <!-- 📦 Stocks Table -->
+  <table class="stocks-table">
+    <thead>
+      <tr>
+        <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
+        <th>Consignment No.</th>
+        <th>Consignor</th>
+        <th>Delivery Address</th>
+        <th>Routes</th>
+        <th>No. of Products</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let s of filteredStocks" (click)="openStockDetails(s)">
+        <td>
+          <input type="checkbox" [(ngModel)]="s.selected" (click)="$event.stopPropagation()" />
+        </td>
+        <td>{{ s.consignmentNumber }}</td>
+        <td>{{ s.consignor }}</td>
+        <td>{{ s.deliveryAddress }}</td>
+        <td>{{ getRoutesDisplay(s) }}</td>
+        <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
+        <td>
+          <button (click)="editStock(s); $event.stopPropagation()">Edit</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
 
 
+</div>
 
-  <!-- Edit Popup -->
-  <div class="popup" *ngIf="showEditPopup">
-    <div class="popup-content">
-      <h3>Edit Manifest</h3>
-      <label>Manifest #:</label>
-      <input type="text" [(ngModel)]="selectedManifest.manifestationNumber" />
-      <label>Status:</label>
-      <input type="text" [(ngModel)]="selectedManifest.mshipmentStatus" />
-      <label>Date:</label>
-      <input type="date" [(ngModel)]="selectedManifest.date" />
-      <label>Branch:</label>
-      <input type="text" [(ngModel)]="selectedManifest.branch" />
-
-      <!-- You can expand with consignments/invoices editing if needed -->
-      <div class="popup-actions">
-        <button class="confirm-btn" (click)="finalizeEdit()">✅ Save</button>
-        <button class="cancel-btn" (click)="closeEditPopup()">❌ Cancel</button>
+<!-- 📑 Shipment Details Modal -->
+<div class="modal details-modal" *ngIf="selectedStock">
+  <div class="modal-content details-content">
+    <button class="details-close" type="button" (click)="closeStockDetails()">&times;</button>
+    <div class="details-header">
+      <div>
+        <h2>Shipment Details</h2>
+        <p class="details-sub">Consignment {{ selectedStock.consignmentNumber }}</p>
       </div>
+      <span class="details-status">{{ selectedStock.shipmentStatus }}</span>
     </div>
-  </div>
+
+    <div class="stock-details details-grid">
+      <p><strong>Consignment No.:</strong> {{ selectedStock.consignmentNumber }}</p>
+      <p><strong>Status:</strong> {{ selectedStock.shipmentStatus }}</p>
+      <p><strong>Consignor:</strong> {{ selectedStock.consignor }}</p>
+      <p><strong>Consignee:</strong> {{ selectedStock.consignee }}</p>
+      <p><strong>Delivery Address:</strong> {{ selectedStock.deliveryAddress }}</p>
+      <p><strong>Date:</strong> {{ selectedStock.date | date:'short' }}</p>
+      <p><strong>Products in stock:</strong> {{ getInStockAmountTotal(selectedStock.invoices) }}</p>
+      <p><strong>No. of Products:</strong> {{ getInvoiceAmountTotal(selectedStock.invoices) }}</p>
+    </div>
 
 
-  <!-- Delivery Popup -->
-  <div class="popup" *ngIf="showDeliveryPopup">
-    <div class="popup-content">
-      <h3>Confirm Delivery</h3>
-      <p><b>Selected Manifests:</b></p>
-      <ul>
-        <li *ngFor="let m of selectedForDelivery">{{ m.manifestationNumber }}</li>
-      </ul>
-
-      <div class="popup-actions">
-        <button class="confirm-btn" (click)="finalizeDelivery()">✅ Deliver</button>
-        <button class="cancel-btn" (click)="closeDeliveryPopup()">❌ Cancel</button>
+    <h3>Products</h3>
+    <div class="details-products">
+      <div class="details-invoice" *ngFor="let invoice of selectedStock.invoices">
+        <div class="details-invoice-title">Invoice #{{ invoice.number }}</div>
+        <ul class="details-product-list">
+          <li *ngFor="let product of invoice.products">
+            <span class="product-name">{{ product.type }}</span>
+            <span class="product-meta">In Stock: {{ product.instock }}</span>
+            <span class="product-meta">Total: {{ product.amount }}</span>
+          </li>
+        </ul>
       </div>
-    </div>
-  </div>
-
-  <!-- Cancel Popup -->
-<div class="popup" *ngIf="showCancelPopup">
-  <div class="popup-content">
-    <h3>Confirm Cancellation</h3>
-    <p><b>Selected Manifests:</b></p>
-    <ul>
-      <li *ngFor="let m of selectedForCancel">{{ m.manifestationNumber }}</li>
-    </ul>
-
-    <div class="popup-actions">
-      <button class="confirm-btn" (click)="finalizeCancel()">✅ Confirm Cancel</button>
-      <button class="cancel-btn" (click)="closeCancelPopup()">❌ Close</button>
     </div>
   </div>
 </div>
 
+<!-- ✅ Edit Modal -->
+<div class="modal edit-stock-modal" *ngIf="editingStock">
+  <div class="modal-content edit-stock-content">
+    <div class="edit-stock-header">
+      <div>
+        <h3>Edit Stock</h3>
+        <p class="edit-stock-meta">Consignment No: {{editingStock.consignmentNumber}} | Status: {{editingStock.shipmentStatus}}</p>
+      </div>
+    </div>
+
+    <div class="edit-stock-section">
+      <div class="edit-stock-grid">
+        <label>E-way Bill No:
+          <input [(ngModel)]="editingStock.ewaybillNumber" />
+        </label>
+        <label>Date:
+          <input type="date" [(ngModel)]="editingStock.date" />
+        </label>
+      </div>
+    </div>
+
+    <div class="edit-stock-section">
+      <h4>Consignor</h4>
+      <div class="tabs edit-stock-tabs">
+        <button (click)="editingStock.consignorTab = 'consignor'" [class.active]="editingStock.consignorTab === 'consignor'">Consignor</button>
+        <button (click)="editingStock.consignorTab = 'guest'" [class.active]="editingStock.consignorTab === 'guest'">Guest</button>
+      </div>
+
+      <div *ngIf="editingStock.consignorTab === 'consignor'" class="edit-stock-grid">
+        <label>Consignor:
+          <select [(ngModel)]="editingStock.consignor" (change)="onConsignorSelect(editingStock.consignor)">
+            <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+          </select>
+        </label>
+        <label>GSTIN:
+          <input [(ngModel)]="editingStock.consignorGST" readonly />
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consignorAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consignorPhone" readonly />
+        </label>
+      </div>
+
+      <div *ngIf="editingStock.consignorTab === 'guest'" class="edit-stock-grid">
+        <label>Guest Name:
+          <select [(ngModel)]="editingStock.consignor" (change)="onConsignorGuestSelect(editingStock.consignor)">
+            <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+          </select>
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consignorAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consignorPhone" readonly />
+        </label>
+      </div>
+    </div>
+
+    <div class="edit-stock-section">
+      <h4>Consignee</h4>
+      <div class="tabs edit-stock-tabs">
+        <button (click)="editingStock.consigneeTab = 'consignee'" [class.active]="editingStock.consigneeTab === 'consignee'">Consignee</button>
+        <button (click)="editingStock.consigneeTab = 'guest'" [class.active]="editingStock.consigneeTab === 'guest'">Guest</button>
+      </div>
+
+      <div *ngIf="editingStock.consigneeTab === 'consignee'" class="edit-stock-grid">
+        <label>Consignee:
+          <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeSelect(editingStock.consignee)">
+            <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+          </select>
+        </label>
+        <label>GSTIN:
+          <input [(ngModel)]="editingStock.consigneeGST" readonly />
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consigneeAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consigneePhone" readonly />
+        </label>
+      </div>
+
+      <div *ngIf="editingStock.consigneeTab === 'guest'" class="edit-stock-grid">
+        <label>Guest Name:
+          <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeGuestSelect(editingStock.consignee)">
+            <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+          </select>
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consigneeAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consigneePhone" readonly />
+        </label>
+      </div>
+    </div>
+
+    <div class="edit-stock-section">
+      <div class="edit-stock-grid">
+        <label>Payment Mode:
+          <select [(ngModel)]="editingStock.paymentMode">
+            <option>Account Credit</option>
+            <option>Paid</option>
+            <option>To Pay</option>
+          </select>
+        </label>
+        <label>External Ref ID:
+          <input [(ngModel)]="editingStock.externalRefId" />
+        </label>
+      </div>
+
+      <h4>Billing Type</h4>
+      <div class="edit-stock-radio">
+        <label><input type="radio" name="billing" value="consignor" [(ngModel)]="editingStock.billingType" /> Consignor's GST Address</label>
+        <label><input type="radio" name="billing" value="different" [(ngModel)]="editingStock.billingType" /> Different Address</label>
+      </div>
+
+      <div *ngIf="editingStock.billingType === 'different'" class="edit-stock-grid">
+        <label>Name:
+          <input [(ngModel)]="editingStock.billingName" />
+        </label>
+        <label>GSTIN:
+          <input [(ngModel)]="editingStock.billingGSTIN" />
+        </label>
+        <label>Address:
+          <textarea [(ngModel)]="editingStock.billingAddress"></textarea>
+        </label>
+      </div>
+    </div>
+
+   <!-- 4. Invoice -->
+<section class="edit-stock-section">
+  <h3>4. Invoice</h3>
+  <div *ngFor="let invoice of editingStock.invoices; let i = index" class="invoice-block">
+    <!-- Invoice Header -->
+    <div class="grid-3">
+      <input placeholder="Invoice Number" [(ngModel)]="invoice.number" />
+      <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value" />
+      <button type="button" class="danger" (click)="deleteInvoice(i)">Delete Invoice</button>
+    </div>
+
+    <!-- Package Details for this Invoice -->
+    <h4>Packages</h4>
+    <div *ngFor="let pkg of invoice.packages; let j = index" class="grid-4">
+      <select [(ngModel)]="pkg.type" (change)="onPackageList(pkg.pkgName)">
+        <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
+      </select>
+      <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount" />
+      <button type="button" class="danger" (click)="deletePackage(i, j)">dY-`�,? Delete Package {{i}}/{{j}}</button>
+    </div>
+    <button type="button" class="ghost" (click)="addPackage(i)">+ Add Package</button>
+
+    <!-- Product Details for this Invoice -->
+    <h4>Products</h4>
+    <div *ngFor="let product of invoice.products; let k = index" class="grid-4">
+      <select [(ngModel)]="product.type" (change)="onPackageList(product.productName)">
+        <option *ngFor="let productItem of productList" [value]="productItem.productName">
+          {{ productItem.hsnNum }} - {{ productItem.productName }}
+        </option>
+      </select>
+      <input
+        placeholder="Amount*"
+        type="number"
+        [(ngModel)]="product.amount"
+        (focus)="onProductAmountFocus(invoice, product, i)"
+        (ngModelChange)="onProductAmountChange(invoice, product, $event, i)"
+      />
+      <button type="button" class="danger" (click)="deleteProduct(i, k)">dY-`�,? Delete Product {{i}}/{{k}}</button>
+    </div>
+    <button type="button" class="ghost" (click)="addProduct(i)">+ Add Product</button>
+  </div>
+
+  <!-- Add New Invoice -->
+  <button type="button" class="ghost" (click)="addInvoice()">+ Add Invoice</button>
+</section>
+
+    <div class="edit-stock-section">
+      <h4>Charges</h4>
+      <div class="edit-stock-grid">
+        <label>ODC:
+          <input type="number" [(ngModel)]="editingStock.charges.odc" />
+        </label>
+        <label>Unloading:
+          <input type="number" [(ngModel)]="editingStock.charges.unloading" />
+        </label>
+        <label>Docket:
+          <input type="number" [(ngModel)]="editingStock.charges.docket" />
+        </label>
+        <label>Other:
+          <input type="number" [(ngModel)]="editingStock.charges.other" />
+        </label>
+        <label>CCC:
+          <input type="number" [(ngModel)]="editingStock.charges.ccc" />
+        </label>
+        <label>Final Amount:
+          <input type="number" [(ngModel)]="editingStock.finalAmount" />
+        </label>
+      </div>
+    </div>
+
+    <div class="edit-stock-actions">
+      <button class="ghost" (click)="calculateFinalAmount()">Calculate</button>
+      <button class="primary" (click)="saveStockEdit()">Save</button>
+      <button class="ghost" (click)="cancelEdit()">Cancel</button>
+    </div>
+  </div>
+</div>
+<!-- Adjust Manifest Quantities Popup -->
+<div class="modal" *ngIf="showManifestAdjustmentPopup">
+  <div class="modal-content">
+    <h3>Adjust Manifest Quantities</h3>
+    <div *ngIf="pendingManifestAdjustment">
+      <p><strong>Consignment:</strong> {{ pendingManifestAdjustment.consignmentNumber }}</p>
+      <p><strong>Product:</strong> {{ pendingManifestAdjustment.productType }}</p>
+      <p>
+        <strong>New Total Qty:</strong>
+        {{ getPopupTargetTotal() }}
+      </p>
+      <p>
+        <strong>In Stock Qty:</strong>
+        <input
+          type="number"
+          min="0"
+          [(ngModel)]="pendingManifestAdjustment.popupInstock"
+          (ngModelChange)="onPopupInstockChange($event)"
+        />
+      </p>
+      
+    </div>
+
+    <table class="stocks-table" *ngIf="manifestAdjustmentLines.length > 0">
+      <thead>
+        <tr>
+          <th>Manifest No.</th>
+          <th>Date</th>
+          <th>Invoice</th>
+          <th>Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let line of manifestAdjustmentLines">
+          <td>{{ line.manifestationNumber }}</td>
+          <td>{{ line.date | date:'short' }}</td>
+          <td>{{ line.invoiceNumber }}</td>
+          <td>
+            <input
+              type="number"
+              min="0"
+              [(ngModel)]="line.newManifestQty"
+              (ngModelChange)="onManifestQtyChange(line)"
+            />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>Manifest Total:</strong> {{ getManifestLineTotal() }} | <strong>Delivered Total:</strong> {{ getPopupDeliveredTotal() }}</p>
+
+    <div class="terminal-buttons">
+      <button (click)="applyManifestAdjustments()">Apply</button>
+      <button (click)="cancelManifestAdjustments()">Cancel</button>
+    </div>
+  </div>
+</div>
+<!-- 🧾 Manifestation Terminal Popup -->
+<div class="modal" *ngIf="showManifestationPopup">
+  <div class="modal-content terminal-style">
+    <span class="close" (click)="closeManifestationPopup()">&times;</span>
+    <h2>Delivered Terminal</h2>
+
+    <div *ngIf="selectedForManifestation.length > 0; else noSelection">
+      <hr>
+
+      <div *ngFor="let consignment of selectedForManifestation" class="consignment-block">
+        <h4>Consignment: {{ consignment.consignmentNumber }}</h4>
+
+        <!-- Eway Bill Section -->
+        <div class="ewaybill-section">
+          <ng-container *ngIf="consignment.ewaybillNumber === ''; else showEwaybill">
+            <label class="eway-toggle-label">
+              <input
+                type="checkbox"
+                [(ngModel)]="consignment.ewayBillRequired"
+                class="eway-toggle-input"
+              />
+              <span class="eway-toggle-slider"></span>
+              <span class="eway-toggle-text">
+                {{ consignment.ewayBillRequired ? 'Eway Bill will be created' : 'Eway Bill not required' }}
+              </span>
+            </label>
+          </ng-container>
+          <ng-template #showEwaybill>
+            <p><strong>Customer created Eway Bill No:</strong> {{ consignment.ewaybillNumber }}</p>
+          </ng-template>
+        </div>
+
+        <!-- Consignor and Invoices -->
+        <p><strong>Consignor:</strong> {{ consignment.consignor }}</p>
+        <ul>
+          <li *ngFor="let invoice of consignment.invoices">
+            <strong>Invoice:</strong> {{ invoice.number }}
+            <ul>
+              <li *ngFor="let product of invoice.products">
+                <div class="product-line">
+                  <span><strong>{{ product.type }}</strong></span>
+                  <span>
+                    Total: {{ product.amount }}
+                  </span>
+                  <span>
+                    <input
+                      type="number"
+                      min="0"
+                      [max]="product.instock"
+                      [(ngModel)]="product.manifestQty"
+                      class="manifest-input"
+                      readonly
+                      disabled
+                    />
+                  </span>
+                </div>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <hr>
+      </div>
+
+
+      <!-- Terminal Buttons -->
+      <div class="terminal-buttons">
+        <button (click)="finalizeManifestation()">Delivered</button>
+        <button (click)="closeManifestationPopup()">Cancel</button>
+      </div>
+    </div>
+
+    <!-- No Selection Template -->
+    <ng-template #noSelection>
+      <p>No consignments selected for manifestation.</p>
+      <button (click)="closeManifestationPopup()">Close</button>
+    </ng-template>
+  </div>
 </div>

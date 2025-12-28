@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 export class TpartnerComponent implements OnInit {
 
   partners: any[] = [];
+  showAddPartnerPopup = false;
 
   newPartner = {
     partnerName: '',
@@ -68,6 +69,14 @@ export class TpartnerComponent implements OnInit {
       .subscribe(res => this.partners = res);
   }
 
+  openAddPartnerPopup() {
+    this.showAddPartnerPopup = true;
+  }
+
+  closeAddPartnerPopup() {
+    this.showAddPartnerPopup = false;
+  }
+
   // Add Partner
   addPartner() {
     this.http.post('http://localhost:3000/api/tpartners/add', this.newPartner)
@@ -76,6 +85,7 @@ export class TpartnerComponent implements OnInit {
           alert('Transport Partner added!');
           this.loadPartners();
           this.resetForm();
+          this.closeAddPartnerPopup();
         },
         error: err => alert(err.error.message)
       });

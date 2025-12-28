@@ -30,6 +30,7 @@ const ShipmentSchema = new mongoose.Schema(
 
     // Payment
     paymentMode: { type: String, default: 'To Pay' },
+    rateUnit: { type: String, default: 'box', trim: true },
     externalRefId: { type: String, trim: true },
 
     // Address details

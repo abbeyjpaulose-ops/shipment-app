@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 export class HubComponent implements OnInit {
 
   hubs: any[] = [];
+  showAddHubPopup = false;
 
   newHub: any = {
     hubName: '',
@@ -55,6 +56,14 @@ export class HubComponent implements OnInit {
       });
   }
 
+  openAddHubPopup() {
+    this.showAddHubPopup = true;
+  }
+
+  closeAddHubPopup() {
+    this.showAddHubPopup = false;
+  }
+
   addHub() {
     this.newHub.branch = localStorage.getItem('branch') || 'All Branches';
     this.http.post('http://localhost:3000/api/hubs/add', this.newHub)
@@ -63,6 +72,7 @@ export class HubComponent implements OnInit {
           alert('Hub added successfully!');
           this.loadHubs();
           this.resetForm();
+          this.closeAddHubPopup();
         },
         error: (err) => {
           console.error('Error saving hub:', err);

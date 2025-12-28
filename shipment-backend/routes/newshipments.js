@@ -27,7 +27,8 @@ async function buildShipmentViews(shipments) {
       amount: prod.amount,
       instock: prod.instock,
       intransitstock: prod.intransitstock,
-      deliveredstock: prod.deliveredstock
+      deliveredstock: prod.deliveredstock,
+      manifestQty: prod.manifestQty
     });
   }
 
@@ -60,6 +61,7 @@ async function buildShipmentViews(shipments) {
     ewaybillsByShipment.get(key).push({
       number: ewb.number,
       date: ewb.date,
+      routes: ewb.routes,
       invoices: invoicesByEwaybill.get(ewb._id.toString()) || []
     });
   }
@@ -87,7 +89,8 @@ async function replaceShipmentLines(shipmentId, ewaybills, options = {}) {
     (ewaybills || []).map((ewb) => ({
       shipmentId,
       number: ewb.number,
-      date: ewb.date
+      date: ewb.date,
+      routes: ewb.routes
     }))
   );
 
@@ -127,7 +130,8 @@ async function replaceShipmentLines(shipmentId, ewaybills, options = {}) {
           amount,
           instock,
           intransitstock: Number(prod.intransitstock) || 0,
-          deliveredstock: Number(prod.deliveredstock) || 0
+          deliveredstock: Number(prod.deliveredstock) || 0,
+          manifestQty: Number(prod.manifestQty) || 0
         });
       }
 

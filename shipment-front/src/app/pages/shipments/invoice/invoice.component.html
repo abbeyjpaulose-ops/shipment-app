@@ -1,5 +1,5 @@
 <div class="invoice-container">
-  <h2>📦 Invoice Management</h2>
+  <h2>📦 Delivered/Pre-Invoice Management</h2>
 
   <!-- Filters -->
   <div class="filters">
@@ -7,60 +7,127 @@
     <input type="date" [(ngModel)]="filterDate" (change)="applyFilters()" />
     <input type="text" placeholder="Filter by Consignor" [(ngModel)]="filterConsignor" (input)="applyFilters()" />
     <!-- Action Bar -->
-  <div class="action-bar">
-    <button (click)="invoiceSelected()">🧾 Generate Invoice</button>
-    <button class="delete-btn" (click)="deleteInvoice()">🗑️ Delete</button>
-    <button class="print-btn" (click)="printInvoice()">🖨️ Print Manifest</button>
-  </div>
   </div>
 
-  <!-- Invoice Table -->
+  <!-- Delivered Table -->
+<div class="invoice-sections">
+<div class="invoice-section">
+  <h3>Delivered</h3>
+  <div class="action-bar">
+    <button (click)="invoiceSelected()">Generate Pre-Invoice</button>
+    <button class="delete-btn" (click)="deleteDelivered()">Delete</button>
+    <button class="print-btn" (click)="printDelivered()">Print Manifest</button>
+  </div>
   <table class="invoice-table">
     <thead>
       <tr>
-        <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
+        <th><input type="checkbox" (change)="toggleAllDeliveredSelection($event)" /></th>
         <th>Consignment No.</th>
         <th>Status</th>
         <th>Consignor</th>
-        <th>Delivery Address</th>
-        <th>No. of Products</th>
-        <th>Actions</th>
+                        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
-      <tr *ngFor="let inv of filteredInvoices" [class.selected]="inv.selected">
-        <td><input type="checkbox" [(ngModel)]="inv.selected" /></td>
+      <tr *ngFor="let inv of filteredDelivered" [class.selected]="inv.selected">
+        <td>
+          <input
+            type="checkbox"
+            [(ngModel)]="inv.selected"
+            (click)="$event.stopPropagation()"
+          />
+        </td>
         <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
         <td>{{ inv.shipmentStatus }}</td>
         <td>{{ inv.consignor }}</td>
-        <td>{{ inv.deliveryAddress }}</td>
-        <td>{{ inv.products?.length || 0 }}</td>
-        <td>
-          <button class="edit-btn" (click)="editInvoice(inv)">✏️ Edit</button>
+                        <td>
+          <button class="edit-btn" (click)="editInvoice(inv)">fo?<,? Edit</button>
         </td>
       </tr>
     </tbody>
   </table>
+</div>
 
-  
+<!-- Pre-Invoiced Table -->
+<div class="invoice-section">
+  <h3>Pre-Invoiced</h3>
+  <div class="action-bar">
+    <button (click)="finalizePreInvoiced()">Generate Invoice</button>
+    <button class="delete-btn" (click)="deletePreInvoiced()">Delete</button>
+    <button class="print-btn" (click)="printPreInvoiced()">Print Manifest</button>
+  </div>
+  <table class="invoice-table">
+    <thead>
+      <tr>
+        <th><input type="checkbox" (change)="toggleAllPreInvoicedSelection($event)" /></th>
+        <th>Consignment No.</th>
+        <th>Status</th>
+        <th>Consignor</th>
+                        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let inv of filteredPreInvoiced" [class.selected]="inv.selected">
+        <td>
+          <input
+            type="checkbox"
+            [(ngModel)]="inv.selected"
+            (click)="$event.stopPropagation()"
+          />
+        </td>
+        <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
+        <td>{{ inv.shipmentStatus }}</td>
+        <td>{{ inv.consignor }}</td>
+                        <td>
+          <button class="edit-btn" (click)="editInvoice(inv)">fo?<,? Edit</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+</div>
+<!-- Modal for invoice details -->
+  <div class="modal details-modal" *ngIf="showInvoiceModal">
+    <div class="modal-content details-content">
+      <button class="details-close" type="button" (click)="closeInvoiceDetails()">&times;</button>
+      <div class="details-header">
+        <div>
+          <h2>Consignment Details</h2>
+          <p class="details-sub">Consignment #{{ selectedInvoice?.consignmentNumber }}</p>
+        </div>
+        <span class="details-status">{{ selectedInvoice?.shipmentStatus }}</span>
+      </div>
 
-  <!-- Modal for invoice details -->
-  <div class="modal" *ngIf="showInvoiceModal">
-    <div class="modal-content">
-      <h3>Consignment Details</h3>
-      <p><strong>Consignment Number:</strong> {{ selectedInvoice?.consignmentNumber }}</p>
-      <p><strong>Consignor:</strong> {{ selectedInvoice?.consignor }}</p>
-      <p><strong>Delivery Address:</strong> {{ selectedInvoice?.deliveryAddress }}</p>
-      <p><strong>Status:</strong> {{ selectedInvoice?.shipmentStatus }}</p>
+      <div class="details-grid">
+        <div class="details-item">
+          <div class="details-label">Consignor</div>
+          <div class="details-value">{{ selectedInvoice?.consignor }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Delivery Address</div>
+          <div class="details-value">{{ selectedInvoice?.deliveryAddress }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Products</div>
+          <div class="details-value">{{ selectedInvoice?.products?.length || 0 }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Status</div>
+          <div class="details-value">{{ selectedInvoice?.shipmentStatus }}</div>
+        </div>
+      </div>
 
-      <h4>Products:</h4>
-      <ul>
-        <li *ngFor="let p of selectedInvoice?.products">
-          {{ p.productName }} — Qty: {{ p.quantity }}
-        </li>
-      </ul>
-
-      <button (click)="closeInvoiceDetails()">Close</button>
+      <div class="details-products">
+        <div class="details-invoice">
+          <h3>Products</h3>
+          <ul class="details-product-list">
+            <li *ngFor="let p of selectedInvoice?.products">
+              <span class="product-name">{{ p.productName || p.type }}</span>
+              <span class="product-meta">Qty: {{ p.quantity || p.amount }}</span>
+            </li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -89,6 +156,46 @@
           </select>
         </div>
 
+        <div class="form-row" *ngIf="editingInvoice?.invoices?.length">
+          <h3>Delivered/Pre-Invoice & Products</h3>
+          <div class="invoice-block" *ngFor="let inv of editingInvoice.invoices; let i = index">
+            <div class="invoice-title">Pre-Invoice #{{ inv.number }}</div>
+            <table class="product-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Total Qty</th>
+                  <th>Delivered Qty</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let product of inv.products; let p = index">
+                  <td>{{ product.type || product.productName }}</td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      [min]="product.deliveredstock || 0"
+                      [(ngModel)]="product.amount"
+                      name="total-{{ i }}-{{ p }}"
+                      (ngModelChange)="onTotalQtyChange(inv, product, $event)"
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number"
+                      min="0"
+                      [(ngModel)]="product.deliveredstock"
+                      name="delivered-{{ i }}-{{ p }}"
+                      (ngModelChange)="onDeliveredQtyChange(inv, product, $event)"
+                    />
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- Buttons -->
         <div class="button-section">
           <button type="button" (click)="saveInvoiceEdit()">Save</button>
@@ -97,4 +204,6 @@
       </form>
     </div>
   </div>
+
 </div>
+

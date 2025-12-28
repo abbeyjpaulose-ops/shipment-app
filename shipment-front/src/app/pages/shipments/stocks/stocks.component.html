@@ -1,7 +1,7 @@
-﻿<div class="stocks-container">
+<div class="stocks-container">
   <h2>Stocks</h2>
 
-  <!-- ðŸ” Search and Filters (no status filter here) -->
+  <!-- 🔍 Search and Filters (no status filter here) -->
   <div class="filters">
     <input
       type="text"
@@ -21,8 +21,8 @@
       (input)="applyFilters()" />
       
       <button (click)="openManifestationPopup()">Manifestation</button>
-      <button (click)="printReceipts()">ðŸ–¨ï¸ Print Receipts</button>
-       <!--<button (click)="downloadReceipts()">ðŸ“„ Download Receipts</button> -->
+      <button (click)="printReceipts()">🖨️ Print Receipts</button>
+       <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
   </div>
 
     <!-- Manifestation Button -->
@@ -30,7 +30,7 @@
     
   </div>
 
-  <!-- ðŸ“¦ Stocks Table -->
+  <!-- 📦 Stocks Table -->
   <table class="stocks-table">
     <thead>
       <tr>
@@ -38,7 +38,6 @@
         <th>Consignment No.</th>
         <th>Consignor</th>
         <th>Delivery Address</th>
-        <th>Products in stock</th>
         <th>No. of Products</th>
         <th>Actions</th>
       </tr>
@@ -51,7 +50,6 @@
         <td>{{ s.consignmentNumber }}</td>
         <td>{{ s.consignor }}</td>
         <td>{{ s.deliveryAddress }}</td>
-        <td>{{ getInStockAmountTotal(s.invoices) }}</td>
         <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
         <td>
           <button (click)="editStock(s); $event.stopPropagation()">Edit</button>
@@ -63,13 +61,19 @@
 
 </div>
 
-<!-- ðŸ“‘ Shipment Details Modal -->
-<div class="modal" *ngIf="selectedStock">
-  <div class="modal-content">
-    <span class="close" (click)="closeStockDetails()">&times;</span>
-    <h2>Shipment Details</h2>
+<!-- 📑 Shipment Details Modal -->
+<div class="modal details-modal" *ngIf="selectedStock">
+  <div class="modal-content details-content">
+    <button class="details-close" type="button" (click)="closeStockDetails()">&times;</button>
+    <div class="details-header">
+      <div>
+        <h2>Shipment Details</h2>
+        <p class="details-sub">Consignment {{ selectedStock.consignmentNumber }}</p>
+      </div>
+      <span class="details-status">{{ selectedStock.shipmentStatus }}</span>
+    </div>
 
-    <div class="stock-details">
+    <div class="stock-details details-grid">
       <p><strong>Consignment No.:</strong> {{ selectedStock.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedStock.shipmentStatus }}</p>
       <p><strong>Consignor:</strong> {{ selectedStock.consignor }}</p>
@@ -82,125 +86,162 @@
 
 
     <h3>Products</h3>
-    <ul>
-      <li *ngFor="let invoice of selectedStock.invoices">
-        {{ invoice.number }}:
-        <ul>
+    <div class="details-products">
+      <div class="details-invoice" *ngFor="let invoice of selectedStock.invoices">
+        <div class="details-invoice-title">Invoice #{{ invoice.number }}</div>
+        <ul class="details-product-list">
           <li *ngFor="let product of invoice.products">
-            {{ product.type }} (In Stock Qty: {{ product.instock }}) (Total Qty: {{ product.amount }})
+            <span class="product-name">{{ product.type }}</span>
+            <span class="product-meta">In Stock: {{ product.instock }}</span>
+            <span class="product-meta">Total: {{ product.amount }}</span>
           </li>
         </ul>
-      </li>
-    </ul>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- âœ… Edit Modal -->
-<div class="modal" *ngIf="editingStock">
-  <div class="modal-content">
-    <h3>Edit Stock</h3>
-
-    <!-- Section 1: Basic Info -->
-    <label>Consignment No: {{editingStock.consignmentNumber}} | Status: {{editingStock.shipmentStatus}}</label><br>
-    <label>E-way Bill No:</label>
-    <input [(ngModel)]="editingStock.ewaybillNumber" />
-
-    <label>Date:</label>
-    <input type="date" [(ngModel)]="editingStock.date" />
-
-    <label>Status Details:</label>
-    <input [(ngModel)]="editingStock.shipmentStatusDetails" />
-
-    <!-- Section 2: Consignor / Consignee Tabs -->
-    <h4>Consignor</h4>
-    <div class="tabs">
-      <button (click)="editingStock.consignorTab = 'consignor'" [class.active]="editingStock.consignorTab === 'consignor'">Consignor</button>
-      <button (click)="editingStock.consignorTab = 'guest'" [class.active]="editingStock.consignorTab === 'guest'">Guest</button>
+<!-- ✅ Edit Modal -->
+<div class="modal edit-stock-modal" *ngIf="editingStock">
+  <div class="modal-content edit-stock-content">
+    <div class="edit-stock-header">
+      <div>
+        <h3>Edit Stock</h3>
+        <p class="edit-stock-meta">Consignment No: {{editingStock.consignmentNumber}} | Status: {{editingStock.shipmentStatus}}</p>
+      </div>
     </div>
 
-    <div *ngIf="editingStock.consignorTab === 'consignor'">
-      <label>Consignor:
-        <select [(ngModel)]="editingStock.consignor" (change)="onConsignorSelect(editingStock.consignor)">
-          <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
-        </select>
-      </label>
-      <label>GSTIN: <input [(ngModel)]="editingStock.consignorGST" readonly /></label>
-      <label>Address: <input [(ngModel)]="editingStock.consignorAddress" readonly /></label>
-      <label>Phone: <input [(ngModel)]="editingStock.consignorPhone" readonly /></label>
+    <div class="edit-stock-section">
+      <div class="edit-stock-grid">
+        <label>E-way Bill No:
+          <input [(ngModel)]="editingStock.ewaybillNumber" />
+        </label>
+        <label>Date:
+          <input type="date" [(ngModel)]="editingStock.date" />
+        </label>
+      </div>
     </div>
 
-    <div *ngIf="editingStock.consignorTab === 'guest'">
-      <label>Guest Name:
-        <select [(ngModel)]="editingStock.consignor" (change)="onConsignorGuestSelect(editingStock.consignor)">
-          <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
-        </select>
-      </label>
-      <label>Address: <input [(ngModel)]="editingStock.consignorAddress" readonly /></label>
-      <label>Phone: <input [(ngModel)]="editingStock.consignorPhone" readonly /></label>
+    <div class="edit-stock-section">
+      <h4>Consignor</h4>
+      <div class="tabs edit-stock-tabs">
+        <button (click)="editingStock.consignorTab = 'consignor'" [class.active]="editingStock.consignorTab === 'consignor'">Consignor</button>
+        <button (click)="editingStock.consignorTab = 'guest'" [class.active]="editingStock.consignorTab === 'guest'">Guest</button>
+      </div>
+
+      <div *ngIf="editingStock.consignorTab === 'consignor'" class="edit-stock-grid">
+        <label>Consignor:
+          <select [(ngModel)]="editingStock.consignor" (change)="onConsignorSelect(editingStock.consignor)">
+            <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+          </select>
+        </label>
+        <label>GSTIN:
+          <input [(ngModel)]="editingStock.consignorGST" readonly />
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consignorAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consignorPhone" readonly />
+        </label>
+      </div>
+
+      <div *ngIf="editingStock.consignorTab === 'guest'" class="edit-stock-grid">
+        <label>Guest Name:
+          <select [(ngModel)]="editingStock.consignor" (change)="onConsignorGuestSelect(editingStock.consignor)">
+            <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+          </select>
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consignorAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consignorPhone" readonly />
+        </label>
+      </div>
     </div>
 
-    <h4>Consignee</h4>
-    <div class="tabs">
-      <button (click)="editingStock.consigneeTab = 'consignee'" [class.active]="editingStock.consigneeTab === 'consignee'">Consignee</button>
-      <button (click)="editingStock.consigneeTab = 'guest'" [class.active]="editingStock.consigneeTab === 'guest'">Guest</button>
+    <div class="edit-stock-section">
+      <h4>Consignee</h4>
+      <div class="tabs edit-stock-tabs">
+        <button (click)="editingStock.consigneeTab = 'consignee'" [class.active]="editingStock.consigneeTab === 'consignee'">Consignee</button>
+        <button (click)="editingStock.consigneeTab = 'guest'" [class.active]="editingStock.consigneeTab === 'guest'">Guest</button>
+      </div>
+
+      <div *ngIf="editingStock.consigneeTab === 'consignee'" class="edit-stock-grid">
+        <label>Consignee:
+          <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeSelect(editingStock.consignee)">
+            <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
+          </select>
+        </label>
+        <label>GSTIN:
+          <input [(ngModel)]="editingStock.consigneeGST" readonly />
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consigneeAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consigneePhone" readonly />
+        </label>
+      </div>
+
+      <div *ngIf="editingStock.consigneeTab === 'guest'" class="edit-stock-grid">
+        <label>Guest Name:
+          <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeGuestSelect(editingStock.consignee)">
+            <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
+          </select>
+        </label>
+        <label>Address:
+          <input [(ngModel)]="editingStock.consigneeAddress" readonly />
+        </label>
+        <label>Phone:
+          <input [(ngModel)]="editingStock.consigneePhone" readonly />
+        </label>
+      </div>
     </div>
 
-    <div *ngIf="editingStock.consigneeTab === 'consignee'">
-      <label>Consignee:
-        <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeSelect(editingStock.consignee)">
-          <option *ngFor="let client of clientList" [value]="client.clientName">{{ client.clientName }}, {{ client.address }}</option>
-        </select>
-      </label>
-      <label>GSTIN: <input [(ngModel)]="editingStock.consigneeGST" readonly /></label>
-      <label>Address: <input [(ngModel)]="editingStock.consigneeAddress" readonly /></label>
-      <label>Phone: <input [(ngModel)]="editingStock.consigneePhone" readonly /></label>
+    <div class="edit-stock-section">
+      <div class="edit-stock-grid">
+        <label>Payment Mode:
+          <select [(ngModel)]="editingStock.paymentMode">
+            <option>Account Credit</option>
+            <option>Paid</option>
+            <option>To Pay</option>
+          </select>
+        </label>
+        <label>External Ref ID:
+          <input [(ngModel)]="editingStock.externalRefId" />
+        </label>
+      </div>
+
+      <h4>Billing Type</h4>
+      <div class="edit-stock-radio">
+        <label><input type="radio" name="billing" value="consignor" [(ngModel)]="editingStock.billingType" /> Consignor's GST Address</label>
+        <label><input type="radio" name="billing" value="different" [(ngModel)]="editingStock.billingType" /> Different Address</label>
+      </div>
+
+      <div *ngIf="editingStock.billingType === 'different'" class="edit-stock-grid">
+        <label>Name:
+          <input [(ngModel)]="editingStock.billingName" />
+        </label>
+        <label>GSTIN:
+          <input [(ngModel)]="editingStock.billingGSTIN" />
+        </label>
+        <label>Address:
+          <textarea [(ngModel)]="editingStock.billingAddress"></textarea>
+        </label>
+      </div>
     </div>
 
-    <div *ngIf="editingStock.consigneeTab === 'guest'">
-      <label>Guest Name:
-        <select [(ngModel)]="editingStock.consignee" (change)="onConsigneeGuestSelect(editingStock.consignee)">
-          <option *ngFor="let guest of guestList" [value]="guest.guestName">{{ guest.guestName }}, {{ guest.address }}</option>
-        </select>
-      </label>
-      <label>Address: <input [(ngModel)]="editingStock.consigneeAddress" readonly /></label>
-      <label>Phone: <input [(ngModel)]="editingStock.consigneePhone" readonly /></label>
-    </div>
-
-    <!-- Payment Mode -->
-    <label>Payment Mode:
-      <select [(ngModel)]="editingStock.paymentMode">
-        <option>Account Credit</option>
-        <option>Paid</option>
-        <option>To Pay</option>
-      </select>
-    </label>
-
-    <label>External Ref ID:</label>
-    <input [(ngModel)]="editingStock.externalRefId" />
-
-    <!-- Billing, Pickup, Delivery Address Types -->
-    <h4>Billing Type</h4>
-    <label><input type="radio" name="billing" value="consignor" [(ngModel)]="editingStock.billingType" /> Consignor's GST Address</label>
-    <label><input type="radio" name="billing" value="different" [(ngModel)]="editingStock.billingType" /> Different Address</label>
-
-    <div *ngIf="editingStock.billingType === 'different'">
-      <label>Name: <input [(ngModel)]="editingStock.billingName" /></label>
-      <label>GSTIN: <input [(ngModel)]="editingStock.billingGSTIN" /></label>
-      <label>Address: <textarea [(ngModel)]="editingStock.billingAddress"></textarea></label>
-    </div>
-
-    <!-- Similar structure for Pickup and Delivery -->
-    <!-- You can replicate the same radio + conditional logic for pickupType and deliveryType -->
-
-   <!-- 4. Invoice Details -->
-<section>
-  <h3>4. Invoice Details</h3>
+   <!-- 4. Invoice -->
+<section class="edit-stock-section">
+  <h3>4. Invoice</h3>
   <div *ngFor="let invoice of editingStock.invoices; let i = index" class="invoice-block">
     <!-- Invoice Header -->
     <div class="grid-3">
       <input placeholder="Invoice Number" [(ngModel)]="invoice.number" />
       <input placeholder="Invoice Value" type="number" [(ngModel)]="invoice.value" />
-      <button type="button" (click)="deleteInvoice(i)">ðŸ—‘ï¸ Delete Invoice</button>
+      <button type="button" class="danger" (click)="deleteInvoice(i)">Delete Invoice</button>
     </div>
 
     <!-- Package Details for this Invoice -->
@@ -210,9 +251,9 @@
         <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
       </select>
       <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount" />
-      <button type="button" (click)="deletePackage(i, j)">ðŸ—‘ï¸ Delete Package {{i}}/{{j}}</button>
+      <button type="button" class="danger" (click)="deletePackage(i, j)">dY-`�,? Delete Package {{i}}/{{j}}</button>
     </div>
-    <button type="button" (click)="addPackage(i)">+ Add Package</button>
+    <button type="button" class="ghost" (click)="addPackage(i)">+ Add Package</button>
 
     <!-- Product Details for this Invoice -->
     <h4>Products</h4>
@@ -222,42 +263,117 @@
           {{ productItem.hsnNum }} - {{ productItem.productName }}
         </option>
       </select>
-      <input placeholder="Amount*" type="number" [(ngModel)]="product.amount" (ngModelChange)="product.instock = $event" />
-      <button type="button" (click)="deleteProduct(i, k)">ðŸ—‘ï¸ Delete Product {{i}}/{{k}}</button>
+      <input
+        placeholder="Amount*"
+        type="number"
+        [(ngModel)]="product.amount"
+        (focus)="onProductAmountFocus(invoice, product, i)"
+        (ngModelChange)="onProductAmountChange(invoice, product, $event, i)"
+      />
+      <button type="button" class="danger" (click)="deleteProduct(i, k)">dY-`�,? Delete Product {{i}}/{{k}}</button>
     </div>
-    <button type="button" (click)="addProduct(i)">+ Add Product</button>
+    <button type="button" class="ghost" (click)="addProduct(i)">+ Add Product</button>
   </div>
 
   <!-- Add New Invoice -->
-  <button type="button" (click)="addInvoice()">+ Add Invoice</button>
+  <button type="button" class="ghost" (click)="addInvoice()">+ Add Invoice</button>
 </section>
 
+    <div class="edit-stock-section">
+      <h4>Charges</h4>
+      <div class="edit-stock-grid">
+        <label>ODC:
+          <input type="number" [(ngModel)]="editingStock.charges.odc" />
+        </label>
+        <label>Unloading:
+          <input type="number" [(ngModel)]="editingStock.charges.unloading" />
+        </label>
+        <label>Docket:
+          <input type="number" [(ngModel)]="editingStock.charges.docket" />
+        </label>
+        <label>Other:
+          <input type="number" [(ngModel)]="editingStock.charges.other" />
+        </label>
+        <label>CCC:
+          <input type="number" [(ngModel)]="editingStock.charges.ccc" />
+        </label>
+        <label>Final Amount:
+          <input type="number" [(ngModel)]="editingStock.finalAmount" />
+        </label>
+      </div>
+    </div>
 
-
-    <!-- Charges -->
-    <h4>Charges</h4>
-    <label>ODC: <input type="number" [(ngModel)]="editingStock.charges.odc" /></label>
-    <label>Unloading: <input type="number" [(ngModel)]="editingStock.charges.unloading" /></label>
-    <label>Docket: <input type="number" [(ngModel)]="editingStock.charges.docket" /></label>
-    <label>Other: <input type="number" [(ngModel)]="editingStock.charges.other" /></label>
-    <label>CCC: <input type="number" [(ngModel)]="editingStock.charges.ccc" /></label>
-    <label>Final Amount: <input type="number" [(ngModel)]="editingStock.finalAmount" /></label>
-
-    <!-- Actions -->
-    <button (click)="calculateFinalAmount()">Calculate</button>
-    <button (click)="saveStockEdit()">Save</button>
-    <button (click)="cancelEdit()">Cancel</button>
+    <div class="edit-stock-actions">
+      <button class="ghost" (click)="calculateFinalAmount()">Calculate</button>
+      <button class="primary" (click)="saveStockEdit()">Save</button>
+      <button class="ghost" (click)="cancelEdit()">Cancel</button>
+    </div>
   </div>
 </div>
+<!-- Adjust Manifest Quantities Popup -->
+<div class="modal" *ngIf="showManifestAdjustmentPopup">
+  <div class="modal-content">
+    <h3>Adjust Manifest Quantities</h3>
+    <div *ngIf="pendingManifestAdjustment">
+      <p><strong>Consignment:</strong> {{ pendingManifestAdjustment.consignmentNumber }}</p>
+      <p><strong>Product:</strong> {{ pendingManifestAdjustment.productType }}</p>
+      <p>
+        <strong>New Total Qty:</strong>
+        {{ getPopupTargetTotal() }}
+      </p>
+      <p>
+        <strong>In Stock Qty:</strong>
+        <input
+          type="number"
+          min="0"
+          [(ngModel)]="pendingManifestAdjustment.popupInstock"
+          (ngModelChange)="onPopupInstockChange($event)"
+        />
+      </p>
+      
+    </div>
 
-<!-- ðŸ§¾ Manifestation Terminal Popup -->
+    <table class="stocks-table" *ngIf="manifestAdjustmentLines.length > 0">
+      <thead>
+        <tr>
+          <th>Manifest No.</th>
+          <th>Date</th>
+          <th>Invoice</th>
+          <th>Qty</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let line of manifestAdjustmentLines">
+          <td>{{ line.manifestationNumber }}</td>
+          <td>{{ line.date | date:'short' }}</td>
+          <td>{{ line.invoiceNumber }}</td>
+          <td>
+            <input
+              type="number"
+              min="0"
+              [(ngModel)]="line.newManifestQty"
+              (ngModelChange)="onManifestQtyChange(line)"
+            />
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p><strong>Manifest Total:</strong> {{ getManifestLineTotal() }} | <strong>Delivered Total:</strong> {{ getPopupDeliveredTotal() }}</p>
+
+    <div class="terminal-buttons">
+      <button (click)="applyManifestAdjustments()">Apply</button>
+      <button (click)="cancelManifestAdjustments()">Cancel</button>
+    </div>
+  </div>
+</div>
+<!-- 🧾 Manifestation Terminal Popup -->
 <div class="modal" *ngIf="showManifestationPopup">
   <div class="modal-content terminal-style">
     <span class="close" (click)="closeManifestationPopup()">&times;</span>
     <h2>Manifestation Terminal</h2>
 
     <div *ngIf="selectedForManifestation.length > 0; else noSelection">
-      <p><strong>Manifestation No:</strong> {{ manifestationNumber }}</p>
       <hr>
 
       <div *ngFor="let consignment of selectedForManifestation" class="consignment-block">
@@ -293,7 +409,6 @@
                 <div class="product-line">
                   <span><strong>{{ product.type }}</strong></span>
                   <span>
-                    In Stock: {{ product.instock }} /
                     Total: {{ product.amount }}
                   </span>
                   <span>
@@ -302,8 +417,9 @@
                       min="0"
                       [max]="product.instock"
                       [(ngModel)]="product.manifestQty"
-                      (change)="validateManifestQty(product)"
                       class="manifest-input"
+                      readonly
+                      disabled
                     />
                   </span>
                 </div>
@@ -318,6 +434,18 @@
       <!-- Shipment Routing Section -->
       <div class="routing-section">
         <h3>Shipment Routing</h3>
+        <div class="routing-baskets">
+          <h4>Baskets</h4>
+          <div class="basket-row" *ngFor="let basket of routeBaskets; let i = index">
+            <select [(ngModel)]="basket.labelKey">
+              <option *ngFor="let option of getBasketOptions()" [ngValue]="option.key">
+                {{ option.text }}
+              </option>
+            </select>
+            <input type="number" min="0" [(ngModel)]="basket.qty" placeholder="Qty" />
+            <button type="button" (click)="removeRouteBasket(i)">Remove</button>
+          </div>
+        </div>
         <div class="routing-controls">
           <select [(ngModel)]="selectedRoutePoint" (change)="onRoutePointChange()">
             <option *ngFor="let location of availableRoutePoints" [ngValue]="location">
@@ -353,7 +481,3 @@
     </ng-template>
   </div>
 </div>
-
-
-
-

@@ -79,8 +79,15 @@ th, td {
   background: #fff;
   padding: 20px;
   border-radius: 6px;
+  border: 1px solid #007bff;
+  box-shadow: 0 6px 18px rgba(0, 123, 255, 0.15);
   width: 400px;
   max-width: 90%;
+}
+
+.edit-modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
 }
 
 .close {
@@ -88,3 +95,16 @@ th, td {
   font-size: 24px;
   cursor: pointer;
 }
+
+.modal-content button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.modal-content button:hover {
+  background-color: #0069d9;
+} 

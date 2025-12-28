@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 })
 export class GuestsComponent implements OnInit {
   guests: any[] = [];
+  showAddGuestPopup = false;
   newGuest: any = {
     guestName: '',
     address: '',
@@ -42,8 +43,15 @@ export class GuestsComponent implements OnInit {
       },
       error: (err) => console.error("Error loading guests:", err)
     });
-}
+  }
 
+  openAddGuestPopup() {
+    this.showAddGuestPopup = true;
+  }
+
+  closeAddGuestPopup() {
+    this.showAddGuestPopup = false;
+  }
 
   addGuest() {
     console.log('📤 Sending guest data:');
@@ -53,6 +61,7 @@ export class GuestsComponent implements OnInit {
       next: (res) => {
         console.log('✅ Guest saved', res);
         alert('Guest added successfully!');
+        this.closeAddGuestPopup();
         window.location.reload();
       },
       error: (err) => {

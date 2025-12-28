@@ -1,4 +1,4 @@
-﻿import { Component, OnInit } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -19,7 +19,7 @@ export class ViewShipmentsComponent implements OnInit {
   filterStatus: string = '';
   filterConsignor: string = '';
 
-  selectedShipment: any | null = null;   // âœ… for modal popup
+  selectedShipment: any | null = null;   // ✅ for modal popup
 
   constructor(private http: HttpClient) {}
 
@@ -64,13 +64,15 @@ export class ViewShipmentsComponent implements OnInit {
   getInStockAmountTotal(invoices: any[]): number {
     return this.getProductTotal(invoices, 'instock');
   }
-
   getInvoiceAmountTotal(invoices: any[]): number {
-    return this.getInStockAmountTotal(invoices)
-      + this.getProductTotal(invoices, 'intransitstock')
-      + this.getProductTotal(invoices, 'deliveredstock');
+    let total = 0;
+    (invoices || []).forEach((inv) => {
+      (inv.products || []).forEach((prod: any) => {
+        total += Number(prod.amount || 0);
+      });
+    });
+    return total;
   }
-
 
   applyFilters(): void {
     this.filteredShipments = this.shipments.filter(s => {
@@ -95,15 +97,16 @@ export class ViewShipmentsComponent implements OnInit {
     });
   }
 
-  // âœ… open details modal
+  // ✅ open details modal
   openShipmentDetails(shipment: any): void {
     this.selectedShipment = shipment;
   }
 
-  // âœ… close details modal
+  // ✅ close details modal
   closeShipmentDetails(): void {
     this.selectedShipment = null;
   }
 }
+
 
 

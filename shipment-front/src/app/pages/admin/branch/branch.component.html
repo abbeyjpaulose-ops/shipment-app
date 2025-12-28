@@ -1,31 +1,40 @@
 <div class="branches-container">
   <h2>Manage Branches</h2>
 
-  <!-- Add Branch Form -->
-  <div class="add-branch-form">
-    <input [(ngModel)]="newBranch.branchName" placeholder="Branch Name" required>
-    <input [(ngModel)]="newBranch.address" placeholder="Address" required>
-    <input [(ngModel)]="newBranch.city" placeholder="City">
-    <input [(ngModel)]="newBranch.state" placeholder="State">
-    <input [(ngModel)]="newBranch.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newBranch.phoneNum" placeholder="Branch Phone" required>
+  <!-- Add Branch Button -->
+  <button class="add-branch-btn" type="button" (click)="openAddBranchPopup()">+ Add Branch</button>
 
-    <!-- Vehicles & Driver Contacts -->
-    <div class="vehicle-wrapper">
-      <label class="vehicle-label">Vehicles & Drivers</label>
+  <!-- Add Branch Popup -->
+  <div class="modal" *ngIf="showAddBranchPopup">
+    <div class="modal-content">
+      <span class="close" (click)="closeAddBranchPopup()">&times;</span>
+      <h3>Add Branch</h3>
+      <div class="add-branch-form">
+        <input [(ngModel)]="newBranch.branchName" placeholder="Branch Name" required>
+        <input [(ngModel)]="newBranch.address" placeholder="Address" required>
+        <input [(ngModel)]="newBranch.city" placeholder="City">
+        <input [(ngModel)]="newBranch.state" placeholder="State">
+        <input [(ngModel)]="newBranch.pinCode" placeholder="Pin Code">
+        <input [(ngModel)]="newBranch.phoneNum" placeholder="Branch Phone" required>
 
-      <div *ngFor="let v of newBranch.vehicles; let i=index" class="vehicle-row">
-        <input placeholder="Vehicle No." [(ngModel)]="v.vehicleNo">
-        <input placeholder="Driver Phone" [(ngModel)]="v.driverPhone">
-        <button *ngIf="newBranch.vehicles.length > 1"
-                class="remove-btn"
-                (click)="removeVehicle(i)">🗑️</button>
+        <!-- Vehicles & Driver Contacts -->
+        <div class="vehicle-wrapper">
+          <label class="vehicle-label">Vehicles & Drivers</label>
+
+          <div *ngFor="let v of newBranch.vehicles; let i=index" class="vehicle-row">
+            <input placeholder="Vehicle No." [(ngModel)]="v.vehicleNo">
+            <input placeholder="Driver Phone" [(ngModel)]="v.driverPhone">
+            <button *ngIf="newBranch.vehicles.length > 1"
+                    class="remove-btn"
+                    (click)="removeVehicle(i)">dY-`‹,?</button>
+          </div>
+
+          <button class="add-vehicle-btn" type="button" (click)="addVehicle()">+ Add Vehicle</button>
+        </div>
+
+        <button class="add-btn" type="button" (click)="addBranch()">+ Add Branch</button>
       </div>
-
-      <button class="add-vehicle-btn" (click)="addVehicle()">+ Add Vehicle</button>
     </div>
-
-    <button class="add-btn" (click)="addBranch()">+ Add Branch</button>
   </div>
 
   <!-- Branches List Table -->
@@ -85,7 +94,7 @@
         <td>
           <div *ngIf="editingBranch?._id !== b._id">
             <div *ngFor="let v of b.vehicles">
-              🚚 {{ v.vehicleNo }} — 📞 {{ v.driverPhone }}
+              dYss {{ v.vehicleNo }} ƒ?" dY"z {{ v.driverPhone }}
             </div>
           </div>
 
@@ -95,9 +104,9 @@
               <input [(ngModel)]="v.driverPhone" placeholder="Driver Phone">
               <button *ngIf="editingBranch.vehicles.length > 1"
                       class="remove-btn"
-                      (click)="removeVehicleEdit(i)">🗑️</button>
+                      (click)="removeVehicleEdit(i)">dY-`‹,?</button>
             </div>
-            <button class="add-vehicle-btn" (click)="addVehicleEdit()">+ Vehicle</button>
+            <button class="add-vehicle-btn" type="button" (click)="addVehicleEdit()">+ Vehicle</button>
           </div>
         </td>
 

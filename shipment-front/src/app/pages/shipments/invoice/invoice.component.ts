@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -14,7 +14,10 @@ import { BranchService } from '../../../services/branch.service';
 })
 export class InvoiceComponent implements OnInit, OnDestroy {
   invoices: any[] = [];
-  filteredInvoices: any[] = [];
+  deliveredInvoices: any[] = [];
+  preInvoicedInvoices: any[] = [];
+  filteredDelivered: any[] = [];
+  filteredPreInvoiced: any[] = [];
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
@@ -23,8 +26,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   branch: string = localStorage.getItem('branch') || 'All Branches';
   private branchSub?: Subscription;
 
-  editingInvoice: any = null;   // ✅ Track the invoice being edited
-  showEditPopup: boolean = false; // ✅ Control popup visibility
+  editingInvoice: any = null;   // âœ… Track the invoice being edited
+  showEditPopup: boolean = false; // âœ… Control popup visibility
 
   constructor(private http: HttpClient, private branchService: BranchService) {}
 
@@ -53,14 +56,16 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       }
     }).subscribe({
       next: (res) => {
-        // ✅ Only show shipments with status 'Delivered'
-        //onsole.log('📦 IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
-        this.invoices = res.filter(s => s.shipmentStatus === 'Delivered' || s.shipmentStatus === 'Invoiced');
-        this.filteredInvoices = [...this.invoices];
-        console.log('📦 Filtered Invoices for Delivered status:', this.filteredInvoices);
-        this.filteredInvoices.forEach(i => console.log('📦 Filtered Invoice:', i.consignmentNumber));
+        // âœ… Only show shipments with status 'Delivered'
+        //onsole.log('ðŸ“¦ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
+        this.invoices = res.filter(s => s.shipmentStatus === 'Delivered' || s.shipmentStatus === 'Pre-Invoiced');
+        this.deliveredInvoices = this.invoices.filter(s => s.shipmentStatus === 'Delivered');
+        this.preInvoicedInvoices = this.invoices.filter(s => s.shipmentStatus === 'Pre-Invoiced');
+        this.applyFilters();
+        console.log('A��,f??A� Filtered Delivered consignments:', this.filteredDelivered);
+        console.log('A��,f??A� Filtered Pre-Invoiced consignments:', this.filteredPreInvoiced);
       },
-      error: (err) => console.error('❌ Error loading invoices:', err)
+      error: (err) => console.error('âŒ Error loading invoices:', err)
     });
   }
 
@@ -72,18 +77,24 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   };
 
   applyFilters() {
-    this.filteredInvoices = this.invoices.filter(s =>
+    const matches = (s: any) =>
       (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
       (this.filterDate ? new Date(s.date).toISOString().split('T')[0] === this.filterDate : true) &&
-      (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true)
-    );
+      (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true);
+
+    this.filteredDelivered = this.deliveredInvoices.filter(matches);
+    this.filteredPreInvoiced = this.preInvoicedInvoices.filter(matches);
   }
 
-  toggleAllSelection(event: any) {
+  toggleAllDeliveredSelection(event: any) {
     const checked = event.target.checked;
-    this.filteredInvoices.forEach(i => i.selected = checked);
+    this.filteredDelivered.forEach(i => i.selected = checked);
   }
 
+  toggleAllPreInvoicedSelection(event: any) {
+    const checked = event.target.checked;
+    this.filteredPreInvoiced.forEach(i => i.selected = checked);
+  }
   openInvoiceDetails(invoice: any) {
     this.selectedInvoice = invoice;
     this.showInvoiceModal = true;
@@ -94,12 +105,75 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.selectedInvoice = null;
   }
 
-  // ✅ Function to mark selected Delivered consignments as Invoiced
+  // âœ… Function to mark selected Delivered consignments as Invoiced
   invoiceSelected() {
-    const selectedConsignments = this.filteredInvoices.filter(i => i.selected);
+    const selectedConsignments = this.filteredDelivered.filter(i => i.selected);
 
     if (selectedConsignments.length === 0) {
-      console.warn('⚠️ No consignments selected for invoicing.');
+      console.warn('No consignments selected for invoicing.');
+      return;
+    }
+
+    selectedConsignments.forEach(consignment => {
+      const updatedConsignment = { ...consignment, shipmentStatus: 'Pre-Invoiced' };
+
+      this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
+        .subscribe({
+          next: () => {
+            console.log(`Consignment ${consignment.consignmentNumber} updated to Pre-Invoiced`);
+            this.loadInvoices();
+          },
+          error: (err) => {
+            console.error(`Error updating consignment ${consignment.consignmentNumber}:`, err);
+          }
+        });
+    });
+
+    this.filteredDelivered.forEach(i => i.selected = false);
+  }
+
+  editInvoice(invoice: any) {
+    console.log('Edit invoice:', invoice);
+    const cloned = JSON.parse(JSON.stringify(invoice || {}));
+    if (Array.isArray(cloned.ewaybills) && cloned.ewaybills.length) {
+      cloned.invoices = this.flattenInvoices(cloned.ewaybills);
+    } else {
+      cloned.invoices = cloned.invoices || [];
+    }
+    this.editingInvoice = cloned;
+    this.captureOriginalDelivered(this.editingInvoice);
+    this.showEditPopup = true;
+  }
+
+  private flattenInvoices(ewaybills: any[]): any[] {
+    return (ewaybills || []).flatMap((ewb) => ewb.invoices || []);
+  }
+
+  private captureOriginalDelivered(invoice: any) {
+    (invoice?.invoices || []).forEach((inv: any) => {
+      (inv.products || []).forEach((prod: any) => {
+        prod._originalDelivered = Number(prod.deliveredstock) || 0;
+      });
+    });
+  }
+
+  deleteDelivered() {
+    this.deleteConsignments(this.filteredDelivered);
+  }
+
+  deletePreInvoiced() {
+    this.deleteConsignments(this.filteredPreInvoiced);
+  }
+
+  deleteInvoice() {
+    this.deleteConsignments([...this.filteredDelivered, ...this.filteredPreInvoiced]);
+  }
+
+  finalizePreInvoiced() {
+    const selectedConsignments = (this.filteredPreInvoiced || []).filter(i => i.selected);
+
+    if (selectedConsignments.length === 0) {
+      console.warn('No consignments selected for invoicing.');
       return;
     }
 
@@ -109,98 +183,68 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
         .subscribe({
           next: () => {
-            console.log(`✅ Consignment ${consignment.consignmentNumber} updated to Invoiced`);
-            this.loadInvoices(); // Refresh data
+            console.log(`Consignment ${consignment.consignmentNumber} updated to Invoiced`);
+            this.loadInvoices();
           },
           error: (err) => {
-            console.error(`❌ Error updating consignment ${consignment.consignmentNumber}:`, err);
+            console.error(`Error updating consignment ${consignment.consignmentNumber}:`, err);
           }
         });
     });
 
-    // Clear selection
-    this.filteredInvoices.forEach(i => i.selected = false);
+    this.filteredPreInvoiced.forEach(i => i.selected = false);
   }
 
-  // ✅ Edit function (opens popup)
-  editInvoice(invoice: any) {
-    console.log('✏️ Edit invoice:', invoice);
-    this.editingInvoice = { ...invoice };  // Copy invoice data into editing object
-    this.showEditPopup = true;             // Show popup
-  }
-
-  deleteInvoice() {
-  // Confirm before deleting
-  const selectedConsignments = this.filteredInvoices.filter(i => i.selected);
+  private deleteConsignments(list: any[]) {
+    const selectedConsignments = (list || []).filter(i => i.selected);
 
     if (selectedConsignments.length === 0) {
-      console.warn('⚠️ No consignments selected for invoicing.');
+      console.warn('No consignments selected for invoicing.');
       return;
     }
 
     selectedConsignments.forEach(consignment => {
-      const updatedConsignment = { ...consignment, shipmentStatus: ' Cancelled-'+consignment.shipmentStatus};
+      const updatedConsignment = { ...consignment, shipmentStatus: ' Cancelled-'+consignment.shipmentStatus };
 
       this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
         .subscribe({
           next: () => {
-            console.log(`✅ Consignment ${consignment.consignmentNumber} updated to Invoiced`);
-            this.loadInvoices(); // Refresh data
+            console.log(`Consignment ${consignment.consignmentNumber} updated to Invoiced`);
+            this.loadInvoices();
           },
           error: (err) => {
-            console.error(`❌ Error updating consignment ${consignment.consignmentNumber}:`, err);
+            console.error(`Error updating consignment ${consignment.consignmentNumber}:`, err);
           }
         });
     });
 
-    // Clear selection
-    this.filteredInvoices.forEach(i => i.selected = false);
-}
-
-
-  // ✅ Save changes from popup
-  saveInvoiceEdit() {
-    if (!this.editingInvoice) return;
-    
-    this.editingInvoice.invoices.forEach((inv: any) => {
-      inv.products.forEach((prod: any) => {
-      prod.deliveredstock = 0;
-      prod.instock = prod.amount;
-      console.log('💾 SSSSSSSSSSSSSSSSSSaving invoice edit:', prod);
-      });
-    });
-    
-
-    this.http.put(`http://localhost:3000/api/newshipments/${this.editingInvoice.consignmentNumber}`, this.editingInvoice)
-      .subscribe({
-        next: () => {
-          console.log('✅ Invoice updated successfully');
-          this.loadInvoices();
-          this.editingInvoice = null;
-          this.showEditPopup = false; // Close popup
-        },
-        error: (err) => console.error('❌ Error updating invoice:', err)
-      });
+    (list || []).forEach(i => i.selected = false);
   }
 
-  // ✅ Cancel edit and close popup
-  cancelEdit() {
-    this.editingInvoice = null;
-    this.showEditPopup = false;
+  printDelivered() {
+    this.printConsignments(this.filteredDelivered);
+  }
+
+  printPreInvoiced() {
+    this.printConsignments(this.filteredPreInvoiced);
   }
 
   printInvoice() {
-  const selected = this.filteredInvoices?.filter(inv => inv.selected) || [];
-
-  if (selected.length === 0) {
-    alert('No invoices selected.');
-    return;
+    this.printConsignments([...this.filteredDelivered, ...this.filteredPreInvoiced]);
   }
 
-  fetch('assets/invoice-template.html')
-  .then(res => res.text())
-  .then(template => {
-    let fullHtml = `
+  private printConsignments(list: any[]) {
+    const selected = (list || []).filter(inv => inv.selected);
+
+    if (selected.length === 0) {
+      alert('No invoices selected.');
+      return;
+    }
+
+    fetch('assets/invoice-template.html')
+      .then(res => res.text())
+      .then(template => {
+        let fullHtml = `
       <html>
         <head>
           <style>
@@ -216,16 +260,13 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         <body>
     `;
 
-    selected.forEach((inv, index) => {
-      console.log('🖨️ Printing invoice for consignment:', inv);
-
-      // Build product rows + calculate subtotal
-      let subtotal = 0;
-      const rows = inv.invoices.map((i: any) =>
-        i.products.map((p: any) => {
-          const lineTotal = (p.price || 0) * (p.deliveredstock || 0);
-          subtotal += lineTotal;
-          return `
+        selected.forEach((inv, index) => {
+          let subtotal = 0;
+          const rows = (inv.invoices || []).map((i: any) =>
+            (i.products || []).map((p: any) => {
+              const lineTotal = (p.price || 0) * (p.deliveredstock || 0);
+              subtotal += lineTotal;
+              return `
           <tr>
           <td>${inv.consignmentNumber}</td>
           <td>${inv.shipmentStatus}</td>
@@ -237,49 +278,39 @@ export class InvoiceComponent implements OnInit, OnDestroy {
           <td>${lineTotal.toFixed(2)}</td>
           </tr>
           `;
-        }).join('')
-      ).join('');
+            }).join('')
+          ).join('');
 
-      const ctype = localStorage.getItem('companyType') || 'default';
-      console.log('🏢 Company type for invoice:', ctype);
+          const ctype = localStorage.getItem('companyType') || 'default';
+          const gst = inv.finalAmount * (parseInt(ctype, 10) / 100);
+          const grandTotal = inv.finalAmount + gst;
+          const htmlContent = template
+            .replace('{{consignmentNumber}}', inv.consignmentNumber)
+            .replace('{{consignor}}', inv.consignor)
+            .replace('{{deliveryAddress}}', inv.deliveryAddress)
+            .replace('{{status}}', inv.shipmentStatus)
+            .replace('{{rows}}', rows)
+            .replace('{{subtotal}}', subtotal.toFixed(2))
+            .replace('{{gst}}', gst.toFixed(2))
+            .replace('{{grandTotal}}', grandTotal.toFixed(2));
 
-      const gst = inv.finalAmount * (parseInt(ctype)/100);
-      const grandTotal = inv.finalAmount + gst;
-      const htmlContent = template
-      .replace('{{consignmentNumber}}', inv.consignmentNumber)
-      .replace('{{consignor}}', inv.consignor)
-      .replace('{{deliveryAddress}}', inv.deliveryAddress)
-      .replace('{{status}}', inv.shipmentStatus)
-      .replace('{{rows}}', rows)
-      .replace('{{subtotal}}', subtotal.toFixed(2))
-      .replace('{{gst}}', gst.toFixed(2))
-      .replace('{{grandTotal}}', grandTotal.toFixed(2));
+          fullHtml += htmlContent;
 
+          if (index < selected.length - 1) {
+            fullHtml += `<div class="page-break"></div>`;
+          }
+        });
 
+        fullHtml += `</body></html>`;
 
-      fullHtml += htmlContent;
-
-      // Add page break after each invoice except the last
-      if (index < selected.length - 1) {
-        fullHtml += `<div class="page-break"></div>`;
-      }
-    });
-
-    fullHtml += `</body></html>`;
-
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.open();
-      printWindow.document.write(fullHtml);
-      printWindow.document.close();
-      printWindow.print();
-    }
-  })
-  .catch(err => console.error('Error loading invoice template:', err));
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          printWindow.document.open();
+          printWindow.document.write(fullHtml);
+          printWindow.document.close();
+          printWindow.print();
+        }
+      })
+      .catch(err => console.error('Error loading invoice template:', err));
+  }
 }
-}
-
-
-
-
-

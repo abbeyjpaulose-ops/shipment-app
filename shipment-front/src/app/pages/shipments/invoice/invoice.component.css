@@ -1,14 +1,148 @@
+.invoice-container {
+  padding: 20px;
+  color: var(--text);
+}
+
+:host {
+  --page-bg: #f6f8fb;
+  --card: #ffffff;
+  --border: #e5e7eb;
+  --text: #0f172a;
+  --muted: #6b7280;
+  --primary: #2563eb;
+  --primary-strong: #1e3a8a;
+  --danger: #dc2626;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.filters input,
+.filters select {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text);
+}
+
+.action-bar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.invoice-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  width: 100%;
+}
+
+.invoice-section {
+  min-width: 0;
+}
+
+.invoice-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+}
+
+.invoice-section > h3 {
+  margin-top: 0;
+}
+
+.invoice-section .action-bar {
+  margin: 8px 0 12px;
+  flex-wrap: wrap;
+}
+
+.action-bar button {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: #ffffff;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.action-bar button:hover {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
+.print-btn {
+  background: var(--primary);
+  color: #ffffff;
+  border: 1px solid var(--primary);
+}
+
+.print-btn:hover {
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
+  color: #ffffff;
+}
+
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.invoice-table th,
+.invoice-table td {
+  border: 1px solid var(--border);
+  padding: 8px;
+  text-align: left;
+}
+
+.invoice-table th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.invoice-table tr:hover {
+  background: #f8fafc;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+}
+
+.modal-content {
+  position: relative;
+}
+
 .edit-btn {
-  background: #ff9800;
+  background: var(--primary);
   color: white;
-  border: none;
+  border: 1px solid var(--primary);
   padding: 4px 8px;
   border-radius: 4px;
   cursor: pointer;
 }
 
 .edit-btn:hover {
-  background: #e68900;
+  background: var(--primary-strong);
 }
 
 .modal-actions {
@@ -21,17 +155,139 @@
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
-    background: rgba(0,0,0,0.5);
+    background: rgba(15,23,42,0.55);
     display: flex; align-items: center; justify-content: center;
     z-index: 1000;
   }
-  .popup-content {
-    background: #fff;
-    padding: 20px;
-    border-radius: 6px;
-    width: 400px;
-    max-width: 90%;
+.popup-content {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 12px;
+  width: 520px;
+  max-width: 90%;
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+}
+
+.details-modal {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.details-content {
+  background: #ffffff;
+  color: var(--text);
+  width: min(860px, 92vw);
+  max-height: 85vh;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+  padding: 20px;
+  position: relative;
+}
+
+.details-close {
+  position: absolute;
+  right: 18px;
+  top: 12px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.details-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.details-header h2 {
+  margin: 0;
+  font-size: 22px;
+}
+
+.details-sub {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.details-status {
+  background: #e0f2fe;
+  color: #0ea5e9;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.details-products {
+  display: grid;
+  gap: 12px;
+}
+
+.details-invoice {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.details-product-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.details-product-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 6px;
+}
+
+.details-product-list li:last-child {
+  border-bottom: none;
+}
+
+.product-name {
+  font-weight: 600;
+}
+
+.product-meta {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+@media (max-width: 700px) {
+  .details-grid {
+    grid-template-columns: 1fr;
   }
+
+  .details-product-list li {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
   .form-row {
     margin-bottom: 12px;
   }
@@ -44,6 +300,8 @@
     width: 100%;
     padding: 6px;
     box-sizing: border-box;
+    border: 1px solid var(--border);
+    border-radius: 8px;
   }
   .button-section {
     display: flex;
@@ -51,9 +309,9 @@
     gap: 10px;
   }
   .delete-btn {
-  background-color: #e74c3c;
-  color: white;
-  border: none;
+  background-color: #fef2f2;
+  color: var(--danger);
+  border: 1px solid #fecaca;
   padding: 5px 10px;
   margin-left: 5px;
   cursor: pointer;
@@ -61,5 +319,36 @@
 }
 
 .delete-btn:hover {
-  background-color: #c0392b;
+  background-color: #fee2e2;
+}
+
+.invoice-block {
+  margin-top: 12px;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
+}
+
+.invoice-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.product-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.product-table th,
+.product-table td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.product-table input[type='number'] {
+  width: 100%;
+  padding: 4px 6px;
+  box-sizing: border-box;
 }

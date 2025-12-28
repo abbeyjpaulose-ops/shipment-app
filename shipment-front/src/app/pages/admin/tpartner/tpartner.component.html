@@ -1,44 +1,52 @@
 <div class="tpartner-container">
   <h2>Transport Partners</h2>
 
-  <div class="add-partner-form">
-    <div class="form-row">
-      <input [(ngModel)]="newPartner.partnerName" placeholder="Partner Name*" required>
-      <input [(ngModel)]="newPartner.GSTIN" placeholder="GSTIN*" required>
-    </div>
+  <button class="add-partner-btn" type="button" (click)="openAddPartnerPopup()">+ Add Partner</button>
 
-    <div class="form-row">
-      <input [(ngModel)]="newPartner.address" placeholder="Address*" required>
-      <input [(ngModel)]="newPartner.city" placeholder="City">
-    </div>
+  <div class="modal" *ngIf="showAddPartnerPopup">
+    <div class="modal-content">
+      <span class="close" (click)="closeAddPartnerPopup()">&times;</span>
+      <h3>Add Partner</h3>
+      <div class="add-partner-form">
+        <div class="form-row">
+          <input [(ngModel)]="newPartner.partnerName" placeholder="Partner Name*" required>
+          <input [(ngModel)]="newPartner.GSTIN" placeholder="GSTIN*" required>
+        </div>
 
-    <div class="form-row">
-      <input [(ngModel)]="newPartner.state" placeholder="State">
-      <input [(ngModel)]="newPartner.pinCode" placeholder="Pin Code">
-    </div>
+        <div class="form-row">
+          <input [(ngModel)]="newPartner.address" placeholder="Address*" required>
+          <input [(ngModel)]="newPartner.city" placeholder="City">
+        </div>
 
-    <div class="form-row">
-      <label>Rate Type
-        <select [(ngModel)]="newPartner.rateType" required>
-          <option value="km">Rate / Km</option>
-          <option value="day">Rate / Day</option>
-        </select>
-      </label>
-      <input type="number" [(ngModel)]="newPartner.rateValue" placeholder="Rate Value*" required>
-    </div>
+        <div class="form-row">
+          <input [(ngModel)]="newPartner.state" placeholder="State">
+          <input [(ngModel)]="newPartner.pinCode" placeholder="Pin Code">
+        </div>
 
-    <div class="vehicle-entry">
-      <input [(ngModel)]="newVehicle.number" placeholder="Vehicle Number">
-      <input [(ngModel)]="newVehicle.phone" placeholder="Driver Phone">
-      <button (click)="addVehicle()">+ Vehicle</button>
-    </div>
+        <div class="form-row">
+          <label>Rate Type
+            <select [(ngModel)]="newPartner.rateType" required>
+              <option value="km">Rate / Km</option>
+              <option value="day">Rate / Day</option>
+            </select>
+          </label>
+          <input type="number" [(ngModel)]="newPartner.rateValue" placeholder="Rate Value*" required>
+        </div>
 
-    <div class="vehicle-tag" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
-      {{ v.number }} | {{ v.phone }}
-      <span class="delete-tag" (click)="removeVehicle(i)">×</span>
-    </div>
+        <div class="vehicle-entry">
+          <input [(ngModel)]="newVehicle.number" placeholder="Vehicle Number">
+          <input [(ngModel)]="newVehicle.phone" placeholder="Driver Phone">
+          <button type="button" (click)="addVehicle()">+ Vehicle</button>
+        </div>
 
-    <button class="btn-add" (click)="addPartner()">+ Add Partner</button>
+        <div class="vehicle-tag" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
+          {{ v.number }} | {{ v.phone }}
+          <span class="delete-tag" (click)="removeVehicle(i)">A-</span>
+        </div>
+
+        <button class="btn-add" type="button" (click)="addPartner()">+ Add Partner</button>
+      </div>
+    </div>
   </div>
 
   <div class="tpartner-table-wrapper">

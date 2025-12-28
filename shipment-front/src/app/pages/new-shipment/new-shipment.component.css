@@ -90,6 +90,27 @@ h1 {
   margin-bottom: 12px;
 }
 
+.head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rate-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.rate-unit select {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
 .pill {
   padding: 6px 10px;
   border-radius: 20px;
@@ -419,10 +440,13 @@ button.ghost {
 }
 
 .product-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 8px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.rate-input {
+  max-width: 160px;
 }
 
 @media (max-width: 1080px) {

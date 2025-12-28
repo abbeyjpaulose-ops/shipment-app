@@ -1,51 +1,59 @@
 <div class="hubs-container">
   <h2>Manage Hubs</h2>
 
-  <!-- Add Hub Form -->
-  <div class="add-hub-form">
-    <input [(ngModel)]="newHub.hubName" placeholder="Hub Name" required>
-    <input [(ngModel)]="newHub.address" placeholder="Address" required>
-    <input [(ngModel)]="newHub.city" placeholder="City">
-    <input [(ngModel)]="newHub.state" placeholder="State">
-    <input [(ngModel)]="newHub.pinCode" placeholder="Pin Code">
-    <input [(ngModel)]="newHub.phoneNum" placeholder="Phone Number" required>
-    <input [(ngModel)]="newHub.perRev" placeholder="% of Revenue" required>
+  <!-- Add Hub Button -->
+  <button class="add-hub-btn" type="button" (click)="openAddHubPopup()">+ Add Hub</button>
 
-    <!-- Delivery / Pickup Addresses (each address contains vehicles) -->
-    <div class="delivery-wrapper">
-      <label>Delivery / Pickup Addresses</label>
+  <!-- Add Hub Popup -->
+  <div class="modal" *ngIf="showAddHubPopup">
+    <div class="modal-content">
+      <span class="close" (click)="closeAddHubPopup()">&times;</span>
+      <h3>Add Hub</h3>
+      <div class="add-hub-form">
+        <input [(ngModel)]="newHub.hubName" placeholder="Hub Name" required>
+        <input [(ngModel)]="newHub.address" placeholder="Address" required>
+        <input [(ngModel)]="newHub.city" placeholder="City">
+        <input [(ngModel)]="newHub.state" placeholder="State">
+        <input [(ngModel)]="newHub.pinCode" placeholder="Pin Code">
+        <input [(ngModel)]="newHub.phoneNum" placeholder="Phone Number" required>
+        <input [(ngModel)]="newHub.perRev" placeholder="% of Revenue" required>
 
-      <div *ngFor="let addr of newHub.deliveryAddresses; let a = index" class="addr-block">
-        <div class="addr-row">
-          <input [(ngModel)]="addr.location" placeholder="Address / Location" />
+        <!-- Delivery / Pickup Addresses (each address contains vehicles) -->
+        <div class="delivery-wrapper">
+          <label>Delivery / Pickup Addresses</label>
 
-          <button *ngIf="newHub.deliveryAddresses.length > 1"
-                  class="delete-btn"
-                  (click)="removeAddress(a)">🗑️</button>
-        </div>
+          <div *ngFor="let addr of newHub.deliveryAddresses; let a = index" class="addr-block">
+            <div class="addr-row">
+              <input [(ngModel)]="addr.location" placeholder="Address / Location" />
 
-        <!-- Vehicles for this delivery address -->
-        <div class="vehicles-for-address">
-          <label>Vehicles for this address</label>
+              <button *ngIf="newHub.deliveryAddresses.length > 1"
+                      class="delete-btn"
+                      (click)="removeAddress(a)">dY-`‹,?</button>
+            </div>
 
-          <div *ngFor="let v of addr.vehicles; let vIdx = index" class="vehicle-row">
-            <input [(ngModel)]="addr.vehicles[vIdx].vehicleNo" placeholder="Vehicle No" />
-            <input [(ngModel)]="addr.vehicles[vIdx].driverPhone" placeholder="Driver Phone" />
-            <button *ngIf="addr.vehicles.length > 1"
-                    class="delete-btn"
-                    (click)="removeVehicle(a, vIdx)">🗑️</button>
+            <!-- Vehicles for this delivery address -->
+            <div class="vehicles-for-address">
+              <label>Vehicles for this address</label>
+
+              <div *ngFor="let v of addr.vehicles; let vIdx = index" class="vehicle-row">
+                <input [(ngModel)]="addr.vehicles[vIdx].vehicleNo" placeholder="Vehicle No" />
+                <input [(ngModel)]="addr.vehicles[vIdx].driverPhone" placeholder="Driver Phone" />
+                <button *ngIf="addr.vehicles.length > 1"
+                        class="delete-btn"
+                        (click)="removeVehicle(a, vIdx)">dY-`‹,?</button>
+              </div>
+
+              <button class="add-vehicle-btn" type="button" (click)="addVehicle(a)">+ Add Vehicle</button>
+            </div>
           </div>
 
-          <button class="add-vehicle-btn" (click)="addVehicle(a)">+ Add Vehicle</button>
+          <button class="add-addr-btn" type="button" (click)="addAddress()">+ Add Address</button>
         </div>
+
+        <button class="add-btn" type="button" (click)="addHub()">+ Add Hub</button>
       </div>
-
-      <button class="add-addr-btn" (click)="addAddress()">+ Add Address</button>
     </div>
-
-    <button class="add-btn" (click)="addHub()">+ Add Hub</button>
   </div>
-
 
   <!-- Hubs List Table -->
   <div class="hubs-table-wrapper">
@@ -96,14 +104,14 @@
             <!-- VIEW MODE: show each address and its vehicles -->
             <div *ngIf="editingHub?._id !== h._id" class="addr-list-view">
               <div *ngFor="let addr of h.deliveryAddresses" class="addr-view-block">
-                <div class="addr-title">📍 {{ addr.location }}</div>
+                <div class="addr-title">dY"? {{ addr.location }}</div>
                 <div *ngIf="addr.vehicles?.length" class="vehicles-list-view">
                   <div *ngFor="let v of addr.vehicles" class="vehicle-view">
-                    🚛 {{ v.vehicleNo }} — 📞 {{ v.driverPhone }}
+                    dYs> {{ v.vehicleNo }} ƒ?" dY"z {{ v.driverPhone }}
                   </div>
                 </div>
                 <div *ngIf="!addr.vehicles || addr.vehicles.length === 0" class="no-vehicles">
-                  — No vehicles assigned —
+                  ƒ?" No vehicles assigned ƒ?"
                 </div>
               </div>
             </div>
@@ -115,7 +123,7 @@
                   <input [(ngModel)]="editingHub.deliveryAddresses[ai].location" placeholder="Address / Location" />
                   <button *ngIf="editingHub.deliveryAddresses.length > 1"
                           class="delete-btn"
-                          (click)="removeAddressEdit(ai)">🗑️</button>
+                          (click)="removeAddressEdit(ai)">dY-`‹,?</button>
                 </div>
 
                 <div class="vehicles-for-address-edit">
@@ -125,7 +133,7 @@
                     <input [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].driverPhone" placeholder="Driver Phone" />
                     <button *ngIf="editingHub.deliveryAddresses[ai].vehicles.length > 1"
                             class="delete-btn"
-                            (click)="removeVehicleEdit(ai, vi)">🗑️</button>
+                            (click)="removeVehicleEdit(ai, vi)">dY-`‹,?</button>
                   </div>
 
                   <button class="add-vehicle-btn" (click)="addVehicleEdit(ai)">+ Add Vehicle</button>

@@ -3,6 +3,7 @@ import Manifest from '../models/Manifest/Manifest.js';
 import ManifestConsignment from '../models/Manifest/ManifestConsignment.js';
 import ManifestInvoice from '../models/Manifest/ManifestInvoice.js';
 import ManifestProduct from '../models/Manifest/ManifestProduct.js';
+import ManifestAdjustment from '../models/Manifest/ManifestAdjustment.js';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import Invoice from '../models/NewShipment/NewShipmentInvoice.js';
@@ -47,6 +48,7 @@ async function buildManifestViews(manifests) {
   const invoices = await ManifestInvoice.find({ consignmentId: { $in: consignmentIds } }).lean();
   const invoiceIds = invoices.map((i) => i._id);
   const products = await ManifestProduct.find({ invoiceId: { $in: invoiceIds } }).lean();
+  const adjustments = await ManifestAdjustment.find({ manifestId: { $in: manifestIds } }).lean();
 
   const productsByInvoice = new Map();
   for (const prod of products) {
@@ -86,9 +88,49 @@ async function buildManifestViews(manifests) {
     });
   }
 
+  const adjustmentsByManifest = new Map();
+  for (const adj of adjustments) {
+    const key = adj.manifestId.toString();
+    if (!adjustmentsByManifest.has(key)) adjustmentsByManifest.set(key, []);
+    adjustmentsByManifest.get(key).push(adj);
+  }
+
+  const applyAdjustments = (data, list) => {
+    if (!list?.length) return;
+    list.forEach((adj) => {
+      const consignment = (data.consignments || []).find(
+        (c) => String(c.consignmentNumber || '').trim() === String(adj.consignmentNumber || '').trim()
+      );
+      if (!consignment) return;
+      const invoice = (consignment.invoices || []).find(
+        (i) => String(i.number || '').trim() === String(adj.invoiceNumber || '').trim()
+      );
+      if (!invoice) return;
+      const product = (invoice.products || []).find(
+        (p) => String(p.type || '').trim() === String(adj.productType || '').trim()
+      );
+      if (!product) return;
+
+      const deltaInstock = Number(adj.deltaInstock) || 0;
+      const deltaIntransit = Number(adj.deltaIntransitstock) || 0;
+      const deltaDelivered = Number(adj.deltaDeliveredstock) || 0;
+      const deltaManifest = Number(adj.deltaManifestQty) || 0;
+
+      product.instock = Math.max(0, (Number(product.instock) || 0) + deltaInstock);
+      product.intransitstock = Math.max(0, (Number(product.intransitstock) || 0) + deltaIntransit);
+      product.deliveredstock = Math.max(0, (Number(product.deliveredstock) || 0) + deltaDelivered);
+      product.manifestQty = Math.max(0, (Number(product.manifestQty) || 0) + deltaManifest);
+      product.amount = Math.max(
+        0,
+        (Number(product.amount) || 0) + deltaInstock + deltaIntransit + deltaDelivered
+      );
+    });
+  };
+
   return manifests.map((manifest) => {
     const data = manifest.toObject ? manifest.toObject() : manifest;
     data.consignments = consignmentsByManifest.get(manifest._id.toString()) || [];
+    applyAdjustments(data, adjustmentsByManifest.get(manifest._id.toString()) || []);
     return data;
   });
 }
@@ -341,6 +383,37 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
   }
 });
 
+// Get manifests that include a consignment number
+router.get('/by-consignment/:consignmentNumber', requireAuth, async (req, res) => {
+  try {
+    const consignmentNumber = String(req.params.consignmentNumber || '').trim();
+    if (!consignmentNumber) return res.status(400).json({ message: 'Consignment number is required' });
+
+    const gstinId = Number(req.user?.id);
+    const baseFilter = {};
+    if (Number.isFinite(gstinId)) {
+      baseFilter.GSTIN_ID = gstinId;
+    } else {
+      const resolvedEmail = await resolveEmailFromToken(req);
+      if (resolvedEmail) baseFilter.email = resolvedEmail;
+    }
+
+    const consignmentRefs = await ManifestConsignment.find({ consignmentNumber }).select('manifestId').lean();
+    const manifestIds = consignmentRefs.map((c) => c.manifestId);
+    if (manifestIds.length === 0) return res.json([]);
+
+    const manifests = await Manifest.find({
+      _id: { $in: manifestIds },
+      ...baseFilter
+    }).sort({ date: -1 });
+
+    const views = await buildManifestViews(manifests);
+    res.json(views);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Get manifest list for dropdown or summary view
 router.get('/manifestlist', requireAuth, async (req, res) => {
   try {
@@ -379,16 +452,23 @@ router.get('/next-number', requireAuth, async (req, res) => {
 router.post('/manifestationNumber', requireAuth, async (req, res) => {
   try {
     const { consignments, manifestationNumber, _id, ...manifestData } = req.body || {};
-    const numberValue = Number(manifestationNumber);
-    if (!Number.isFinite(numberValue)) {
-      return res.status(400).json({ message: 'Invalid manifestationNumber' });
-    }
-    const filter = { manifestationNumber: numberValue };
-    if (req.user?.email) filter.email = req.user.email;
     const gstinId = Number(req.user?.id);
-    if (Number.isFinite(gstinId)) filter.GSTIN_ID = gstinId;
-
-    const manifest = await Manifest.findOneAndUpdate(filter, manifestData, { new: true });
+    let manifest = null;
+    if (_id) {
+      const idFilter = { _id };
+      if (Number.isFinite(gstinId)) idFilter.GSTIN_ID = gstinId;
+      manifest = await Manifest.findOneAndUpdate(idFilter, manifestData, { new: true });
+    }
+    if (!manifest) {
+      const numberValue = Number(manifestationNumber);
+      if (!Number.isFinite(numberValue)) {
+        return res.status(400).json({ message: 'Invalid manifestationNumber' });
+      }
+      const filter = { manifestationNumber: numberValue };
+      if (req.user?.email) filter.email = req.user.email;
+      if (Number.isFinite(gstinId)) filter.GSTIN_ID = gstinId;
+      manifest = await Manifest.findOneAndUpdate(filter, manifestData, { new: true });
+    }
     if (!manifest) return res.status(404).json({ message: 'Manifest not found' });
     if (consignments) await replaceManifestLines(manifest._id, consignments);
     const view = (await buildManifestViews([manifest]))[0];

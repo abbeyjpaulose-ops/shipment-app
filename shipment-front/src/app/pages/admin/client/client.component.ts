@@ -114,6 +114,9 @@ export class ClientComponent implements OnInit {
     if (!Array.isArray(this.editingClient.deliveryLocations)) {
       this.editingClient.deliveryLocations = [{ location: '' }];
     }
+    this.editingClient.products = this.editingClient.products.map((product: any) =>
+      this.ensureProductRates(product)
+    );
     this.showEditClientPopup = true;
   }
 
@@ -127,9 +130,7 @@ export class ClientComponent implements OnInit {
     this.newClient.products.push({
       hsnNum: '',
       productName: '',
-      ratePerNum: 0,
-      ratePerVolume: 0,
-      ratePerKg: 0
+      rates: [this.createRateEntry()]
     });
   }
 
@@ -148,14 +149,26 @@ export class ClientComponent implements OnInit {
     this.editingClient.products.push({
       hsnNum: '',
       productName: '',
-      ratePerNum: 0,
-      ratePerVolume: 0,
-      ratePerKg: 0
+      rates: [this.createRateEntry()]
     });
   }
 
   removeProductEdit(index: number) {
     this.editingClient.products.splice(index, 1);
+  }
+
+  addRateRow(product: any) {
+    if (!product.rates) {
+      product.rates = [];
+    }
+    product.rates.push(this.createRateEntry());
+  }
+
+  removeRateRow(product: any, index: number) {
+    if (!product.rates) {
+      return;
+    }
+    product.rates.splice(index, 1);
   }
 
   /** Delivery Location Functions */
@@ -221,5 +234,30 @@ export class ClientComponent implements OnInit {
   toggleStatus(client: any) {
     this.http.patch(`http://localhost:3000/api/clients/${client._id}/status`, {})
       .subscribe(() => this.loadClients());
+  }
+
+  private createRateEntry() {
+    return {
+      pickupPincode: '',
+      deliveryPincode: '',
+      rate: { ratePerNum: 0, ratePerVolume: 0, ratePerKg: 0 }
+    };
+  }
+
+  private ensureProductRates(product: any) {
+    return {
+      ...product,
+      rates: Array.isArray(product.rates) && product.rates.length > 0
+        ? product.rates.map((rateEntry: any) => ({
+            pickupPincode: rateEntry.pickupPincode || '',
+            deliveryPincode: rateEntry.deliveryPincode || '',
+            rate: {
+              ratePerNum: rateEntry.rate?.ratePerNum ?? 0,
+              ratePerVolume: rateEntry.rate?.ratePerVolume ?? 0,
+              ratePerKg: rateEntry.rate?.ratePerKg ?? 0
+            }
+          }))
+        : [this.createRateEntry()]
+    };
   }
 }

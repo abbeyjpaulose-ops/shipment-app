@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 })
 export class BranchComponent implements OnInit {
   branches: any[] = [];
+  showAddBranchPopup = false;
 
   newBranch: any = {
     branchName: '',
@@ -41,6 +42,14 @@ export class BranchComponent implements OnInit {
       },
       error: (err) => console.error('Error loading branches:', err)
     });
+  }
+
+  openAddBranchPopup() {
+    this.showAddBranchPopup = true;
+  }
+
+  closeAddBranchPopup() {
+    this.showAddBranchPopup = false;
   }
 
   // Add Vehicle in Add Form
@@ -103,6 +112,7 @@ export class BranchComponent implements OnInit {
           alert('Branch added successfully!');
           this.loadBranches();
           this.resetNewBranch();
+          this.closeAddBranchPopup();
         },
         error: (err) => {
           console.error('Error saving branch:', err);

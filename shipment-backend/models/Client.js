@@ -12,9 +12,29 @@ const ProductPricingSchema = new mongoose.Schema(
   {
     hsnNum: { type: String, trim: true },
     productName: { type: String, trim: true },
-    ratePerNum: { type: Number, default: 0 },
-    ratePerVolume: { type: Number, default: 0 },
-    ratePerKg: { type: Number, default: 0 }
+    rates: {
+      type: [
+        new mongoose.Schema(
+          {
+            pickupPincode: { type: String, trim: true },
+            deliveryPincode: { type: String, trim: true },
+            rate: {
+              type: new mongoose.Schema(
+                {
+                  ratePerNum: { type: Number, default: 0 },
+                  ratePerVolume: { type: Number, default: 0 },
+                  ratePerKg: { type: Number, default: 0 }
+                },
+                { _id: false }
+              ),
+              default: () => ({})
+            }
+          },
+          { _id: false }
+        )
+      ],
+      default: []
+    }
   },
   { _id: false }
 );

@@ -1,16 +1,33 @@
 <div class="products-container">
   <h2>Manage Standard Products Pricing</h2>
 
-  <!-- Add Product Form -->
-  <div class="add-product-form">
-    <input [(ngModel)]="newProduct.hsnNum" placeholder="HSN number" required>
-    <input [(ngModel)]="newProduct.productName" placeholder="Product Type" required>
+  <!-- Add Product Button -->
+  <button class="add-product-btn" type="button" (click)="openAddProductPopup()">+ Add Product</button>
 
-    <input type="number" [(ngModel)]="newProduct.ratePerNum" placeholder="Rate / Box" required>
-    <input type="number" [(ngModel)]="newProduct.ratePerVolume" placeholder="Rate / cm³" required>
-    <input type="number" [(ngModel)]="newProduct.ratePerKg" placeholder="Rate / Kg" required>
+  <!-- Add Product Popup -->
+  <div class="modal" *ngIf="showAddProductPopup">
+    <div class="modal-content">
+      <span class="close" (click)="closeAddProductPopup()">&times;</span>
+      <h3>Add Product</h3>
+      <div class="add-product-form">
+        <input [(ngModel)]="newProduct.hsnNum" placeholder="HSN number" required>
+        <input [(ngModel)]="newProduct.productName" placeholder="Product Type" required>
 
-    <button (click)="addProduct()">+ Add Product</button>
+        <div class="rate-rows">
+          <div class="rate-row" *ngFor="let rateEntry of newProduct.rates; let i = index">
+            <input [(ngModel)]="rateEntry.pickupPincode" placeholder="Pickup Pincode">
+            <input [(ngModel)]="rateEntry.deliveryPincode" placeholder="Delivery Pincode">
+            <input type="number" [(ngModel)]="rateEntry.rate.ratePerNum" placeholder="Rate / Box" required>
+            <input type="number" [(ngModel)]="rateEntry.rate.ratePerVolume" placeholder="Rate / cmA3" required>
+            <input type="number" [(ngModel)]="rateEntry.rate.ratePerKg" placeholder="Rate / Kg" required>
+            <button type="button" (click)="removeRateRow(newProduct, i)">Remove</button>
+          </div>
+          <button type="button" (click)="addRateRow(newProduct)">+ Add Rate</button>
+        </div>
+
+        <button type="button" (click)="addProduct()">+ Add Product</button>
+      </div>
+    </div>
   </div>
 
   <!-- Products List -->
@@ -19,9 +36,7 @@
       <tr>
         <th>HSN number</th>
         <th>Product Type</th>
-        <th>Rate / Box.</th>
-        <th>Rate / cm³</th>
-        <th>Rate / Kg</th>
+        <th>Rates by Route</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
@@ -44,27 +59,27 @@
           </div>
         </td>
 
-        <!-- Rate Per Number -->
+        <!-- Rates -->
         <td>
-          <span *ngIf="editingProduct?._id !== b._id">{{ b.ratePerNum }}</span>
-          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
-            <input type="number" [(ngModel)]="editingProduct.ratePerNum">
+          <div *ngIf="editingProduct?._id !== b._id" class="rate-list">
+            <div class="rate-item" *ngFor="let rateEntry of b.rates">
+              <span>Pickup: {{ rateEntry.pickupPincode || '-' }}</span>
+              <span>Delivery: {{ rateEntry.deliveryPincode || '-' }}</span>
+              <span>Box: {{ rateEntry.rate?.ratePerNum }}</span>
+              <span>cmA3: {{ rateEntry.rate?.ratePerVolume }}</span>
+              <span>Kg: {{ rateEntry.rate?.ratePerKg }}</span>
+            </div>
           </div>
-        </td>
-
-        <!-- Rate Per Volume -->
-        <td>
-          <span *ngIf="editingProduct?._id !== b._id">{{ b.ratePerVolume }}</span>
           <div *ngIf="editingProduct?._id === b._id" class="edit-field">
-            <input type="number" [(ngModel)]="editingProduct.ratePerVolume">
-          </div>
-        </td>
-
-        <!-- Rate Per Kg -->
-        <td>
-          <span *ngIf="editingProduct?._id !== b._id">{{ b.ratePerKg }}</span>
-          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
-            <input type="number" [(ngModel)]="editingProduct.ratePerKg">
+            <div class="rate-row" *ngFor="let rateEntry of editingProduct.rates; let i = index">
+              <input [(ngModel)]="rateEntry.pickupPincode" placeholder="Pickup Pincode">
+              <input [(ngModel)]="rateEntry.deliveryPincode" placeholder="Delivery Pincode">
+              <input type="number" [(ngModel)]="rateEntry.rate.ratePerNum" placeholder="Rate / Box" required>
+              <input type="number" [(ngModel)]="rateEntry.rate.ratePerVolume" placeholder="Rate / cmA3" required>
+              <input type="number" [(ngModel)]="rateEntry.rate.ratePerKg" placeholder="Rate / Kg" required>
+              <button type="button" (click)="removeRateRow(editingProduct, i)">Remove</button>
+            </div>
+            <button type="button" (click)="addRateRow(editingProduct)">+ Add Rate</button>
           </div>
         </td>
 

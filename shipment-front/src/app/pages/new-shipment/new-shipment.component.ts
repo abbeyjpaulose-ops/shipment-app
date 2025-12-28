@@ -107,6 +107,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   consigneePhone: string = '';
 
   paymentMode: string = 'To Pay';
+  rateUnit: 'box' | 'cm3' | 'kg' = 'box';
+  allowAccountCredit = false;
   externalRefId: string = '';
 
   ewaybills = [
@@ -118,7 +120,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
           number: '',
           value: 0,
           packages: [{ type: '', amount: 0 }],
-          products: [{ type: '', amount: 1, instock: 1, intransitstock: 0, deliveredstock: 0 }]
+          products: [{ type: '', amount: 1, ratePer: 0, instock: 1, intransitstock: 0, deliveredstock: 0 }]
         }
       ]
     }
@@ -220,6 +222,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       consigneeAddress: this.consigneeAddress,
       consigneePhone: this.consigneePhone,
       paymentMode: this.paymentMode,
+      rateUnit: this.rateUnit,
       externalRefId: this.externalRefId,
       ewaybills: this.ewaybills,
       charges: this.charges,
@@ -262,6 +265,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         consigneeAddress: draft.consigneeAddress ?? this.consigneeAddress,
         consigneePhone: draft.consigneePhone ?? this.consigneePhone,
         paymentMode: draft.paymentMode ?? this.paymentMode,
+        rateUnit: draft.rateUnit ?? this.rateUnit,
         externalRefId: draft.externalRefId ?? this.externalRefId,
         ewaybills: draft.ewaybills ?? this.ewaybills,
         charges: draft.charges ?? this.charges,
@@ -282,7 +286,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   private loadLists() {
     // Client list
     this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?branch=${encodeURIComponent(this.branch)}`)
-      .subscribe(res => this.clientList = res);
+      .subscribe(res => {
+        this.clientList = res;
+        this.updatePaymentModeAvailability(this.consignor);
+      });
 
     // Guest list
     this.http.get<any[]>(`http://localhost:3000/api/guests/guestslist`)
@@ -321,6 +328,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.ewaybills[ewaybillIndex].invoices[invoiceIndex].products.push({
       type: '',
       amount: 1,
+      ratePer: 0,
       instock: 1,
       intransitstock: 0,
       deliveredstock: 0
@@ -369,6 +377,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.consigneeAddress = '';
     this.consigneePhone = '';
     this.paymentMode = 'To Pay';
+    this.rateUnit = 'box';
+    this.allowAccountCredit = false;
     this.externalRefId = '';
     this.ewaybills = [{
       number: '',
@@ -378,7 +388,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
           number: '',
           value: 0,
           packages: [{ type: '', amount: 0 }],
-          products: [{ type: '', amount: 1, instock: 1, intransitstock: 0, deliveredstock: 0 }]
+          products: [{ type: '', amount: 1, ratePer: 0, instock: 1, intransitstock: 0, deliveredstock: 0 }]
         }
       ]
     }];
@@ -535,6 +545,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.selectedConsignorId = c._id;
       this.loadPricingSuggestions(c._id);
     }
+    this.updatePaymentModeAvailability(name);
   }
 
   onConsigneeSelect(name: string) {
@@ -555,6 +566,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.selectedConsignorId = null;
       this.loadPricingSuggestions(null);
     }
+    this.updatePaymentModeAvailability('');
   }
 
   onConsigneeGuestSelect(name: string) {
@@ -585,6 +597,20 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     const name = guest?.guestName || '-';
     const address = guest?.address || '-';
     return `- | ${name} | ${address}`;
+  }
+
+  private updatePaymentModeAvailability(consignorName?: string) {
+    const name = (consignorName ?? this.consignor ?? '').trim();
+    const client = this.clientList.find(x => x.clientName === name);
+    const creditType = String(client?.creditType || '').toLowerCase();
+    this.allowAccountCredit = creditType === 'credit' || creditType === 'credit allowed';
+    if (!this.allowAccountCredit && this.paymentMode === 'Account Credit') {
+      this.paymentMode = 'To Pay';
+    }
+  }
+
+  isPaymentModeEnabled(): boolean {
+    return Boolean((this.consignor || '').trim());
   }
 
   private loadPricingSuggestions(clientId: string | null) {
