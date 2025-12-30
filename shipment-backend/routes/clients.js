@@ -5,6 +5,44 @@ import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function normalizeClientPayload(payload = {}) {
+  const normalized = { ...payload };
+  const deliveryLocations = Array.isArray(normalized.deliveryLocations)
+    ? normalized.deliveryLocations.map((loc) => ({ ...loc }))
+    : [];
+
+  const address = normalized.address;
+  const city = normalized.city;
+  const state = normalized.state;
+  const pinCode = normalized.pinCode;
+  const hasTopAddress = Boolean(address || city || state || pinCode);
+
+  if (hasTopAddress) {
+    const first = deliveryLocations[0] ? { ...deliveryLocations[0] } : {};
+    if (address) {
+      first.address = address;
+      if (!first.location) {
+        first.location = address;
+      }
+    }
+    if (city) first.city = city;
+    if (state) first.state = state;
+    if (pinCode) first.pinCode = pinCode;
+    if (deliveryLocations.length) {
+      deliveryLocations[0] = first;
+    } else {
+      deliveryLocations.push(first);
+    }
+  }
+
+  normalized.deliveryLocations = deliveryLocations;
+  delete normalized.address;
+  delete normalized.city;
+  delete normalized.state;
+  delete normalized.pinCode;
+  return normalized;
+}
+
 // Create new client (admin only)
 router.post('/add', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -14,7 +52,7 @@ router.post('/add', requireAuth, requireAdmin, async (req, res) => {
     if (!Number.isFinite(userId)) return res.status(400).json({ message: 'Invalid user_id' });
 
     const client = new Client({
-      ...req.body,
+      ...normalizeClientPayload(req.body),
       GSTIN_ID: gstinId,
       user_id: userId
     });
@@ -64,7 +102,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
 
     const client = await Client.findOneAndUpdate(
       { _id: req.params.id, GSTIN_ID: gstinId },
-      req.body,
+      normalizeClientPayload(req.body),
       { new: true }
     );
     if (!client) return res.status(404).json({ message: 'Client not found' });
@@ -84,6 +122,91 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, message: err.message, details });
     }
     res.status(400).json({ success: false, message: err.message });
+  }
+});
+
+// Update client pricing for a pickup/delivery route
+router.post('/:id/pricing', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const client = await Client.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
+    if (!client) return res.status(404).json({ message: 'Client not found' });
+
+    const pickupPincode = String(req.body?.pickupPincode || '').trim();
+    const deliveryPincode = String(req.body?.deliveryPincode || '').trim();
+    const rateUnit = String(req.body?.rateUnit || '').toLowerCase();
+    const updates = Array.isArray(req.body?.updates) ? req.body.updates : [];
+
+    if (!pickupPincode || !deliveryPincode) {
+      return res.status(400).json({ message: 'pickupPincode and deliveryPincode are required' });
+    }
+
+    const rateField = rateUnit === 'cm3' || rateUnit === 'volume'
+      ? 'ratePerVolume'
+      : rateUnit === 'kg'
+        ? 'ratePerKg'
+        : 'ratePerNum';
+
+    if (!Array.isArray(client.products)) {
+      client.products = [];
+    }
+
+    const normalizeToken = (value) => String(value || '').trim().toUpperCase();
+
+    updates.forEach((u) => {
+      const productName = String(u?.productName || '').trim();
+      if (!productName) return;
+      const hsnNum = String(u?.hsnNum || '').trim();
+      const rawRate = u?.ratePer ?? u?.enteredRate ?? u?.rate;
+      const ratePer = Number(rawRate);
+      if (!Number.isFinite(ratePer)) return;
+
+      const normalizedProductName = normalizeToken(productName);
+      const normalizedHsn = normalizeToken(hsnNum);
+
+      let product = client.products.find((p) =>
+        normalizeToken(p.productName) === normalizedProductName &&
+        (!normalizedHsn || normalizeToken(p.hsnNum) === normalizedHsn)
+      );
+      if (!product && normalizedHsn) {
+        product = client.products.find((p) =>
+          normalizeToken(p.productName) === normalizedProductName
+        );
+      }
+      if (!product) {
+        client.products.push({ hsnNum, productName, rates: [] });
+        product = client.products[client.products.length - 1];
+      } else if (normalizedHsn && !String(product.hsnNum || '').trim()) {
+        product.hsnNum = hsnNum;
+      }
+      if (!Array.isArray(product.rates)) product.rates = [];
+
+      let rateEntry = product.rates.find((r) =>
+        String(r.pickupPincode || '').trim() === pickupPincode &&
+        String(r.deliveryPincode || '').trim() === deliveryPincode
+      );
+      if (!rateEntry) {
+        product.rates.push({
+          pickupPincode,
+          deliveryPincode,
+          rate: { [rateField]: ratePer }
+        });
+        return;
+      }
+      rateEntry.pickupPincode = pickupPincode;
+      rateEntry.deliveryPincode = deliveryPincode;
+      const existingRate = rateEntry.rate?.toObject ? rateEntry.rate.toObject() : (rateEntry.rate || {});
+      rateEntry.rate = { ...existingRate, [rateField]: ratePer };
+    });
+
+    client.markModified('products');
+    await client.save();
+    const updated = await Client.findById(client._id).select('products');
+    res.json({ success: true, products: updated?.products || [] });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 
@@ -139,7 +262,7 @@ router.get('/clientslist', requireAuth, async (req, res) => {
     const { branch } = req.query;
     const query = { GSTIN_ID: gstinId, status: 'active' };
     if (branch && branch !== 'All Branches') query.branch = branch;
-    const clients = await Client.find(query).select('clientName GSTIN address phoneNum branch creditType');
+    const clients = await Client.find(query).select('clientName GSTIN phoneNum branch creditType perDis deliveryLocations');
     res.json(clients);
   } catch (err) {
     res.status(500).json({ error: err.message });

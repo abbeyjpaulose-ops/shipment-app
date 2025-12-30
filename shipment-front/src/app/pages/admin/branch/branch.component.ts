@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 export class BranchComponent implements OnInit {
   branches: any[] = [];
   showAddBranchPopup = false;
+  showEditBranchPopup = false;
 
   newBranch: any = {
     branchName: '',
@@ -50,6 +51,11 @@ export class BranchComponent implements OnInit {
 
   closeAddBranchPopup() {
     this.showAddBranchPopup = false;
+  }
+
+  closeEditBranchPopup() {
+    this.showEditBranchPopup = false;
+    this.editingBranch = null;
   }
 
   // Add Vehicle in Add Form
@@ -138,6 +144,7 @@ export class BranchComponent implements OnInit {
   // Edit Branch Mode
   editBranch(branch: any) {
     this.editingBranch = JSON.parse(JSON.stringify(branch)); // deep copy to avoid UI distortions
+    this.showEditBranchPopup = true;
   }
 
   // Save Edited Branch
@@ -145,7 +152,7 @@ export class BranchComponent implements OnInit {
     this.http.put(`http://localhost:3000/api/branches/${this.editingBranch._id}`, this.editingBranch).subscribe({
       next: () => {
         alert('Branch updated successfully!');
-        this.editingBranch = null;
+        this.closeEditBranchPopup();
         this.loadBranches();
       },
       error: (err) => {

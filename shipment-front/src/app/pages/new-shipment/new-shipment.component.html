@@ -70,7 +70,7 @@
                   type="search"
                   list="consignor-client-list"
                   [(ngModel)]="consignor"
-                  (change)="onConsignorSelect(consignor)">
+                  (ngModelChange)="onConsignorSelect(consignor)">
                 <datalist id="consignor-client-list">
                   <option *ngFor="let c of clientList" [value]="c.clientName">
                     {{ formatClientOption(c) }}
@@ -152,11 +152,23 @@
             <div class="panel-head">
               <h4>Billing</h4>
               <div class="tab-buttons ghost">
-                <button (click)="billingType='consignor'" [class.active]="billingType==='consignor'">Use Consignor</button>
-                <button (click)="billingType='different'" [class.active]="billingType==='different'">Different</button>
+                <button (click)="setBillingType('consignor')" [class.active]="billingType==='consignor'">Use Consignor</button>
+                <button (click)="setBillingType('different')" [class.active]="billingType==='different'">Different</button>
               </div>
             </div>
             <div *ngIf="billingType==='different'" class="panel-body">
+              <label>Previous Sender
+                <input
+                  type="search"
+                  list="billing-client-list"
+                  [(ngModel)]="billingPreviousSender"
+                  (ngModelChange)="onBillingPreviousSenderSelect(billingPreviousSender)">
+                <datalist id="billing-client-list">
+                  <option *ngFor="let c of clientList" [value]="c.clientName">
+                    {{ formatClientOption(c) }}
+                  </option>
+                </datalist>
+              </label>
               <label>Name <input [(ngModel)]="billingName"></label>
               <label>GSTIN <input [(ngModel)]="billingGSTIN"></label>
               <label>Phone <input [(ngModel)]="billingPhone"></label>
@@ -168,17 +180,24 @@
           <div class="panel soft">
             <div class="panel-head">
               <h4>Pickup</h4>
-              <div class="tab-buttons ghost">
-                <button (click)="pickupType='consignor'" [class.active]="pickupType==='consignor'">Use Consignor</button>
-                <button (click)="pickupType='different'" [class.active]="pickupType==='different'">Different</button>
-              </div>
+              <div class="pill">Branch pickup</div>
             </div>
-            <div *ngIf="pickupType==='different'" class="panel-body">
-              <label>Name <input [(ngModel)]="pickupName"></label>
-              <label>Phone <input [(ngModel)]="pickupPhone"></label>
-              <label>Address <textarea [(ngModel)]="pickupAddress"></textarea></label>
+            <div class="field-display">
+              <span class="label">Branch</span>
+              <span class="value">{{ pickupName || branch || '-' }}</span>
             </div>
-            <div *ngIf="pickupType==='consignor'" class="muted small-text">Using consignor details</div>
+            <div class="field-display">
+              <span class="label">Pickup Address</span>
+              <span class="value">{{ pickupAddress || '-' }}</span>
+            </div>
+            <div class="field-display">
+              <span class="label">Pickup Phone</span>
+              <span class="value">{{ pickupPhone || '-' }}</span>
+            </div>
+            <div class="field-display">
+              <span class="label">Pickup Pincode</span>
+              <span class="value">{{ pickupPincode || '-' }}</span>
+            </div>
           </div>
         </div>
 
@@ -186,11 +205,27 @@
           <div class="panel-head">
             <h4>Delivery</h4>
             <div class="tab-buttons ghost">
-              <button (click)="deliveryType='consignee'" [class.active]="deliveryType==='consignee'">Use Consignee</button>
-              <button (click)="deliveryType='different'" [class.active]="deliveryType==='different'">Different</button>
+              <button (click)="setDeliveryType('consignee')" [class.active]="deliveryType==='consignee'">Use Consignee</button>
+              <button (click)="setDeliveryType('different')" [class.active]="deliveryType==='different'">Different</button>
             </div>
           </div>
+          <div class="field-display">
+            <span class="label">Delivery Pincode</span>
+            <span class="value">{{ deliveryPincode || '-' }}</span>
+          </div>
           <div *ngIf="deliveryType==='different'" class="panel-body">
+            <label>Receiver
+              <input
+                type="search"
+                list="delivery-client-list"
+                [(ngModel)]="deliveryPreviousReceiver"
+                (ngModelChange)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
+              <datalist id="delivery-client-list">
+                <option *ngFor="let c of clientList" [value]="c.clientName">
+                  {{ formatClientOption(c) }}
+                </option>
+              </datalist>
+            </label>
             <div class="grid-2">
               <label>Name <input [(ngModel)]="deliveryName"></label>
               <label>Phone <input [(ngModel)]="deliveryPhone"></label>
@@ -213,7 +248,7 @@
         <div class="head-actions">
           <div class="rate-unit">
             <span>Rate Unit</span>
-            <select [(ngModel)]="rateUnit">
+            <select [(ngModel)]="rateUnit" (change)="onRateUnitChange()">
               <option value="box">Rate / Box</option>
               <option value="cm3">Rate / cmA3</option>
               <option value="kg">Rate / Kg</option>
@@ -249,7 +284,7 @@
               <div class="subsection-title">Products</div>
               <div *ngFor="let product of invoice.products; let p=index" class="product-row">
                 <div class="compact-row">
-                  <select [(ngModel)]="product.type">
+                  <select [(ngModel)]="product.type" (change)="onProductTypeChange(product)">
                     <option *ngFor="let prod of productList" [value]="prod.productName">
                       {{ prod.hsnNum }} - {{ prod.productName }}
                     </option>
@@ -257,7 +292,12 @@
                   <input type="number" placeholder="Qty" [(ngModel)]="product.amount">
                   <button class="icon-btn" (click)="deleteProduct(e, i, p)">バ</button>
                 </div>
-                <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer">
+                <div class="rate-inline">
+                  <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer">
+                  <span *ngIf="getSuggestedRate(product) !== null" class="suggested-rate">
+                    Suggested: {{ getSuggestedRate(product) }}
+                  </span>
+                </div>
               </div>
               <button class="tiny-btn" (click)="addProduct(e, i)">+ Product</button>
             </div>
@@ -293,14 +333,15 @@
         </div>
         <div class="grid-2">
           <label>Payment Mode
-            <select [(ngModel)]="paymentMode" [disabled]="!isPaymentModeEnabled()">
+            <select [(ngModel)]="paymentMode" [disabled]="!isPaymentModeEnabled()" (change)="onPaymentModeChange()">
               <option>To Pay</option>
               <option *ngIf="allowAccountCredit">Account Credit</option>
               <option>Paid</option>
             </select>
           </label>
           <label>Shipment Status
-            <select [(ngModel)]="shipmentStatus">
+            <select [(ngModel)]="shipmentStatus" [disabled]="paymentMode === 'To Pay'">
+              <option>To Pay</option>
               <option>Pending</option>
               <option>In Transit</option>
               <option>Delivered</option>
@@ -315,8 +356,23 @@
           <label>Docket <input type="number" [(ngModel)]="charges.docket"></label>
           <label>Other <input type="number" [(ngModel)]="charges.other"></label>
           <label>CCC <input type="number" [(ngModel)]="charges.ccc"></label>
-          <label>Discount (Consignor) <input type="number" [(ngModel)]="charges.consignorDiscount" placeholder="% Discount"></label>
-          <label>Final Amount <input type="number" [(ngModel)]="finalAmount" readonly></label>
+          <label>
+            <div class="discount-label">
+              <span>Discount (Consignor)</span>
+              <label class="toggle-inline">
+                <input type="checkbox" [(ngModel)]="applyConsignorDiscount" (change)="calculateFinalAmount()">
+                <span class="toggle-track">
+                  <span class="toggle-thumb"></span>
+                </span>
+              </label>
+            </div>
+            <div class="discount-row">
+              <input type="number" [(ngModel)]="charges.consignorDiscount" placeholder="% Discount"
+                [disabled]="!applyConsignorDiscount"
+                (change)="onConsignorDiscountChange(charges.consignorDiscount)">
+            </div>
+          </label>
+          <label>Final Amount <input type="number" [(ngModel)]="finalAmount"></label>
         </div>
       </div>
     </div>
@@ -335,6 +391,41 @@
       <button class="primary" (click)="saveShipment()" [disabled]="isSaving">
         {{ isSaving ? 'Saving...' : 'Save' }}
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Rate Override Modal -->
+<div class="modal-backdrop" *ngIf="showRateOverrideModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Override Suggested Rates</h3>
+      <button class="icon-btn" (click)="showRateOverrideModal = false">x</button>
+    </div>
+    <div class="override-list">
+      <div class="override-head">
+        <span>Products</span>
+        <span>Save as new suggested</span>
+      </div>
+      <div class="override-item" *ngFor="let item of rateOverrides">
+        <div class="override-meta">
+          <strong>{{ item.productName }}</strong>
+          <span>Suggested: {{ item.suggestedRate === null || item.suggestedRate === undefined ? '-' : item.suggestedRate }}</span>
+          <span>Entered: {{ item.enteredRate }}</span>
+        </div>
+        <div class="override-action">
+          <label class="toggle">
+            <input type="checkbox" [checked]="item.action === 'suggest'"
+              (change)="item.action = $event.target.checked ? 'suggest' : 'override'">
+            <span class="toggle-track">
+              <span class="toggle-thumb"></span>
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button (click)="confirmRateOverride()">OK</button>
     </div>
   </div>
 </div>
@@ -365,7 +456,10 @@
 
       <h4>Delivery Locations</h4>
       <div *ngFor="let d of newClient.deliveryLocations; let i = index" class="inline-fields">
-        <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.location" />
+        <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.address" />
+        <input placeholder="City" [(ngModel)]="d.city" />
+        <input placeholder="State" [(ngModel)]="d.state" />
+        <input placeholder="PIN" [(ngModel)]="d.pinCode" />
         <button class="tiny-btn" (click)="removeDeliveryLocation(i)">Remove</button>
       </div>
       <button class="tiny-btn" (click)="addDeliveryLocation()">+ Add Delivery Location</button>
@@ -394,7 +488,10 @@
 
         <h4>Delivery Locations</h4>
         <div *ngFor="let d of editClient.deliveryLocations; let i = index" class="inline-fields">
-          <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.location" />
+          <input class="flex-1" placeholder="Delivery Address" [(ngModel)]="d.address" />
+          <input placeholder="City" [(ngModel)]="d.city" />
+          <input placeholder="State" [(ngModel)]="d.state" />
+          <input placeholder="PIN" [(ngModel)]="d.pinCode" />
           <button class="tiny-btn" (click)="removeEditDeliveryLocation(i)">Remove</button>
         </div>
         <button class="tiny-btn" (click)="addEditDeliveryLocation()">+ Add Delivery Location</button>
@@ -432,3 +529,4 @@
     </div>
   </div>
 </div>
+

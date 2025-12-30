@@ -83,6 +83,8 @@ th, td {
   box-shadow: 0 6px 18px rgba(0, 123, 255, 0.15);
   width: 400px;
   max-width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
 }
 
 .edit-modal-content {

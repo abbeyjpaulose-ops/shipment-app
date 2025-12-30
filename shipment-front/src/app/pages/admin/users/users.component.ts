@@ -6,4 +6,22 @@ import { Component } from '@angular/core';
   templateUrl: './users.component.html',
   styleUrls: ['./users.component.css']
 })
-export class UsersComponent {}
+export class UsersComponent {
+  tabs = [
+    { key: 'clients', label: 'Clients' },
+    { key: 'branches', label: 'Branches' },
+    { key: 'hubs', label: 'Hubs' },
+    { key: 'transportPartners', label: 'Transport Partners' }
+  ];
+  activeTab = 'clients';
+  paymentData: Record<string, any[]> = {
+    clients: [],
+    branches: [],
+    hubs: [],
+    transportPartners: []
+  };
+
+  setActiveTab(key: string) {
+    this.activeTab = key;
+  }
+}

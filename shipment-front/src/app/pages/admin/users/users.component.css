@@ -1,1 +1,75 @@
-h2 { color: #1976d2; }
+.payments-page {
+  padding: 16px;
+}
+
+.page-header h2 {
+  margin: 0;
+  color: #1976d2;
+}
+
+.page-header p {
+  margin: 6px 0 0;
+  color: #6b7280;
+  font-size: 13px;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0;
+  flex-wrap: wrap;
+}
+
+.tabs button {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #374151;
+}
+
+.tabs button.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+}
+
+.tab-panel h3 {
+  margin: 0 0 10px;
+  color: #111827;
+}
+
+.table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th, td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 13px;
+}
+
+th {
+  background: #f3f4f6;
+  font-weight: 700;
+}
+
+.empty-state {
+  padding: 16px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  color: #6b7280;
+  font-size: 13px;
+  background: #f9fafb;
+}

@@ -29,26 +29,28 @@
   </div>
 
   <!-- dY"İ Shipments Table -->
-  <table class="shipments-table">
-    <thead>
-      <tr>
-        <th>Consignment No.</th>
-        <th>Status</th>
-        <th>Consignor</th>
-        <th>Delivery Address</th>
-        <th>No. of Products</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let s of filteredShipments" (click)="openShipmentDetails(s)">
-        <td>{{ s.consignmentNumber }}</td>
-        <td>{{ s.shipmentStatus }}</td>
-        <td>{{ s.consignor }}</td>
-        <td>{{ s.deliveryAddress }}</td>
-        <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
-      </tr>
-    </tbody>
-  </table>
+  <div class="table-wrapper">
+    <table class="shipments-table">
+      <thead>
+        <tr>
+          <th>Consignment No.</th>
+          <th>Status</th>
+          <th>Consignor</th>
+          <th>Delivery Address</th>
+          <th>No. of Products</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let s of filteredShipments" (click)="openShipmentDetails(s)">
+          <td>{{ s.consignmentNumber }}</td>
+          <td>{{ s.shipmentStatus }}</td>
+          <td>{{ s.consignor }}</td>
+          <td>{{ s.deliveryAddress }}</td>
+          <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 </div>
 
 <!-- dY"` Shipment Details Modal -->

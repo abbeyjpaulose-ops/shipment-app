@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
@@ -19,7 +19,7 @@ export class StocksComponent implements OnInit, OnDestroy {
   filterDate: string = '';
   filterConsignor: string = '';
   selectedStock: any = null;
-  editingStock: any = null;   // ✅ track which stock is being edited
+  editingStock: any = null;   // track which stock is being edited
 
   // Billing
 billingType: 'consignor' | 'different' = 'consignor';
@@ -32,6 +32,8 @@ clientList: any[] = [];
 guestList: any[] = [];
 pkgList: any[] = [];
 productList: any[] = [];
+transportPartners: any[] = [];
+selectedTransportPartnerId: string = '';
 // Pickup
 pickupType: 'consignor' | 'different' = 'consignor';
 pickupName = '';
@@ -68,6 +70,7 @@ charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0 };
 finalAmount: number = 0;
 shipmentStatus: string = 'Pending';
 shipmentStatusDetails: string = '';
+isExternalTransport = false;
 
 branches: any[] = [];
 hubs: any[] = [];
@@ -164,10 +167,10 @@ calculateFinalAmount() {
           invoices: this.flattenInvoices(stock.ewaybills || stock.invoices || [])
         }));
         this.stocks = normalized
-          .filter(stock =>
-            stock.shipmentStatus === 'Pending' ||
-            stock.shipmentStatus === 'In Transit/Pending'
-          )
+          .filter(stock => {
+            const status = String(stock.shipmentStatus || '').trim();
+            return status === 'Pending' || status === 'To Pay';
+          })
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         this.applyFilters();
       },
@@ -219,9 +222,18 @@ calculateFinalAmount() {
     );
   }
 
+  isManifestSelectable(stock: any): boolean {
+    const status = String(stock?.shipmentStatus || '').trim();
+    return status !== 'To Pay';
+  }
+
   toggleAllSelection(event: any) {
     const checked = event.target.checked;
-    this.filteredStocks.forEach(s => s.selected = checked);
+    this.filteredStocks.forEach(s => {
+      if (this.isManifestSelectable(s)) {
+        s.selected = checked;
+      }
+    });
   }
 
 
@@ -233,8 +245,8 @@ calculateFinalAmount() {
     this.selectedStock = null;
   }
 
-    editStock(stock: any) {
-    console.log('�o?�,? Edit stock:', stock);
+  editStock(stock: any) {
+    console.log('Edit stock:', stock);
     const cloned = JSON.parse(JSON.stringify(stock));
     cloned.invoices = this.flattenInvoices(cloned.ewaybills || cloned.invoices || []);
     this.editingStock = cloned;
@@ -251,6 +263,11 @@ calculateFinalAmount() {
       if (this.pendingManifestAdjustment || this.showManifestAdjustmentPopup) {
         return;
       }
+    }
+    if (this.editingStock.paymentMode === 'To Pay') {
+      this.editingStock.shipmentStatus = 'To Pay';
+    } else {
+      this.editingStock.shipmentStatus = 'Pending';
     }
     this.syncEwaybillsFromInvoices();
 
@@ -269,15 +286,15 @@ calculateFinalAmount() {
         this.http.put(`http://localhost:3000/api/newshipments/${payload.consignmentNumber}`, payload)
           .subscribe({
             next: () => {
-              console.log('�o. Stock updated');
+              console.log('Stock updated');
               this.loadStocks();          // reload updated data
               this.editingStock = null;   // close modal
             },
-            error: (err) => console.error('�?O Error updating stock:', err)
+            error: (err) => console.error('Error updating stock:', err)
           });
       },
       error: (err) => {
-        console.error('�?O Error updating manifests:', err);
+        console.error('Error updating manifests:', err);
         alert('Failed to update manifests. Please try again.');
       }
     });
@@ -759,7 +776,7 @@ loadBranches() {
       next: (data) => {
         console.log("Branches loaded:", data);
         this.branches = data;
-        this.updateAvailableRoutePoints(); // ⬅️ Refresh route options
+        this.updateAvailableRoutePoints(); // Refresh route options
       },
       error: (err) => console.error("Error loading branches:", err)
     });
@@ -772,7 +789,7 @@ loadHubs() {
       next: (data) => {
         console.log("Hubs loaded:", data);
         this.hubs = data;
-        this.updateAvailableRoutePoints(); // ⬅️ Refresh route options
+        this.updateAvailableRoutePoints(); // Refresh route options
       },
       error: (err) => console.error("Error loading hubs:", err)
     });
@@ -797,6 +814,36 @@ updateAvailableRoutePoints() {
 
 onRoutePointChange() {
   this.selectedRouteVehicle = this.selectedRoutePoint?.vehicles?.[0] || '';
+}
+
+onTransportPartnerChange() {
+  this.selectedRouteVehicle = '';
+}
+
+onExternalTransportToggle() {
+  this.selectedTransportPartnerId = '';
+  this.selectedRouteVehicle = '';
+}
+
+getTransportPartnerVehicles(): string[] {
+  const partner = this.transportPartners.find((p: any) => String(p._id) === String(this.selectedTransportPartnerId));
+  const vehicles = partner?.vehicleNumbers || [];
+  return vehicles.map((v: any) => v?.number).filter(Boolean);
+}
+
+getBranchVehicles(): string[] {
+  const branch = (this.branches || []).find((b: any) => String(b.branchName) === String(this.branch));
+  const vehicles = branch?.vehicles || [];
+  return vehicles.map((v: any) => v?.vehicleNo).filter(Boolean);
+}
+
+onEditingPaymentModeChange() {
+  if (!this.editingStock) return;
+  if (this.editingStock.paymentMode === 'To Pay') {
+    this.editingStock.shipmentStatus = 'To Pay';
+  } else {
+    this.editingStock.shipmentStatus = 'Pending';
+  }
 }
 
 private buildRouteString(): string {
@@ -943,6 +990,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
 
     this.loadBranches();
     this.loadHubs();
+    this.loadStocks();
   }
 
   ngOnDestroy(): void {
@@ -988,7 +1036,7 @@ openManifestationPopup() {
 
   // Guard clause: ensure at least one consignment is selected
   if (this.selectedForManifestation.length === 0) {
-    alert('⚠️ Please select at least one consignment to manifest.');
+    alert('Please select at least one consignment to manifest.');
     return;
   }
 
@@ -1092,11 +1140,11 @@ finalizeManifestation() {
 validateManifestQty(product: any) {
   product.manifestQtyTouched = true;
   if (product.manifestQty > product.instock) {
-    alert(`⚠️ Manifest quantity cannot exceed available stock (${product.instock}).`);
+    alert(`Manifest quantity cannot exceed available stock (${product.instock}).`);
     product.manifestQty = product.instock;
   }
   if (product.manifestQty < 0) {
-    alert('⚠️ Manifest quantity cannot be negative.');
+    alert('Manifest quantity cannot be negative.');
     product.manifestQty = 0;
   }
 }
@@ -1170,6 +1218,10 @@ printReceipts() {
 }
 
 }
+
+
+
+
 
 
 

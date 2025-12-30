@@ -6,8 +6,37 @@ import Client from '../models/Client.js';
 const router = express.Router();
 
 const normalizeBranch = (value) => String(value || '').trim();
+const normalizePin = (value) => String(value || '').trim();
 const keyFor = (hsnNum, productName) =>
   `${String(hsnNum || '').toUpperCase()}::${String(productName || '').toUpperCase()}`;
+const rateFieldForUnit = (rateUnit) => {
+  switch (String(rateUnit || '').toLowerCase()) {
+    case 'cm3':
+    case 'volume':
+      return 'ratePerVolume';
+    case 'kg':
+      return 'ratePerKg';
+    default:
+      return 'ratePerNum';
+  }
+};
+
+const rateForEntry = (entry, rateUnit) => {
+  const field = rateFieldForUnit(rateUnit);
+  return Number(entry?.rate?.[field]) || 0;
+};
+
+const rateForRoute = (rates, pickupPincode, deliveryPincode, rateUnit) => {
+  if (!Array.isArray(rates) || !pickupPincode || !deliveryPincode) return null;
+  const pickup = normalizePin(pickupPincode);
+  const delivery = normalizePin(deliveryPincode);
+  const match = rates.find((r) =>
+    normalizePin(r?.pickupPincode) === pickup &&
+    normalizePin(r?.deliveryPincode) === delivery
+  );
+  if (!match) return null;
+  return rateForEntry(match, rateUnit);
+};
 
 // Get pricing suggestions for a branch, with optional client overrides
 router.get('/suggestions', requireAuth, async (req, res) => {
@@ -21,6 +50,9 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     }
 
     const clientId = req.query.clientId;
+    const pickupPincode = normalizePin(req.query.pickupPincode);
+    const deliveryPincode = normalizePin(req.query.deliveryPincode);
+    const rateUnit = req.query.rateUnit;
 
     // Company defaults
     const defaults = await Product.find({
@@ -35,7 +67,6 @@ router.get('/suggestions', requireAuth, async (req, res) => {
       overrides = client?.products || [];
     }
 
-    const merged = [];
     const map = new Map();
 
     // Seed with company defaults
@@ -44,9 +75,7 @@ router.get('/suggestions', requireAuth, async (req, res) => {
       map.set(key, {
         hsnNum: p.hsnNum,
         productName: p.productName,
-        ratePerNum: p.ratePerNum ?? 0,
-        ratePerVolume: p.ratePerVolume ?? 0,
-        ratePerKg: p.ratePerKg ?? 0,
+        suggestedRate: rateForRoute(p.rates, pickupPincode, deliveryPincode, rateUnit),
         source: 'company',
         productId: p._id?.toString()
       });
@@ -56,19 +85,18 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     for (const o of overrides) {
       const key = keyFor(o.hsnNum, o.productName);
       const base = map.get(key);
+      const suggestedRate = rateForRoute(o.rates, pickupPincode, deliveryPincode, rateUnit);
       const mergedEntry = {
         hsnNum: o.hsnNum,
         productName: o.productName,
-        ratePerNum: o.ratePerNum ?? base?.ratePerNum ?? 0,
-        ratePerVolume: o.ratePerVolume ?? base?.ratePerVolume ?? 0,
-        ratePerKg: o.ratePerKg ?? base?.ratePerKg ?? 0,
-        source: 'client',
+        suggestedRate: suggestedRate ?? base?.suggestedRate ?? null,
+        source: suggestedRate !== null ? 'client' : base?.source || 'company',
         productId: base?.productId
       };
       map.set(key, mergedEntry);
     }
 
-    for (const value of map.values()) merged.push(value);
+    const merged = Array.from(map.values());
 
     res.json({
       branch,
@@ -83,4 +111,3 @@ router.get('/suggestions', requireAuth, async (req, res) => {
 });
 
 export default router;
-

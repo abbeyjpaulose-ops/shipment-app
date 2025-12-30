@@ -1,1 +1,47 @@
-<h2>Users</h2>
+<div class="payments-page">
+  <div class="page-header">
+    <h2>Payments</h2>
+    <p>Payment details by entity type.</p>
+  </div>
+
+  <div class="tabs">
+    <button
+      *ngFor="let tab of tabs"
+      type="button"
+      [class.active]="activeTab === tab.key"
+      (click)="setActiveTab(tab.key)">
+      {{ tab.label }}
+    </button>
+  </div>
+
+  <section class="tab-panel" *ngFor="let tab of tabs" [hidden]="activeTab !== tab.key">
+    <h3>{{ tab.label }}</h3>
+    <div class="table-wrap" *ngIf="paymentData[tab.key]?.length; else emptyState">
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Amount Due</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Last Payment</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of paymentData[tab.key]">
+            <td>{{ row.name }}</td>
+            <td>{{ row.amountDue }}</td>
+            <td>{{ row.paid }}</td>
+            <td>{{ row.balance }}</td>
+            <td>{{ row.lastPayment }}</td>
+            <td>{{ row.status }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #emptyState>
+      <div class="empty-state">No payment records.</div>
+    </ng-template>
+  </section>
+</div>

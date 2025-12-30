@@ -118,7 +118,8 @@ router.get('/tpartnerslist', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const partners = await TransportPartner.find({ GSTIN_ID: gstinId, status: 'active' }).select('partnerName address phoneNum');
+    const partners = await TransportPartner.find({ GSTIN_ID: gstinId, status: 'active' })
+      .select('partnerName address phoneNum vehicleNumbers');
     res.json(partners);
   } catch (err) {
     res.status(500).json({ error: err.message });

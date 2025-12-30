@@ -5,11 +5,53 @@ import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import Invoice from '../models/NewShipment/NewShipmentInvoice.js';
 import InvoiceProduct from '../models/NewShipment/NewShipmentInvoiceProduct.js';
 import InvoicePackage from '../models/NewShipment/NewShipmentInvoicePackage.js';
+import Client from '../models/Client.js';
+import Guest from '../models/Guest.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function formatLocation(loc) {
+  if (!loc) return '';
+  const address = loc.address || loc.location || '';
+  const pin = loc.pinCode || loc.pincode || loc.pin || '';
+  const parts = [address, loc.city, loc.state, pin].filter(Boolean);
+  return parts.join(', ');
+}
+
+function findLocationById(locations, targetId) {
+  if (!targetId) return null;
+  const matchId = String(targetId);
+  return (locations || []).find((loc) => {
+    const locId = loc?.delivery_id || loc?._id || loc?.id;
+    return locId && String(locId) === matchId;
+  }) || null;
+}
+
 async function buildShipmentViews(shipments) {
+  const clientIds = new Set();
+  const guestIds = new Set();
+  for (const shipment of shipments || []) {
+    if (shipment?.consignorTab === 'guest' && shipment?.consignorId) {
+      guestIds.add(String(shipment.consignorId));
+    } else if (shipment?.consignorId) {
+      clientIds.add(String(shipment.consignorId));
+    }
+    if (shipment?.consigneeTab === 'guest' && shipment?.consigneeId) {
+      guestIds.add(String(shipment.consigneeId));
+    } else if (shipment?.consigneeId) {
+      clientIds.add(String(shipment.consigneeId));
+    }
+  }
+
+  const [clients, guests] = await Promise.all([
+    clientIds.size ? Client.find({ _id: { $in: Array.from(clientIds) } }).lean() : [],
+    guestIds.size ? Guest.find({ _id: { $in: Array.from(guestIds) } }).lean() : []
+  ]);
+
+  const clientsById = new Map((clients || []).map((c) => [String(c._id), c]));
+  const guestsById = new Map((guests || []).map((g) => [String(g._id), g]));
+
   const shipmentIds = shipments.map((s) => s._id);
   const ewaybills = await Ewaybill.find({ shipmentId: { $in: shipmentIds } }).lean();
   const ewaybillIds = ewaybills.map((e) => e._id);
@@ -25,10 +67,10 @@ async function buildShipmentViews(shipments) {
     productsByInvoice.get(key).push({
       type: prod.type,
       amount: prod.amount,
+      ratePer: prod.ratePer,
       instock: prod.instock,
       intransitstock: prod.intransitstock,
-      deliveredstock: prod.deliveredstock,
-      manifestQty: prod.manifestQty
+      deliveredstock: prod.deliveredstock
     });
   }
 
@@ -69,6 +111,33 @@ async function buildShipmentViews(shipments) {
   return shipments.map((shipment) => {
     const data = shipment.toObject ? shipment.toObject() : shipment;
     data.ewaybills = ewaybillsByShipment.get(shipment._id.toString()) || [];
+
+    const consignorSource = shipment?.consignorTab === 'guest'
+      ? guestsById.get(String(shipment?.consignorId || ''))
+      : clientsById.get(String(shipment?.consignorId || ''));
+    const consigneeSource = shipment?.consigneeTab === 'guest'
+      ? guestsById.get(String(shipment?.consigneeId || ''))
+      : clientsById.get(String(shipment?.consigneeId || ''));
+
+    if (!data.consignor) {
+      data.consignor = consignorSource?.clientName || consignorSource?.guestName || '';
+    }
+    if (!data.consignee) {
+      data.consignee = consigneeSource?.clientName || consigneeSource?.guestName || '';
+    }
+    if (!data.deliveryAddress) {
+      if (consigneeSource?.deliveryLocations?.length) {
+        const location =
+          findLocationById(consigneeSource.deliveryLocations, shipment?.deliveryLocationId) ||
+          consigneeSource.deliveryLocations[0];
+        data.deliveryAddress = formatLocation(location);
+      } else if (consigneeSource) {
+        data.deliveryAddress = formatLocation(consigneeSource);
+      } else {
+        data.deliveryAddress = '';
+      }
+    }
+
     return data;
   });
 }
@@ -128,10 +197,10 @@ async function replaceShipmentLines(shipmentId, ewaybills, options = {}) {
           invoiceId,
           type: prod.type,
           amount,
+          ratePer: Number(prod.ratePer) || 0,
           instock,
           intransitstock: Number(prod.intransitstock) || 0,
-          deliveredstock: Number(prod.deliveredstock) || 0,
-          manifestQty: Number(prod.manifestQty) || 0
+          deliveredstock: Number(prod.deliveredstock) || 0
         });
       }
 
@@ -264,6 +333,9 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = req.body;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    if (shipmentData.paymentMode) {
+      shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
+    }
     const shipment = await Shipment.findOneAndUpdate(
       { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId },
       shipmentData,
@@ -290,6 +362,9 @@ router.post('/updateConsignment', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = updatedConsignment;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    if (shipmentData.paymentMode) {
+      shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
+    }
     const shipment = await Shipment.findOneAndUpdate(
       { consignmentNumber: updatedConsignment.consignmentNumber, GSTIN_ID: gstinId },
       shipmentData,

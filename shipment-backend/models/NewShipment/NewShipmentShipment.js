@@ -17,16 +17,9 @@ const ShipmentSchema = new mongoose.Schema(
 
     // Consignor / Consignee
     consignorTab: { type: String, required: true, trim: true },
-    consignor: { type: String, required: true, trim: true },
-    consignorGST: { type: String, trim: true },
-    consignorAddress: { type: String, trim: true },
-    consignorPhone: { type: String, trim: true },
-
+    consignorId: { type: mongoose.Schema.Types.ObjectId, required: true },
     consigneeTab: { type: String, trim: true },
-    consignee: { type: String, required: true, trim: true },
-    consigneeGST: { type: String, trim: true },
-    consigneeAddress: { type: String, trim: true },
-    consigneePhone: { type: String, trim: true },
+    consigneeId: { type: mongoose.Schema.Types.ObjectId, required: true },
 
     // Payment
     paymentMode: { type: String, default: 'To Pay' },
@@ -35,20 +28,15 @@ const ShipmentSchema = new mongoose.Schema(
 
     // Address details
     billingType: { type: String, trim: true },
-    billingName: { type: String, trim: true },
-    billingGSTIN: { type: String, trim: true },
-    billingAddress: { type: String, trim: true },
-    billingPhone: { type: String, trim: true },
+    billingLocationId: { type: mongoose.Schema.Types.ObjectId },
+    billingClientId: { type: mongoose.Schema.Types.ObjectId },
 
     pickupType: { type: String, trim: true },
-    pickupName: { type: String, trim: true },
-    pickupAddress: { type: String, trim: true },
-    pickupPhone: { type: String, trim: true },
+    pickupLocationId: { type: mongoose.Schema.Types.ObjectId },
 
     deliveryType: { type: String, trim: true },
-    deliveryName: { type: String, trim: true },
-    deliveryAddress: { type: String, trim: true },
-    deliveryPhone: { type: String, trim: true },
+    deliveryLocationId: { type: mongoose.Schema.Types.ObjectId },
+    deliveryClientId: { type: mongoose.Schema.Types.ObjectId },
 
     // Charges
     charges: {

@@ -45,7 +45,7 @@
     <tbody>
       <tr *ngFor="let s of filteredStocks" (click)="openStockDetails(s)">
         <td>
-          <input type="checkbox" [(ngModel)]="s.selected" (click)="$event.stopPropagation()" />
+          <input type="checkbox" [(ngModel)]="s.selected" [disabled]="!isManifestSelectable(s)" (click)="$event.stopPropagation()" />
         </td>
         <td>{{ s.consignmentNumber }}</td>
         <td>{{ s.consignor }}</td>
@@ -203,7 +203,7 @@
     <div class="edit-stock-section">
       <div class="edit-stock-grid">
         <label>Payment Mode:
-          <select [(ngModel)]="editingStock.paymentMode">
+          <select [(ngModel)]="editingStock.paymentMode" (change)="onEditingPaymentModeChange()">
             <option>Account Credit</option>
             <option>Paid</option>
             <option>To Pay</option>
@@ -433,33 +433,41 @@
 
       <!-- Shipment Routing Section -->
       <div class="routing-section">
-        <h3>Shipment Routing</h3>
-        <div class="routing-baskets">
-          <h4>Baskets</h4>
-          <div class="basket-row" *ngFor="let basket of routeBaskets; let i = index">
-            <select [(ngModel)]="basket.labelKey">
-              <option *ngFor="let option of getBasketOptions()" [ngValue]="option.key">
-                {{ option.text }}
-              </option>
-            </select>
-            <input type="number" min="0" [(ngModel)]="basket.qty" placeholder="Qty" />
-            <button type="button" (click)="removeRouteBasket(i)">Remove</button>
-          </div>
+        <div class="routing-header">
+          <h3>Transportation Vehicle</h3>
+          <label class="eway-toggle-label external-toggle">
+  <input
+    type="checkbox"
+    [(ngModel)]="isExternalTransport"
+    class="eway-toggle-input"
+    (change)="onExternalTransportToggle()"
+  />
+  <span class="eway-toggle-slider"></span>
+  <span class="eway-toggle-text">External</span>
+</label>
         </div>
         <div class="routing-controls">
-          <select [(ngModel)]="selectedRoutePoint" (change)="onRoutePointChange()">
-            <option *ngFor="let location of availableRoutePoints" [ngValue]="location">
-              {{ location.name }} ({{ location.type }})
-            </option>
-          </select>
-          <select [(ngModel)]="selectedRouteVehicle" [disabled]="!selectedRoutePoint?.vehicles?.length">
-            <option value="">Select Vehicle</option>
-            <option *ngFor="let v of selectedRoutePoint?.vehicles" [value]="v">
-              {{ v }}
-            </option>
-          </select>
-          <button (click)="addRoutePoint()">Add</button>
-        </div>
+  <ng-container *ngIf="!isExternalTransport; else externalTransport">
+    <select disabled>
+      <option value="">Select transport partner</option>
+    </select>
+    <select [(ngModel)]="selectedRouteVehicle">
+      <option value="">Select Vehicle</option>
+      <option *ngFor="let v of getBranchVehicles()" [value]="v">{{ v }}</option>
+    </select>
+  </ng-container>
+  <ng-template #externalTransport>
+    <select [(ngModel)]="selectedTransportPartnerId" (change)="onTransportPartnerChange()">
+      <option value="">Select transport partner</option>
+      <option *ngFor="let p of transportPartners" [value]="p._id">{{ p.partnerName }}</option>
+    </select>
+    <select [(ngModel)]="selectedRouteVehicle">
+      <option value="">Select Vehicle</option>
+      <option *ngFor="let v of getTransportPartnerVehicles()" [value]="v">{{ v }}</option>
+    </select>
+  </ng-template>
+  <button (click)="addRoutePoint()">Add</button>
+</div>
         <ul class="route-list">
           <li *ngFor="let point of shipmentRoute; let i = index">
             {{ i + 1 }}. {{ point.name }} ({{ point.type }}) <span *ngIf="point.vehicleNo">- {{ point.vehicleNo }}</span>
@@ -481,3 +489,9 @@
     </ng-template>
   </div>
 </div>
+
+
+
+
+
+

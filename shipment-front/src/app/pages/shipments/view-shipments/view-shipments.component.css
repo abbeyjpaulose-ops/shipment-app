@@ -28,6 +28,11 @@
   color: var(--text);
 }
 
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
 .shipments-table {
   width: 100%;
   border-collapse: collapse;
@@ -35,6 +40,7 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
+  min-width: 720px;
 }
 
 .shipments-table th, .shipments-table td {

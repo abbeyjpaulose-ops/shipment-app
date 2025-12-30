@@ -3,13 +3,32 @@ import mongoose from 'mongoose';
 
 const DeliveryLocationSchema = new mongoose.Schema(
   {
-    location: { type: String, required: true, trim: true }
+    delivery_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: () => new mongoose.Types.ObjectId()
+    },
+    address: { type: String, required: true, trim: true },
+    location: { type: String, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    pinCode: { type: String, trim: true }
   },
   { _id: false }
 );
 
+DeliveryLocationSchema.pre('validate', function(next) {
+  if (!this.address && this.location) {
+    this.address = this.location;
+  }
+  next();
+});
+
 const ProductPricingSchema = new mongoose.Schema(
   {
+    product_id: {
+      type: mongoose.Schema.Types.ObjectId,
+      default: () => new mongoose.Types.ObjectId()
+    },
     hsnNum: { type: String, trim: true },
     productName: { type: String, trim: true },
     rates: {
@@ -44,10 +63,6 @@ const ClientSchema = new mongoose.Schema({
   GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
 
   clientName: { type: String, required: true },
-  address: { type: String, required: true },
-  city: { type: String },
-  state: { type: String },
-  pinCode: { type: String },
   GSTIN: { type: String, required: true, trim: true, uppercase: true },
   phoneNum: { type: String, required: true },
   perDis: { type: Number, required: true, default: 0 }, // percentage Discount
@@ -72,5 +87,24 @@ const ClientSchema = new mongoose.Schema({
 
 // Unique client per company+branch (scoped by GSTIN_ID instead of creator email)
 ClientSchema.index({ GSTIN_ID: 1, clientName: 1, branch: 1 }, { unique: true });
+
+ClientSchema.virtual('address').get(function() {
+  return this.deliveryLocations?.[0]?.address || this.deliveryLocations?.[0]?.location || '';
+});
+
+ClientSchema.virtual('city').get(function() {
+  return this.deliveryLocations?.[0]?.city || '';
+});
+
+ClientSchema.virtual('state').get(function() {
+  return this.deliveryLocations?.[0]?.state || '';
+});
+
+ClientSchema.virtual('pinCode').get(function() {
+  return this.deliveryLocations?.[0]?.pinCode || '';
+});
+
+ClientSchema.set('toJSON', { virtuals: true });
+ClientSchema.set('toObject', { virtuals: true });
 
 export default mongoose.models.Client || mongoose.model('Client', ClientSchema);

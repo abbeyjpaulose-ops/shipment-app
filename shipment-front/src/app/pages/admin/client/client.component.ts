@@ -21,16 +21,12 @@ export class ClientComponent implements OnInit {
 
   newClient: any = {
     clientName: '',
-    address: '',
-    city: '',
-    state: '',
-    pinCode: '',
     GSTIN: '',
     phoneNum: '',
     perDis: '',
     creditType: 'no-credit',
     products: [],
-    deliveryLocations: [{ location: '' }],
+    deliveryLocations: [{ address: '', city: '', state: '', pinCode: '' }],
     status: 'active',
     branch: localStorage.getItem('branch') || 'All Branches',
     email: localStorage.getItem('email'),
@@ -112,7 +108,7 @@ export class ClientComponent implements OnInit {
     this.editingClient = JSON.parse(JSON.stringify(client));
     if (!Array.isArray(this.editingClient.products)) this.editingClient.products = [];
     if (!Array.isArray(this.editingClient.deliveryLocations)) {
-      this.editingClient.deliveryLocations = [{ location: '' }];
+      this.editingClient.deliveryLocations = [{ address: '', city: '', state: '', pinCode: '' }];
     }
     this.editingClient.products = this.editingClient.products.map((product: any) =>
       this.ensureProductRates(product)
@@ -173,7 +169,7 @@ export class ClientComponent implements OnInit {
 
   /** Delivery Location Functions */
   addDeliveryLocation() {
-    this.newClient.deliveryLocations.push({ location: '' });
+    this.newClient.deliveryLocations.push({ address: '', city: '', state: '', pinCode: '' });
   }
 
   removeDeliveryLocation(index: number) {
@@ -181,7 +177,7 @@ export class ClientComponent implements OnInit {
   }
 
   addDeliveryLocationEdit() {
-    this.editingClient.deliveryLocations.push({ location: '' });
+    this.editingClient.deliveryLocations.push({ address: '', city: '', state: '', pinCode: '' });
   }
 
   removeDeliveryLocationEdit(index: number) {

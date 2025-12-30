@@ -114,7 +114,8 @@ router.get('/guestslist', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const guests = await Guest.find({ GSTIN_ID: gstinId, status: 'active' }).select('guestName address phoneNum');
+    const guests = await Guest.find({ GSTIN_ID: gstinId, status: 'active' })
+      .select('guestName address phoneNum city state pinCode');
     res.json(guests);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -122,4 +123,3 @@ router.get('/guestslist', requireAuth, async (req, res) => {
 });
 
 export default router;
-

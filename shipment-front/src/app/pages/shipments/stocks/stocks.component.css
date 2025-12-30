@@ -542,3 +542,15 @@
   color: red;
   cursor: pointer;
 }
+
+.routing-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.external-toggle {
+  margin-left: auto;
+}
