@@ -49,6 +49,55 @@
     </div>
   </div>
 
+  <div class="modal" *ngIf="showEditPartnerPopup">
+    <div class="modal-content">
+      <span class="close" (click)="closeEditPartnerPopup()">&times;</span>
+      <h3>Edit Partner</h3>
+      <div class="add-partner-form" *ngIf="editing">
+        <div class="form-row">
+          <input [(ngModel)]="editing.partnerName" placeholder="Partner Name*" required>
+          <input [(ngModel)]="editing.GSTIN" placeholder="GSTIN*" required>
+        </div>
+
+        <div class="form-row">
+          <input [(ngModel)]="editing.address" placeholder="Address*" required>
+          <input [(ngModel)]="editing.city" placeholder="City">
+        </div>
+
+        <div class="form-row">
+          <input [(ngModel)]="editing.state" placeholder="State">
+          <input [(ngModel)]="editing.pinCode" placeholder="Pin Code">
+        </div>
+
+        <div class="form-row">
+          <label>Rate Type
+            <select [(ngModel)]="editing.rateType" required>
+              <option value="km">Rate / Km</option>
+              <option value="day">Rate / Day</option>
+            </select>
+          </label>
+          <input type="number" [(ngModel)]="editing.rateValue" placeholder="Rate Value*" required>
+        </div>
+
+        <div class="vehicle-entry">
+          <input [(ngModel)]="editVehicleField.number" placeholder="Vehicle Number">
+          <input [(ngModel)]="editVehicleField.phone" placeholder="Driver Phone">
+          <button type="button" (click)="addEditingVehicle()">+ Vehicle</button>
+        </div>
+
+        <div class="vehicle-tag" *ngFor="let v of editing.vehicleNumbers; let i=index">
+          {{ v.number }} | {{ v.phone }}
+          <span class="delete-tag" (click)="removeEditingVehicle(i)">A-</span>
+        </div>
+
+        <div class="terminal-buttons">
+          <button class="btn-add" type="button" (click)="saveEdit()">Save Changes</button>
+          <button type="button" (click)="closeEditPartnerPopup()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="tpartner-table-wrapper">
     <table>
       <tr>
@@ -63,56 +112,27 @@
 
       <tr *ngFor="let p of partners">
         <td>
-          <span *ngIf="editing?._id !== p._id">{{ p.partnerName }}</span>
-          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.partnerName">
+          <span>{{ p.partnerName }}</span>
         </td>
 
         <td>
-          <span *ngIf="editing?._id !== p._id">{{ p.GSTIN }}</span>
-          <input *ngIf="editing?._id === p._id" [(ngModel)]="editing.GSTIN">
+          <span>{{ p.GSTIN }}</span>
         </td>
 
         <td>
-          <span *ngIf="editing?._id !== p._id">{{ p.address }}</span>
-          <div *ngIf="editing?._id === p._id" class="edit-field">
-            <input [(ngModel)]="editing.address" placeholder="Address">
-            <input [(ngModel)]="editing.city" placeholder="City">
-            <input [(ngModel)]="editing.state" placeholder="State">
-            <input [(ngModel)]="editing.pinCode" placeholder="Pin Code">
+          <span>{{ p.address }}</span>
+        </td>
+
+        <td>
+          <div class="tag" *ngFor="let v of p.vehicleNumbers">
+            {{ v.number }} <br> {{ v.phone }}
           </div>
         </td>
 
         <td>
-          <div *ngIf="editing?._id !== p._id">
-            <div class="tag" *ngFor="let v of p.vehicleNumbers">
-              {{ v.number }} <br> {{ v.phone }}
-            </div>
-          </div>
-
-          <div *ngIf="editing?._id === p._id">
-            <div class="tag-edit" *ngFor="let v of editing.vehicleNumbers; let i=index">
-              <input [(ngModel)]="editing.vehicleNumbers[i].number">
-              <input [(ngModel)]="editing.vehicleNumbers[i].phone">
-              <button (click)="removeEditingVehicle(i)">-</button>
-            </div>
-
-            <input [(ngModel)]="editVehicleField.number" placeholder="Vehicle">
-            <input [(ngModel)]="editVehicleField.phone" placeholder="Phone">
-            <button (click)="addEditingVehicle()">+ Veh</button>
-          </div>
-        </td>
-
-        <td>
-          <span *ngIf="editing?._id !== p._id">
+          <span>
             {{ p.rateValue }} / {{ p.rateType === 'km' ? 'Km' : 'Day' }}
           </span>
-          <div *ngIf="editing?._id === p._id">
-            <select [(ngModel)]="editing.rateType">
-              <option value="km">Rate / Km</option>
-              <option value="day">Rate / Day</option>
-            </select>
-            <input type="number" [(ngModel)]="editing.rateValue">
-          </div>
         </td>
 
         <td>
@@ -125,8 +145,7 @@
         </td>
 
         <td>
-          <button *ngIf="editing?._id !== p._id" (click)="editPartner(p)">Edit</button>
-          <button *ngIf="editing?._id === p._id" (click)="saveEdit()">Save</button>
+          <button (click)="editPartner(p)">Edit</button>
         </td>
       </tr>
     </table>

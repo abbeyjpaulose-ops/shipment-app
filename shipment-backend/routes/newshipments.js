@@ -333,7 +333,7 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = req.body;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    if (shipmentData.paymentMode) {
+    if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
       shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
     }
     const shipment = await Shipment.findOneAndUpdate(
@@ -362,7 +362,7 @@ router.post('/updateConsignment', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = updatedConsignment;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    if (shipmentData.paymentMode) {
+    if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
       shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
     }
     const shipment = await Shipment.findOneAndUpdate(

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
@@ -18,8 +18,10 @@ export class ManifestComponent implements OnInit, OnDestroy {
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
+  filterRoute: string = '';
+  routeOptions: string[] = [];
   selectedStock: any = null;
-  editingStock: any = null;   // ✅ track which stock is being edited
+  editingStock: any = null;   // Γ£à track which stock is being edited
 
   // Billing
 billingType: 'consignor' | 'different' = 'consignor';
@@ -168,6 +170,7 @@ calculateFinalAmount() {
             stock.shipmentStatus === 'In Transit'
           )
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        this.routeOptions = this.buildRouteOptions(this.stocks);
         this.applyFilters();
       },
       error: (err: any) => console.error('Error loading shipments:', err)
@@ -198,12 +201,24 @@ calculateFinalAmount() {
   }
 
   getRoutesDisplay(stock: any): string {
+    const routes = this.getRoutesForStock(stock);
+    return routes.length ? routes.join(', ') : '-';
+  }
+
+  private getRoutesForStock(stock: any): string[] {
     const routes = (stock?.ewaybills || [])
       .map((ewb: any) => String(ewb?.routes || '').trim())
       .map((route: string) => route.replace(/\$\$/g, '').trim())
       .filter((route: string) => route);
-    if (!routes.length) return '-';
-    return Array.from(new Set(routes)).join(', ');
+    return Array.from(new Set(routes));
+  }
+
+  private buildRouteOptions(stocks: any[]): string[] {
+    const allRoutes = new Set<string>();
+    (stocks || []).forEach(stock => {
+      this.getRoutesForStock(stock).forEach(route => allRoutes.add(route));
+    });
+    return Array.from(allRoutes).sort((a, b) => a.localeCompare(b));
   }
 
   getProductTotal(ewaybills: any[], field: string): number {
@@ -223,7 +238,8 @@ calculateFinalAmount() {
     this.filteredStocks = this.stocks.filter(s =>
       (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
       (this.filterDate ? new Date(s.date).toISOString().split('T')[0] === this.filterDate : true) &&
-      (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true)
+      (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true) &&
+      (this.filterRoute ? this.getRoutesForStock(s).includes(this.filterRoute) : true)
     );
   }
 
@@ -242,7 +258,7 @@ calculateFinalAmount() {
   }
 
     editStock(stock: any) {
-    console.log('�o?�,? Edit stock:', stock);
+    console.log('âo?ï,? Edit stock:', stock);
     const cloned = JSON.parse(JSON.stringify(stock));
     cloned.invoices = this.flattenInvoices(cloned.ewaybills || cloned.invoices || []);
     this.editingStock = cloned;
@@ -277,15 +293,15 @@ calculateFinalAmount() {
         this.http.put(`http://localhost:3000/api/newshipments/${payload.consignmentNumber}`, payload)
           .subscribe({
             next: () => {
-              console.log('�o. Stock updated');
+              console.log('âo. Stock updated');
               this.loadStocks();          // reload updated data
               this.editingStock = null;   // close modal
             },
-            error: (err) => console.error('�?O Error updating stock:', err)
+            error: (err) => console.error('â?O Error updating stock:', err)
           });
       },
       error: (err) => {
-        console.error('�?O Error updating manifests:', err);
+        console.error('â?O Error updating manifests:', err);
         alert('Failed to update manifests. Please try again.');
       }
     });
@@ -767,7 +783,7 @@ loadBranches() {
       next: (data) => {
         console.log("Branches loaded:", data);
         this.branches = data;
-        this.updateAvailableRoutePoints(); // ⬅️ Refresh route options
+        this.updateAvailableRoutePoints(); // Γ¼à∩╕Å Refresh route options
       },
       error: (err) => console.error("Error loading branches:", err)
     });
@@ -780,7 +796,7 @@ loadHubs() {
       next: (data) => {
         console.log("Hubs loaded:", data);
         this.hubs = data;
-        this.updateAvailableRoutePoints(); // ⬅️ Refresh route options
+        this.updateAvailableRoutePoints(); // Γ¼à∩╕Å Refresh route options
       },
       error: (err) => console.error("Error loading hubs:", err)
     });
@@ -996,7 +1012,7 @@ openManifestationPopup() {
 
   // Guard clause: ensure at least one consignment is selected
   if (this.selectedForManifestation.length === 0) {
-    alert('⚠️ Please select at least one consignment to manifest.');
+    alert('ΓÜá∩╕Å Please select at least one consignment to manifest.');
     return;
   }
 
@@ -1083,11 +1099,11 @@ finalizeManifestation() {
 validateManifestQty(product: any) {
   product.manifestQtyTouched = true;
   if (product.manifestQty > product.instock) {
-    alert(`⚠️ Manifest quantity cannot exceed available stock (${product.instock}).`);
+    alert(`ΓÜá∩╕Å Manifest quantity cannot exceed available stock (${product.instock}).`);
     product.manifestQty = product.instock;
   }
   if (product.manifestQty < 0) {
-    alert('⚠️ Manifest quantity cannot be negative.');
+    alert('ΓÜá∩╕Å Manifest quantity cannot be negative.');
     product.manifestQty = 0;
   }
 }
@@ -1161,7 +1177,6 @@ printReceipts() {
 }
 
 }
-
 
 
 

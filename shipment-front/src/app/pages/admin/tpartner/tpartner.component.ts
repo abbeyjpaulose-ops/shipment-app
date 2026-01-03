@@ -14,6 +14,7 @@ export class TpartnerComponent implements OnInit {
 
   partners: any[] = [];
   showAddPartnerPopup = false;
+  showEditPartnerPopup = false;
 
   newPartner = {
     partnerName: '',
@@ -110,6 +111,8 @@ export class TpartnerComponent implements OnInit {
   // Edit
   editPartner(p: any) {
     this.editing = JSON.parse(JSON.stringify(p));
+    this.editVehicleField = { number: '', phone: '' };
+    this.showEditPartnerPopup = true;
   }
 
   saveEdit() {
@@ -117,8 +120,14 @@ export class TpartnerComponent implements OnInit {
       .subscribe(() => {
         alert('Updated Successfully');
         this.editing = null;
+        this.showEditPartnerPopup = false;
         this.loadPartners();
       });
+  }
+
+  closeEditPartnerPopup() {
+    this.editing = null;
+    this.showEditPartnerPopup = false;
   }
 
   // Status Toggle

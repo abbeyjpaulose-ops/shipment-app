@@ -1,4 +1,4 @@
-<div class="stocks-container">
+﻿<div class="stocks-container">
   <h2>In Transit/ On Delivery</h2>
 
   <!-- 🔍 Search and Filters (no status filter here) -->
@@ -19,8 +19,12 @@
       placeholder="Filter by consignor"
       [(ngModel)]="filterConsignor"
       (input)="applyFilters()" />
-      
-      <button (click)="openManifestationPopup()">Delivery</button>
+    <select [(ngModel)]="filterRoute" (change)="applyFilters()">
+      <option value="">All routes</option>
+      <option *ngFor="let route of routeOptions" [value]="route">{{ route }}</option>
+    </select>
+
+    <button (click)="openManifestationPopup()">Delivery</button>
       <button (click)="printReceipts()">🖨️ Print Receipts</button>
        <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
   </div>

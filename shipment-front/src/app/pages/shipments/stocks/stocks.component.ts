@@ -75,7 +75,7 @@ isExternalTransport = false;
 branches: any[] = [];
 hubs: any[] = [];
   availableRoutePoints: { name: string; type: 'Branch' | 'Hub'; vehicles: string[] }[] = [];
-  shipmentRoute: { name: string; type: 'Branch' | 'Hub'; vehicleNo: string }[] = [];
+  shipmentRoute: { name: string; type: 'Branch' | 'Hub' | 'Transport Partner'; vehicleNo: string }[] = [];
   selectedRoutePoint: any = null;
   selectedRouteVehicle: string = '';
   routeBaskets: Array<{ labelKey: string; qty: number }> = [];
@@ -818,17 +818,45 @@ onRoutePointChange() {
 
 onTransportPartnerChange() {
   this.selectedRouteVehicle = '';
+  this.shipmentRoute = [];
 }
 
 onExternalTransportToggle() {
   this.selectedTransportPartnerId = '';
   this.selectedRouteVehicle = '';
+  this.shipmentRoute = [];
+}
+
+onRouteVehicleChange() {
+  const vehicle = String(this.selectedRouteVehicle || '').trim();
+  if (!vehicle) {
+    this.shipmentRoute = [];
+    return;
+  }
+  if (this.isExternalTransport) {
+    const partner = this.transportPartners.find((p: any) => String(p._id) === String(this.selectedTransportPartnerId));
+    const partnerName = String(partner?.partnerName || '').trim();
+    this.shipmentRoute = [{
+      name: partnerName || 'Transport Partner',
+      type: 'Transport Partner',
+      vehicleNo: vehicle
+    }];
+    return;
+  }
+  this.shipmentRoute = [{
+    name: this.branch || 'Branch',
+    type: 'Branch',
+    vehicleNo: vehicle
+  }];
 }
 
 getTransportPartnerVehicles(): string[] {
   const partner = this.transportPartners.find((p: any) => String(p._id) === String(this.selectedTransportPartnerId));
-  const vehicles = partner?.vehicleNumbers || [];
-  return vehicles.map((v: any) => v?.number).filter(Boolean);
+  const vehicles = partner?.vehicleNumbers || partner?.vehicles || [];
+  return vehicles.map((v: any) => {
+    if (typeof v === 'string') return v;
+    return v?.number || v?.vehicleNo || v?.vehicleNumber || v?.regNo || '';
+  }).filter(Boolean);
 }
 
 getBranchVehicles(): string[] {
@@ -988,6 +1016,14 @@ getBasketOptions(): Array<{ key: string; text: string }> {
       complete: () => console.log('Product list fetch complete')
     });
 
+    // Transport partners list
+    this.http.get<any>('http://localhost:3000/api/tpartners/tpartnerslist')
+    .subscribe({
+      next: data => this.transportPartners = Array.isArray(data) ? data : (data?.value || []),
+      error: err => console.error('Error fetching transport partners', err),
+      complete: () => console.log('Transport partners fetch complete')
+    });
+
     this.loadBranches();
     this.loadHubs();
     this.loadStocks();
@@ -1114,6 +1150,7 @@ finalizeManifestation() {
       shipmentStatus: 'In Transit',
       ewaybills: updatedEwaybills
     };
+    delete (payload as any).paymentMode;
 
     return this.http.put(
       `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`,

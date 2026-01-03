@@ -451,7 +451,7 @@
     <select disabled>
       <option value="">Select transport partner</option>
     </select>
-    <select [(ngModel)]="selectedRouteVehicle">
+    <select [(ngModel)]="selectedRouteVehicle" (change)="onRouteVehicleChange()">
       <option value="">Select Vehicle</option>
       <option *ngFor="let v of getBranchVehicles()" [value]="v">{{ v }}</option>
     </select>
@@ -461,12 +461,11 @@
       <option value="">Select transport partner</option>
       <option *ngFor="let p of transportPartners" [value]="p._id">{{ p.partnerName }}</option>
     </select>
-    <select [(ngModel)]="selectedRouteVehicle">
+    <select [(ngModel)]="selectedRouteVehicle" (change)="onRouteVehicleChange()">
       <option value="">Select Vehicle</option>
       <option *ngFor="let v of getTransportPartnerVehicles()" [value]="v">{{ v }}</option>
     </select>
   </ng-template>
-  <button (click)="addRoutePoint()">Add</button>
 </div>
         <ul class="route-list">
           <li *ngFor="let point of shipmentRoute; let i = index">

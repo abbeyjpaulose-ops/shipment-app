@@ -87,6 +87,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   pickupPincode = '';
   pickupLocationIndex = '';
   pickupLocationId: string | null = null;
+  pickupPreviousSender = '';
+  pickupSource = 'branch';
 
   // Delivery
   deliveryType: 'consignee' | 'different' = 'consignee';
@@ -241,6 +243,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       pickupPhone: this.pickupPhone,
       pickupPincode: this.pickupPincode,
       pickupLocationId: this.pickupLocationId,
+      pickupPreviousSender: this.pickupPreviousSender,
+      pickupSource: this.pickupSource,
       deliveryType: this.deliveryType,
       deliveryName: this.deliveryName,
       deliveryAddress: this.deliveryAddress,
@@ -296,6 +300,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         pickupPhone: draft.pickupPhone ?? this.pickupPhone,
         pickupPincode: draft.pickupPincode ?? this.pickupPincode,
         pickupLocationId: draft.pickupLocationId ?? this.pickupLocationId,
+        pickupPreviousSender: draft.pickupPreviousSender ?? this.pickupPreviousSender,
+        pickupSource: draft.pickupSource ?? this.pickupSource,
         deliveryType: draft.deliveryType ?? this.deliveryType,
         deliveryName: draft.deliveryName ?? this.deliveryName,
         deliveryAddress: draft.deliveryAddress ?? this.deliveryAddress,
@@ -437,6 +443,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.pickupPincode = '';
     this.pickupLocationIndex = '';
     this.pickupLocationId = null;
+    this.pickupPreviousSender = '';
+    this.pickupSource = 'branch';
     this.deliveryType = 'consignee';
     this.deliveryName = '';
     this.deliveryAddress = '';
@@ -827,22 +835,92 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     return String(guest?.pinCode ?? guest?.pincode ?? '').trim();
   }
 
-  private updatePickupPincodeFromConsignor() {
-    const pin = this.consignorTab === 'guest'
-      ? this.getGuestPinByName(this.consignor)
-      : this.getClientPinByName(this.consignor);
-    if (!pin) return;
-    this.pickupPincode = pin;
-    this.onRouteChange();
+  private updatePickupFromConsignor() {
+    if (this.consignorTab === 'guest') {
+      const guest = this.guestList.find(x => x.guestName === this.consignor);
+      if (!guest) return;
+      this.pickupName = guest.guestName || '';
+      this.pickupPhone = guest.phoneNum || '';
+      this.pickupAddress = guest.address || '';
+      this.pickupPincode = String(guest?.pinCode ?? guest?.pincode ?? '').trim();
+      this.pickupLocationId = null;
+      this.pickupLocationIndex = '';
+      this.pickupSource = 'consignor-guest';
+      this.onRouteChange();
+      return;
+    }
+
+    const client = this.clientList.find(x => x.clientName === this.consignor);
+    if (!client) return;
+    this.pickupName = client.clientName || '';
+    this.pickupPhone = client.phoneNum || '';
+    const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+    const primaryLocation = locations[0];
+    this.pickupAddress = primaryLocation ? this.formatLocation(primaryLocation) : (client.address || '');
+    const pin = primaryLocation ? this.getLocationPin(primaryLocation) : this.getClientPinByName(client.clientName);
+    if (pin) {
+      this.pickupPincode = pin;
+      this.onRouteChange();
+    }
+    this.pickupLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
+    this.pickupLocationIndex = '';
+    if (!this.pickupSource || this.pickupSource === 'branch' || this.pickupSource === 'consignor-guest') {
+      this.pickupSource = 'consignor-primary';
+    }
   }
 
-  private updateDeliveryPincodeFromConsignee() {
-    const pin = this.consigneeTab === 'guest'
-      ? this.getGuestPinByName(this.consignee)
-      : this.getClientPinByName(this.consignee);
-    if (!pin) return;
-    this.deliveryPincode = pin;
-    this.onRouteChange();
+  private updateBillingFromConsignor() {
+    if (this.consignorTab === 'guest') {
+      const guest = this.guestList.find(x => x.guestName === this.consignor);
+      if (!guest) return;
+      this.billingName = guest.guestName || '';
+      this.billingGSTIN = 'GUEST';
+      this.billingPhone = guest.phoneNum || '';
+      this.billingAddress = guest.address || '';
+      this.billingLocationId = null;
+      this.billingLocationIndex = '';
+      this.billingClientId = null;
+      return;
+    }
+
+    const client = this.clientList.find(x => x.clientName === this.consignor);
+    if (!client) return;
+    this.billingName = client.clientName || '';
+    this.billingGSTIN = client.GSTIN || '';
+    this.billingPhone = client.phoneNum || '';
+    const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+    const primaryLocation = locations[0];
+    this.billingAddress = primaryLocation ? this.formatLocation(primaryLocation) : (client.address || '');
+    this.billingLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
+    this.billingLocationIndex = '';
+    this.billingClientId = client._id || null;
+    this.refreshPricingSuggestions();
+  }
+
+  private updateDeliveryFromConsignee() {
+    if (this.consigneeTab === 'guest') {
+      const guest = this.guestList.find(x => x.guestName === this.consignee);
+      if (!guest) return;
+      this.deliveryAddress = guest.address || '';
+      this.deliveryPincode = String(guest?.pinCode ?? guest?.pincode ?? '').trim();
+      this.deliveryLocationId = null;
+      this.deliveryLocationIndex = '';
+      this.onRouteChange();
+      return;
+    }
+
+    const client = this.clientList.find(x => x.clientName === this.consignee);
+    if (!client) return;
+    const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+    const primaryLocation = locations[0];
+    this.deliveryAddress = primaryLocation ? this.formatLocation(primaryLocation) : (client.address || '');
+    const pin = primaryLocation ? this.getLocationPin(primaryLocation) : this.getClientPinByName(client.clientName);
+    if (pin) {
+      this.deliveryPincode = pin;
+      this.onRouteChange();
+    }
+    this.deliveryLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
+    this.deliveryLocationIndex = '';
   }
 
   setPickupType(type: 'branch' | 'consignor' | 'different') {
@@ -852,20 +930,47 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       return;
     }
     if (type === 'consignor') {
-      this.updatePickupPincodeFromConsignor();
-      this.pickupLocationId = this.getPrimaryLocationId(this.getConsignorLocations());
+      this.updatePickupFromConsignor();
       return;
     }
-    if (this.pickupLocationIndex !== '') {
-      this.onPickupLocationSelect(this.pickupLocationIndex);
+    if (this.pickupPreviousSender) {
+      this.onPickupPreviousSenderSelect(this.pickupPreviousSender);
+    }
+  }
+
+  activatePickupPrimary() {
+    this.pickupSource = 'branch';
+    this.setPickupType('branch');
+  }
+
+  onPickupSourceSelect(value: string) {
+    this.pickupSource = value;
+    if (value === 'branch') {
+      this.setPickupType('branch');
+      return;
+    }
+    if (value === 'consignor-guest') {
+      this.setPickupType('consignor');
+      this.updatePickupFromConsignor();
+      return;
+    }
+    if (value === 'consignor-primary') {
+      this.setPickupType('consignor');
+      this.updatePickupFromConsignor();
+      return;
+    }
+    if (value.startsWith('consignor:')) {
+      const index = value.split(':')[1] || '';
+      this.setPickupType('consignor');
+      this.pickupLocationIndex = index;
+      this.onPickupLocationSelect(index);
     }
   }
 
   setBillingType(type: 'consignor' | 'different') {
     this.billingType = type;
     if (type === 'consignor') {
-      this.billingLocationId = this.getPrimaryLocationId(this.getConsignorLocations());
-      this.billingLocationIndex = '';
+      this.updateBillingFromConsignor();
       return;
     }
     if (this.billingLocationIndex !== '') {
@@ -876,8 +981,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   setDeliveryType(type: 'consignee' | 'different') {
     this.deliveryType = type;
     if (type === 'consignee') {
-      this.updateDeliveryPincodeFromConsignee();
-      this.deliveryLocationId = this.getPrimaryLocationId(this.getConsigneeLocations());
+      this.updateDeliveryFromConsignee();
       return;
     }
     if (this.deliveryPreviousReceiver) {
@@ -892,6 +996,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (!loc) return;
     this.billingAddress = this.formatLocation(loc);
     this.billingLocationId = this.getLocationId(loc);
+    this.refreshPricingSuggestions();
   }
 
   onBillingPreviousSenderSelect(name: string) {
@@ -906,6 +1011,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.billingLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
     this.billingClientId = selected._id || null;
     this.billingLocationIndex = '';
+    this.refreshPricingSuggestions();
   }
 
   onPickupLocationSelect(index: string) {
@@ -916,6 +1022,21 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.pickupAddress = this.formatLocation(loc);
     this.pickupPincode = this.getLocationPin(loc);
     this.pickupLocationId = this.getLocationId(loc);
+    this.pickupSource = `consignor:${index}`;
+    this.onRouteChange();
+  }
+
+  onPickupPreviousSenderSelect(name: string) {
+    const selected = this.clientList.find(c => c.clientName === name);
+    if (!selected) return;
+    this.pickupName = selected.clientName || '';
+    this.pickupPhone = selected.phoneNum || '';
+    const locations = Array.isArray(selected.deliveryLocations) ? selected.deliveryLocations : [];
+    const primaryLocation = locations[0];
+    this.pickupAddress = primaryLocation ? this.formatLocation(primaryLocation) : (selected.address || '');
+    this.pickupPincode = primaryLocation ? this.getLocationPin(primaryLocation) : '';
+    this.pickupLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
+    this.pickupLocationIndex = '';
     this.onRouteChange();
   }
 
@@ -957,11 +1078,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.selectedConsignorId = c._id;
       this.consignorId = c._id;
       if (this.pickupType === 'consignor') {
-        this.updatePickupPincodeFromConsignor();
-        this.pickupLocationId = this.getPrimaryLocationId(this.getConsignorLocations());
+        this.updatePickupFromConsignor();
       }
       if (this.billingType === 'consignor') {
-        this.billingLocationId = this.getPrimaryLocationId(this.getConsignorLocations());
+        this.updateBillingFromConsignor();
       } else {
         this.billingLocationId = null;
       }
@@ -980,8 +1100,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.consigneePhone = c.phoneNum;
       this.consigneeId = c._id;
       if (this.deliveryType === 'consignee') {
-        this.updateDeliveryPincodeFromConsignee();
-        this.deliveryLocationId = this.getPrimaryLocationId(this.getConsigneeLocations());
+        this.updateDeliveryFromConsignee();
       }
       this.deliveryLocationIndex = '';
     }
@@ -998,12 +1117,14 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.selectedConsignorId = null;
       this.consignorId = g._id || null;
       if (this.pickupType === 'consignor') {
-        this.pickupPincode = String(g.pinCode || '').trim();
-        this.onRouteChange();
-        this.pickupLocationId = null;
+        this.updatePickupFromConsignor();
       }
-      this.billingLocationId = null;
-      this.billingLocationIndex = '';
+      if (this.billingType === 'consignor') {
+        this.updateBillingFromConsignor();
+      } else {
+        this.billingLocationId = null;
+        this.billingLocationIndex = '';
+      }
       this.pickupLocationIndex = '';
       this.suggestedRates = {};
     }
@@ -1064,9 +1185,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.consigneePhone = g.phoneNum;
       this.consigneeId = g._id || null;
       if (this.deliveryType === 'consignee') {
-        this.deliveryPincode = String(g.pinCode || '').trim();
-        this.onRouteChange();
-        this.deliveryLocationId = null;
+        this.updateDeliveryFromConsignee();
       }
       this.deliveryLocationIndex = '';
     }
@@ -1113,6 +1232,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.pickupPincode = '';
       this.pickupLocationIndex = '';
       this.pickupLocationId = null;
+      this.pickupSource = 'branch';
       return;
     }
 
@@ -1123,6 +1243,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.pickupPincode = String(this.branchDetails.pinCode || '').trim();
     this.pickupLocationIndex = '';
     this.pickupLocationId = null;
+    this.pickupSource = 'branch';
     this.onRouteChange();
   }
 
@@ -1195,12 +1316,39 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       });
   }
 
+  private getClientIdByLocationId(id: string | null): string | null {
+    if (!id) return null;
+    const client = this.clientList.find(c =>
+      Array.isArray(c?.deliveryLocations) &&
+      c.deliveryLocations.some((loc: any) => this.getLocationId(loc) === id)
+    );
+    return client?._id || null;
+  }
+
+  private getClientIdForPricing(): string | null {
+    const billingClientId = this.getClientIdByLocationId(this.billingLocationId);
+    if (billingClientId) return billingClientId;
+    if (this.billingClientId) return this.billingClientId;
+    return this.selectedConsignorId;
+  }
+
+  getPricingGstinId(): string {
+    const clientId = this.getClientIdForPricing();
+    const client = this.clientList.find(c => c?._id === clientId);
+    const gstin = (client?.GSTIN || '').trim();
+    if (gstin) return gstin;
+    const billingGstin = String(this.billingGSTIN || '').trim();
+    if (billingGstin) return billingGstin;
+    return '-';
+  }
+
   private refreshPricingSuggestions() {
-    if (!this.selectedConsignorId) {
+    const clientId = this.getClientIdForPricing();
+    if (!clientId) {
       this.suggestedRates = {};
       return;
     }
-    this.loadPricingSuggestions(this.selectedConsignorId);
+    this.loadPricingSuggestions(clientId);
   }
 
   // QUICK ADD CLIENT/GUEST

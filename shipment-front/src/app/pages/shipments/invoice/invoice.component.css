@@ -352,3 +352,15 @@
   padding: 4px 6px;
   box-sizing: border-box;
 }
+
+.confirm-popup {
+  max-width: 420px;
+}
+
+.confirm-actions {
+  justify-content: flex-end;
+}
+
+.confirm-actions button {
+  min-width: 100px;
+}

@@ -1,4 +1,4 @@
-ï»¿import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -26,9 +26,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   branch: string = localStorage.getItem('branch') || 'All Branches';
   private branchSub?: Subscription;
 
-  editingInvoice: any = null;   // Ã¢Å“â€¦ Track the invoice being edited
-  showEditPopup: boolean = false; // Ã¢Å“â€¦ Control popup visibility
-
+  editingInvoice: any = null;   // âo. Track the invoice being edited
+  showEditPopup: boolean = false;  showGenerateInvoicePopup: boolean = false;
   constructor(private http: HttpClient, private branchService: BranchService) {}
 
   ngOnInit() {
@@ -49,23 +48,30 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   }
 
   loadInvoices() {
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', {
+    this.http.get<any>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
         branch: this.branch || localStorage.getItem('branch') || ''
       }
     }).subscribe({
       next: (res) => {
-        // Ã¢Å“â€¦ Only show shipments with status 'Delivered'
-        //onsole.log('Ã°Å¸â€œÂ¦ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
-        this.invoices = res.filter(s => s.shipmentStatus === 'Delivered' || s.shipmentStatus === 'Pre-Invoiced');
-        this.deliveredInvoices = this.invoices.filter(s => s.shipmentStatus === 'Delivered');
-        this.preInvoicedInvoices = this.invoices.filter(s => s.shipmentStatus === 'Pre-Invoiced');
+        const raw = Array.isArray(res) ? res : (res?.value || []);
+        // âo. Only show shipments with status 'Delivered'
+        //onsole.log('ðY"¦ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
+                const normalized = (raw || []).map((s: any) => ({
+          ...s,
+          _normalizedStatus: this.normalizeStatus(s?.shipmentStatus)
+        }));
+        this.invoices = normalized.filter((s: any) =>
+          s._normalizedStatus === 'delivered' || s._normalizedStatus === 'pre-invoiced'
+        );
+        this.deliveredInvoices = this.invoices.filter((s: any) => s._normalizedStatus === 'delivered');
+        this.preInvoicedInvoices = this.invoices.filter((s: any) => s._normalizedStatus === 'pre-invoiced');
         this.applyFilters();
-        console.log('Aø,f??AÝ Filtered Delivered consignments:', this.filteredDelivered);
-        console.log('Aø,f??AÝ Filtered Pre-Invoiced consignments:', this.filteredPreInvoiced);
+        console.log('A??,f??A? Filtered Delivered consignments:', this.filteredDelivered);
+        console.log('A??,f??A? Filtered Pre-Invoiced consignments:', this.filteredPreInvoiced);
       },
-      error: (err) => console.error('Ã¢ÂÅ’ Error loading invoices:', err)
+      error: (err) => console.error('âO Error loading invoices:', err)
     });
   }
 
@@ -76,6 +82,15 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     }
   };
 
+  private normalizeStatus(status: any): string {
+    const value = String(status || '').trim().toLowerCase();
+    if (!value) return '';
+    if (value.includes('delivered')) return 'delivered';
+    if (value === 'pre invoiced' || value === 'preinvoiced' || value.includes('pre-invoiced')) {
+      return 'pre-invoiced';
+    }
+    return value;
+  }
   applyFilters() {
     const matches = (s: any) =>
       (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
@@ -105,7 +120,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.selectedInvoice = null;
   }
 
-  // Ã¢Å“â€¦ Function to mark selected Delivered consignments as Invoiced
+  // âo. Function to mark selected Delivered consignments as Invoiced
   invoiceSelected() {
     const selectedConsignments = this.filteredDelivered.filter(i => i.selected);
 
@@ -195,6 +210,23 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.filteredPreInvoiced.forEach(i => i.selected = false);
   }
 
+  openGenerateInvoicePopup() {
+    const selectedConsignments = (this.filteredPreInvoiced || []).filter(i => i.selected);
+    if (selectedConsignments.length === 0) {
+      console.warn('No consignments selected for invoicing.');
+      return;
+    }
+    this.showGenerateInvoicePopup = true;
+  }
+
+  confirmGenerateInvoice() {
+    this.showGenerateInvoicePopup = false;
+    this.finalizePreInvoiced();
+  }
+
+  cancelGenerateInvoice() {
+    this.showGenerateInvoicePopup = false;
+  }
   private deleteConsignments(list: any[]) {
     const selectedConsignments = (list || []).filter(i => i.selected);
 

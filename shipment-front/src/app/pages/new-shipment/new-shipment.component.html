@@ -174,29 +174,80 @@
               <label>Phone <input [(ngModel)]="billingPhone"></label>
               <label>Address <textarea [(ngModel)]="billingAddress"></textarea></label>
             </div>
-            <div *ngIf="billingType==='consignor'" class="muted small-text">Using consignor details</div>
+            <div *ngIf="billingType==='consignor' && consignorTab==='consignor'" class="panel-body">
+              <label>Consignor Address
+                <select [(ngModel)]="billingLocationIndex" (change)="onBillingLocationSelect(billingLocationIndex)">
+                  <option value="">Primary address</option>
+                  <option *ngFor="let loc of getConsignorLocations(); let i = index" [value]="i">
+                    {{ formatLocation(loc) }}
+                  </option>
+                </select>
+              </label>
+            </div>
+            <div *ngIf="billingType==='consignor' && consignorTab==='guest'" class="muted small-text">
+              Using guest consignor details
+            </div>
           </div>
 
           <div class="panel soft">
             <div class="panel-head">
               <h4>Pickup</h4>
-              <div class="pill">Branch pickup</div>
+              <div class="tab-buttons ghost">
+                <button (click)="activatePickupPrimary()" [class.active]="pickupType!=='different'">Branch / Consignor</button>
+                <button (click)="setPickupType('different')" [class.active]="pickupType==='different'">Different</button>
+              </div>
             </div>
-            <div class="field-display">
-              <span class="label">Branch</span>
-              <span class="value">{{ pickupName || branch || '-' }}</span>
+            <div *ngIf="pickupType!=='different'" class="panel-body">
+              <label>Pickup Source
+                <select [(ngModel)]="pickupSource" (change)="onPickupSourceSelect(pickupSource)">
+                  <option value="branch">Branch - {{ pickupName || branch || '-' }}</option>
+                  <option *ngIf="consignorTab==='consignor' && consignor" value="consignor-primary">
+                    Consignor: Primary address
+                  </option>
+                  <option *ngIf="consignorTab==='guest' && consignor" value="consignor-guest">
+                    Consignor (guest): {{ consignorAddress || '-' }}
+                  </option>
+                  <option *ngFor="let loc of getConsignorLocations(); let i = index" [value]="'consignor:' + i">
+                    Consignor: {{ formatLocation(loc) }}
+                  </option>
+                </select>
+              </label>
             </div>
-            <div class="field-display">
-              <span class="label">Pickup Address</span>
-              <span class="value">{{ pickupAddress || '-' }}</span>
+            <div *ngIf="pickupType==='different'" class="panel-body">
+              <label>Previous Sender
+                <input
+                  type="search"
+                  list="pickup-client-list"
+                  [(ngModel)]="pickupPreviousSender"
+                  (ngModelChange)="onPickupPreviousSenderSelect(pickupPreviousSender)">
+                <datalist id="pickup-client-list">
+                  <option *ngFor="let c of clientList" [value]="c.clientName">
+                    {{ formatClientOption(c) }}
+                  </option>
+                </datalist>
+              </label>
+              <label>Name <input [(ngModel)]="pickupName"></label>
+              <label>Phone <input [(ngModel)]="pickupPhone"></label>
+              <label>Pickup Address <textarea [(ngModel)]="pickupAddress"></textarea></label>
+              <label>Pickup Pincode <input [(ngModel)]="pickupPincode"></label>
             </div>
-            <div class="field-display">
-              <span class="label">Pickup Phone</span>
-              <span class="value">{{ pickupPhone || '-' }}</span>
-            </div>
-            <div class="field-display">
-              <span class="label">Pickup Pincode</span>
-              <span class="value">{{ pickupPincode || '-' }}</span>
+            <div *ngIf="pickupType==='branch'">
+              <div class="field-display">
+                <span class="label">Branch</span>
+                <span class="value">{{ pickupName || branch || '-' }}</span>
+              </div>
+              <div class="field-display">
+                <span class="label">Pickup Address</span>
+                <span class="value">{{ pickupAddress || '-' }}</span>
+              </div>
+              <div class="field-display">
+                <span class="label">Pickup Phone</span>
+                <span class="value">{{ pickupPhone || '-' }}</span>
+              </div>
+              <div class="field-display">
+                <span class="label">Pickup Pincode</span>
+                <span class="value">{{ pickupPincode || '-' }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -208,6 +259,16 @@
               <button (click)="setDeliveryType('consignee')" [class.active]="deliveryType==='consignee'">Use Consignee</button>
               <button (click)="setDeliveryType('different')" [class.active]="deliveryType==='different'">Different</button>
             </div>
+          </div>
+          <div *ngIf="deliveryType==='consignee'" class="panel-body">
+            <label>Consignee Address
+              <select [(ngModel)]="deliveryLocationIndex" (change)="onDeliveryLocationSelect(deliveryLocationIndex)">
+                <option value="">Primary address</option>
+                <option *ngFor="let loc of getConsigneeLocations(); let i = index" [value]="i">
+                  {{ formatLocation(loc) }}
+                </option>
+              </select>
+            </label>
           </div>
           <div class="field-display">
             <span class="label">Delivery Pincode</span>
@@ -402,6 +463,7 @@
       <h3>Override Suggested Rates</h3>
       <button class="icon-btn" (click)="showRateOverrideModal = false">x</button>
     </div>
+    <p class="muted small-text">GSTIN ID: {{ getPricingGstinId() }}</p>
     <div class="override-list">
       <div class="override-head">
         <span>Products</span>

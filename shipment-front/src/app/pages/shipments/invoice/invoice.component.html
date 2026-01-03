@@ -52,7 +52,7 @@
 <div class="invoice-section">
   <h3>Pre-Invoiced</h3>
   <div class="action-bar">
-    <button (click)="finalizePreInvoiced()">Generate Invoice</button>
+    <button (click)="openGenerateInvoicePopup()">Generate Invoice</button>
     <button class="delete-btn" (click)="deletePreInvoiced()">Delete</button>
     <button class="print-btn" (click)="printPreInvoiced()">Print Manifest</button>
   </div>
@@ -205,5 +205,14 @@
     </div>
   </div>
 
+  <div class="popup-overlay" *ngIf="showGenerateInvoicePopup">
+    <div class="popup-content confirm-popup">
+      <h2>Generate Invoice</h2>
+      <p>Generate invoice for the selected consignments?</p>
+      <div class="button-section confirm-actions">
+        <button type="button" (click)="confirmGenerateInvoice()">Okay</button>
+        <button type="button" (click)="cancelGenerateInvoice()">Cancel</button>
+      </div>
+    </div>
+  </div>
 </div>
-
