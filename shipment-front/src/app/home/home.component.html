@@ -27,8 +27,8 @@
         <li><a routerLink="shipments">View Shipments</a></li>
         <li><a routerLink="Stocks">Stocks</a></li>
         <li><a routerLink="Manifest">Manifest</a></li>
-        <li><a routerLink="Invoice">Delivered/Pre-Invoice</a></li>
-        <li><a routerLink="Reports">Invoiced</a></li>
+        <li><a routerLink="Delivered">Delivered/Pre-Invoice</a></li>
+        <li><a routerLink="Invoiced">Invoiced</a></li>
       </ul>
 
       <!-- Admin -->
@@ -43,7 +43,7 @@
           <li><a routerLink="Branches">Branches</a></li>
           <li><a routerLink="Hubs">Hubs</a></li>
           <li><a routerLink="Tpartners">Transport Partners</a></li>
-          <li><a routerLink="Users">Users</a></li>
+          <li><a routerLink="Payments">Payments</a></li>
           <li><a routerLink="Categories">Categories</a></li>
           <li><a routerLink="Pkgs">Packages</a></li>
           <li><a routerLink="Products">Products</a></li>
@@ -80,7 +80,7 @@
       </ul>
 
       <li><a routerLink="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
-      <li><a routerLink="/"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      <li><a (click)="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>
   </aside>
 

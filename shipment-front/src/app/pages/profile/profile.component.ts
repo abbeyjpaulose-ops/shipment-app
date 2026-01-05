@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
-import { HttpClient, HttpClientModule } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, HttpClientModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.css']
 })
@@ -25,11 +25,15 @@ export class ProfileComponent implements OnInit {
   pricePerArea: 0
 };
 
-
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
     this.loadProfile();
+  }
+
+  isAdmin(): boolean {
+    const role = String(this.profile?.role || localStorage.getItem('role') || '').toLowerCase();
+    return role === 'admin';
   }
 
   loadProfile() {
@@ -40,6 +44,9 @@ export class ProfileComponent implements OnInit {
       next: (data) => {
         
         this.profile = data[0] || this.profile;
+        if (this.profile?.businessType) {
+          localStorage.setItem('companyType', String(this.profile.businessType));
+        }
         console.log("Profile loaded:", this.profile);
       },
       error: (err) => console.error("Error loading products:", err)
@@ -58,17 +65,45 @@ export class ProfileComponent implements OnInit {
   }
 
   saveProfile() {
-    console.log('📤 Sending profile data:', this.profile);
-    this.http.post('http://localhost:3000/api/profile/save', this.profile, {
+    const email = this.profile?.email || localStorage.getItem('email') || '';
+    const username = this.profile?.username || localStorage.getItem('username') || '';
+    const payload = {
+      ...this.profile,
+      email,
+      username
+    };
+    console.log("Sending profile data:", payload);
+    this.http.post('http://localhost:3000/api/profile/save', payload, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: (res) => {
-        console.log('✅ Profile saved', res);
-        alert('Profile saved successfully!');
+        console.log("Profile saved", res);
+        if (res) {
+          this.profile = res;
+        }
+        if (this.profile?.businessType) {
+          localStorage.setItem('companyType', String(this.profile.businessType));
+        }
+        this.loadProfile();
       },
       error: (err) => {
-        console.error('❌ Error saving profile:', err);
+        console.error("Error saving profile:", err);
         alert('Error: ' + err.error.message);
+      }
+    });
+  }
+  backfillBusinessType() {
+    const ok = window.confirm('Backfill business type for all profiles?');
+    if (!ok) return;
+    this.http.post('http://localhost:3000/api/profile/migrateBusinessType', {}).subscribe({
+      next: (res) => {
+        console.log('Profile businessType backfilled', res);
+        alert('Business type backfilled for profiles.');
+        this.loadProfile();
+      },
+      error: (err) => {
+        console.error('Error backfilling businessType:', err);
+        alert('Error: ' + (err.error?.message || 'Backfill failed'));
       }
     });
   }

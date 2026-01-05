@@ -1,1 +1,63 @@
-<h2>Logs</h2>
+<div class="logs-page">
+  <h2>Audit Logs</h2>
+  <p class="subtitle" *ngIf="!isAdmin()">Only admins can view audit logs.</p>
+
+  <div class="audit-section" *ngIf="isAdmin()">
+    <div class="audit-filters">
+      <label>From
+        <input type="date" [(ngModel)]="auditFilters.startDate" />
+      </label>
+      <label>To
+        <input type="date" [(ngModel)]="auditFilters.endDate" />
+      </label>
+      <label>Action
+        <input type="text" placeholder="auth.login or businessType" [(ngModel)]="auditFilters.action" />
+      </label>
+      <label>User
+        <input type="text" placeholder="username or email" [(ngModel)]="auditFilters.user" />
+      </label>
+      <label>Limit
+        <input type="number" min="1" max="500" [(ngModel)]="auditFilters.limit" />
+      </label>
+      <button type="button" (click)="auditPage = 1; loadAuditLogs()">Load Logs</button>
+      <button type="button" (click)="clearAuditFilters()">Clear Filters</button>
+      <button type="button" (click)="exportAuditLogsJson()" [disabled]="!auditLogs.length">Export JSON</button>
+      <button type="button" (click)="exportAuditLogsCsv()" [disabled]="!auditLogs.length">Export CSV</button>
+    </div>
+
+    <div class="audit-status" *ngIf="auditLoading">Loading audit logs...</div>
+    <div class="audit-status error" *ngIf="!auditLoading && auditError">{{ auditError }}</div>
+
+    <div class="audit-table" *ngIf="!auditLoading">
+      <div class="audit-pagination">
+        <button type="button" (click)="changeAuditPage(-1)" [disabled]="auditPage <= 1">Prev</button>
+        <span>Page {{ auditPage }} of {{ auditTotalPages }}</span>
+        <button type="button" (click)="changeAuditPage(1)" [disabled]="auditPage >= auditTotalPages">Next</button>
+        <span>Total: {{ auditTotal }}</span>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Action</th>
+            <th>User</th>
+            <th>Before</th>
+            <th>After / Meta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let log of auditLogs">
+            <td>{{ log.createdAt | date:'yyyy-MM-dd HH:mm' }}</td>
+            <td>{{ log.action }}</td>
+            <td>{{ log.actorUsername || log.actorEmail }}</td>
+            <td><pre>{{ log.before | json }}</pre></td>
+            <td><pre>{{ log.after || log.metadata | json }}</pre></td>
+          </tr>
+          <tr *ngIf="!auditLogs.length">
+            <td colspan="5" class="empty">No audit logs found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

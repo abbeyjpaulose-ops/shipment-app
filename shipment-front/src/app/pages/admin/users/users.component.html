@@ -1,7 +1,50 @@
 <div class="payments-page">
-  <div class="page-header">
-    <h2>Payments</h2>
-    <p>Payment details by entity type.</p>
+  <div class="page-hero">
+    <div class="page-header">
+      <h2>Payments</h2>
+      <p>Track balances across clients, branches, hubs, and transport partners.</p>
+    </div>
+    <div class="stats">
+      <div class="stat-card">
+        <span>Total Due</span>
+        <strong>{{ formatAmount(totals.due) }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>Total Paid</span>
+        <strong>{{ formatAmount(totals.paid) }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>Total Balance</span>
+        <strong>{{ formatAmount(totals.balance) }}</strong>
+      </div>
+      <div class="stat-card">
+        <span>Entities</span>
+        <strong>{{ totals.entities }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="filters">
+    <input
+      type="text"
+      placeholder="Search by name or ID"
+      [(ngModel)]="searchText"
+    />
+    <select [(ngModel)]="statusFilter">
+      <option value="all">All statuses</option>
+      <option value="pending">Pending</option>
+      <option value="paid">Paid</option>
+      <option value="overdue">Overdue</option>
+    </select>
+    <button type="button" (click)="loadPayments()" [disabled]="loading">
+      {{ loading ? 'Refreshing...' : 'Refresh' }}
+    </button>
+    <button type="button" (click)="syncFromInvoices()" [disabled]="syncLoading">
+      {{ syncLoading ? 'Syncing...' : 'Sync from Invoices' }}
+    </button>
+    <button type="button" (click)="backfillInvoiceTransactions()" [disabled]="backfillLoading">
+      {{ backfillLoading ? 'Backfilling...' : 'Backfill Invoice Tx' }}
+    </button>
   </div>
 
   <div class="tabs">
@@ -14,28 +57,43 @@
     </button>
   </div>
 
+  <div class="status" *ngIf="error">{{ error }}</div>
+  <div class="status" *ngIf="syncError">{{ syncError }}</div>
+  <div class="status" *ngIf="backfillError">{{ backfillError }}</div>
+  <div class="status" *ngIf="loading">Loading payments...</div>
+
   <section class="tab-panel" *ngFor="let tab of tabs" [hidden]="activeTab !== tab.key">
     <h3>{{ tab.label }}</h3>
-    <div class="table-wrap" *ngIf="paymentData[tab.key]?.length; else emptyState">
+    <div class="table-wrap" *ngIf="getRowsForTab(tab.key).length; else emptyState">
       <table>
         <thead>
           <tr>
             <th>Name</th>
-            <th>Amount Due</th>
+            <th>Entity ID</th>
+            <th>Total Due</th>
             <th>Paid</th>
             <th>Balance</th>
             <th>Last Payment</th>
             <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of paymentData[tab.key]">
-            <td>{{ row.name }}</td>
-            <td>{{ row.amountDue }}</td>
-            <td>{{ row.paid }}</td>
-            <td>{{ row.balance }}</td>
-            <td>{{ row.lastPayment }}</td>
-            <td>{{ row.status }}</td>
+          <tr *ngFor="let row of getRowsForTab(tab.key)">
+            <td>{{ row.name || '-' }}</td>
+            <td class="muted">{{ row.entityId || '-' }}</td>
+            <td>{{ formatAmount(row.totalDue) }}</td>
+            <td>{{ formatAmount(row.totalPaid) }}</td>
+            <td>{{ formatAmount(row.totalBalance) }}</td>
+            <td>{{ formatDate(row.lastPaymentDate) }}</td>
+            <td>
+              <span class="status-pill" [class.overdue]="(row.status || '').toLowerCase() === 'overdue'">
+                {{ row.status || 'Pending' }}
+              </span>
+            </td>
+            <td>
+              <button type="button" class="view-btn" (click)="openDrawer(tab.key, row)">View</button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -44,4 +102,115 @@
       <div class="empty-state">No payment records.</div>
     </ng-template>
   </section>
+</div>
+
+<div class="drawer-overlay" *ngIf="showDrawer">
+  <div class="drawer">
+    <div class="drawer-header">
+      <div>
+        <h3>{{ activeEntity?.name || 'Payments' }}</h3>
+        <p class="muted">{{ activeEntity?.entityId }}</p>
+      </div>
+      <button type="button" class="close-btn" (click)="closeDrawer()">✕</button>
+    </div>
+
+    <div class="drawer-summary" *ngIf="activeRow">
+      <div>
+        <span>Total Due</span>
+        <strong>{{ formatAmount(activeRow.totalDue) }}</strong>
+      </div>
+      <div>
+        <span>Paid</span>
+        <strong>{{ formatAmount(activeRow.totalPaid) }}</strong>
+      </div>
+      <div>
+        <span>Balance</span>
+        <strong>{{ formatAmount(activeRow.totalBalance) }}</strong>
+      </div>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Set Due Amount</h4>
+      <div class="form-grid">
+        <label>
+          Total Due
+          <input type="number" min="0" [(ngModel)]="dueAmount" />
+        </label>
+      </div>
+      <button type="button" class="secondary" (click)="updateDueAmount()" [disabled]="transactionsLoading">
+        {{ transactionsLoading ? 'Saving...' : 'Update due' }}
+      </button>
+      <p class="form-error" *ngIf="dueError">{{ dueError }}</p>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Record Payment</h4>
+      <div class="form-grid">
+        <label>
+          Amount
+          <input type="number" min="0" [(ngModel)]="recordForm.amount" />
+        </label>
+        <label>
+          Date
+          <input type="date" [(ngModel)]="recordForm.transactionDate" />
+        </label>
+        <label>
+          Method
+          <select [(ngModel)]="recordForm.method">
+            <option value="">Select</option>
+            <option value="Cash">Cash</option>
+            <option value="UPI">UPI</option>
+            <option value="Card">Card</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+            <option value="Cheque">Cheque</option>
+          </select>
+        </label>
+        <label>
+          Reference
+          <input type="text" [(ngModel)]="recordForm.referenceNo" />
+        </label>
+        <label class="full">
+          Notes
+          <textarea rows="2" [(ngModel)]="recordForm.notes"></textarea>
+        </label>
+      </div>
+      <button type="button" class="primary" (click)="submitPayment()" [disabled]="transactionsLoading">
+        {{ transactionsLoading ? 'Saving...' : 'Save payment' }}
+      </button>
+      <p class="form-error" *ngIf="recordError">{{ recordError }}</p>
+      <p class="form-hint">These entries update balances and are irreversible.</p>
+    </div>
+
+    <div class="drawer-section">
+      <h4>Recent Transactions</h4>
+      <div class="status" *ngIf="transactionsError">{{ transactionsError }}</div>
+      <div class="status" *ngIf="transactionsLoading">Loading transactions...</div>
+      <div class="transactions" *ngIf="!transactionsLoading">
+        <div class="transaction" *ngFor="let tx of transactions">
+          <div>
+            <div class="tx-amount">{{ formatAmount(tx.amount) }}</div>
+            <div class="tx-meta">
+              {{ formatDate(tx.transactionDate) }} · {{ tx.method || '-' }}
+            </div>
+            <div class="tx-ref" *ngIf="tx.referenceNo">Ref: {{ tx.referenceNo }}</div>
+            <div class="tx-notes" *ngIf="tx.notes">{{ tx.notes }}</div>
+          </div>
+          <div class="tx-actions">
+            <span class="status-pill" [class.voided]="(tx.status || '') === 'voided'">
+              {{ tx.status || 'posted' }}
+            </span>
+            <button
+              type="button"
+              class="danger-outline"
+              [disabled]="(tx.status || '') === 'voided'"
+              (click)="voidTransaction(tx)"
+            >
+              Void
+            </button>
+          </div>
+        </div>
+        <div class="empty-state" *ngIf="!transactions.length">No transactions yet.</div>
+      </div>
+    </div>
+  </div>
 </div>

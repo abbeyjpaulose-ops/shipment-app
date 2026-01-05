@@ -34,6 +34,7 @@ router.post('/', async (req, res) => {
     const username = normalizeUsername(req.body.username);
     const password = String(req.body.password || '');
     const role = normalizeText(req.body.role) || 'user';
+    const phoneNumber = normalizeText(req.body.phoneNumber);
     const branchInput = normalizeText(req.body.branch);
     const branchesInput = Array.isArray(req.body.branches) ? req.body.branches : null;
 
@@ -63,7 +64,8 @@ router.post('/', async (req, res) => {
       email,
       username,
       passwordHash,
-      role
+      role,
+      phoneNumber
     });
 
     res.status(201).json(profile);
@@ -85,6 +87,7 @@ router.put('/:id', async (req, res) => {
     if (req.body.email !== undefined) update.email = normalizeEmail(req.body.email);
     if (req.body.username !== undefined) update.username = normalizeUsername(req.body.username);
     if (req.body.role !== undefined) update.role = normalizeText(req.body.role) || 'user';
+    if (req.body.phoneNumber !== undefined) update.phoneNumber = normalizeText(req.body.phoneNumber);
 
     const role = update.role;
     const isAdminRole = String(role || '').toLowerCase() === 'admin';

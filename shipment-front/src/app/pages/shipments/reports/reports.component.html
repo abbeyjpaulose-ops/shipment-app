@@ -1,1 +1,98 @@
-<h2>Reports</h2>
+<div class="reports-page">
+  <div class="header">
+    <div>
+      <h2>Generated Invoices</h2>
+      <p class="subtitle">Fiscal Year: {{ fiscalYear || 'Current' }}</p>
+      <p class="subtitle">GST Percent: {{ gstPercent || 0 }}%</p>
+    </div>
+    <div class="controls">
+      <select [(ngModel)]="fiscalYearInput">
+        <option value="">Current Fiscal Year</option>
+        <option *ngFor="let fy of fiscalYears" [value]="fy">{{ fy }}</option>
+      </select>
+      <input
+        type="text"
+        placeholder="Search by invoice, client, GSTIN, or consignment"
+        [(ngModel)]="searchText"
+        (input)="applyFilters()"
+      />
+      <button type="button" (click)="loadInvoices()">Apply FY</button>
+      <button type="button" (click)="printAllInvoices()" [disabled]="!filteredInvoices.length">Print All</button>
+    </div>
+  </div>
+
+  <div class="status" *ngIf="loading">Loading invoices...</div>
+
+  <div class="table-wrap" *ngIf="!loading">
+    <table>
+      <thead>
+        <tr>
+          <th>Invoice #</th>
+          <th>Client</th>
+          <th>GSTIN</th>
+          <th>Billing Address</th>
+          <th>Consignments</th>
+          <th>Status</th>
+          <th>Payment</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let inv of filteredInvoices">
+          <td>{{ inv.invoiceNumber }}</td>
+          <td>{{ inv.clientName || '-' }}</td>
+          <td>{{ inv.clientGSTIN || '-' }}</td>
+          <td class="address-cell">{{ inv.billingAddress || '-' }}</td>
+          <td>
+            <div class="consignment-list">
+              <span *ngFor="let c of inv.consignments">{{ c.consignmentNumber }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="status-pill" [class.cancelled]="(inv.status || '') === 'cancelled'">
+              {{ inv.status || 'active' }}
+            </span>
+          </td>
+          <td>
+            <button
+              type="button"
+              class="payment-btn"
+              [class.cancel]="(inv.status || '').toLowerCase() === 'paid'"
+              (click)="togglePaymentStatus(inv)"
+              [disabled]="paymentUpdatingId === inv._id || (inv.status || '') === 'cancelled'"
+            >
+              {{ (inv.status || '').toLowerCase() === 'paid' ? 'Payment got cancelled' : 'Paid' }}
+            </button>
+          </td>
+          <td>
+            <button type="button" class="print-btn" (click)="printInvoice(inv)">Print</button>
+            <button
+              type="button"
+              class="delete-btn"
+              [disabled]="(inv.status || '') === 'cancelled'"
+              (click)="openDeletePopup(inv)"
+            >
+              Delete
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="!filteredInvoices.length">
+          <td colspan="8" class="empty">No generated invoices found.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="popup-overlay" *ngIf="showDeletePopup">
+  <div class="popup-card">
+    <h3>Cancel this generated invoice?</h3>
+    <p>This action cannot be reverted. The invoice will be marked as cancelled.</p>
+    <div class="popup-actions">
+      <button type="button" (click)="cancelDelete()">Keep</button>
+      <button type="button" class="danger" (click)="confirmDelete()" [disabled]="deleting">
+        {{ deleting ? 'Cancelling...' : 'Confirm delete' }}
+      </button>
+    </div>
+  </div>
+</div>

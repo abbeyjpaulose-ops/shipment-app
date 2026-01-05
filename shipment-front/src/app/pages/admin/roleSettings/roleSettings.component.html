@@ -17,6 +17,11 @@
       </div>
 
       <div>
+        <label>Phone Number</label>
+        <input [(ngModel)]="newUser.phoneNumber" placeholder="phone number" style="width: 100%;" />
+      </div>
+
+      <div>
         <label>Password</label>
         <input [(ngModel)]="newUser.password" type="password" placeholder="password" style="width: 100%;" />
       </div>
@@ -54,6 +59,7 @@
         <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">User ID</th>
         <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Email</th>
         <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Username</th>
+        <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Phone</th>
         <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Role</th>
         <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Branch</th>
         <th style="text-align:left; border-bottom: 1px solid #ddd; padding: 6px;">Actions</th>
@@ -65,6 +71,7 @@
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u._id }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.email }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.username }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.phoneNumber || '-' }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.role }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ (u.branches && u.branches.length) ? u.branches.join(', ') : u.branch }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
@@ -80,6 +87,9 @@
           </td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
             <input [(ngModel)]="editUser.username" style="width: 100%;" />
+          </td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
+            <input [(ngModel)]="editUser.phoneNumber" style="width: 100%;" />
           </td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
             <select [(ngModel)]="editUser.role" (change)="onEditRoleChange()" style="width: 100%;">

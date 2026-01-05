@@ -21,6 +21,7 @@ export class RoleSettingsComponent implements OnInit {
     branches: [] as string[],
     email: '',
     username: '',
+    phoneNumber: '',
     password: '',
     role: 'user'
   };
@@ -30,6 +31,7 @@ export class RoleSettingsComponent implements OnInit {
     branches: [] as string[],
     email: '',
     username: '',
+    phoneNumber: '',
     password: '',
     role: 'user'
   };
@@ -85,7 +87,14 @@ export class RoleSettingsComponent implements OnInit {
     this.http.post('http://localhost:3000/api/admin/users', this.newUser)
       .subscribe({
         next: () => {
-          this.newUser = { branches: [], email: '', username: '', password: '', role: 'user' };
+          this.newUser = {
+            branches: [],
+            email: '',
+            username: '',
+            phoneNumber: '',
+            password: '',
+            role: 'user'
+          };
           this.loadUsers();
         },
         error: (err) => {
@@ -100,6 +109,7 @@ export class RoleSettingsComponent implements OnInit {
       branches: Array.isArray(row?.branches) ? row.branches : (row?.branch ? [row.branch] : []),
       email: row?.email || '',
       username: row?.username || '',
+      phoneNumber: row?.phoneNumber || '',
       password: '',
       role: row?.role || 'user'
     };
@@ -107,7 +117,7 @@ export class RoleSettingsComponent implements OnInit {
 
   cancelEdit() {
     this.editId = null;
-    this.editUser = { branches: [], email: '', username: '', password: '', role: 'user' };
+    this.editUser = { branches: [], email: '', username: '', phoneNumber: '', password: '', role: 'user' };
   }
 
   onEditRoleChange() {
@@ -123,6 +133,7 @@ export class RoleSettingsComponent implements OnInit {
       branches: this.editUser.branches,
       email: this.editUser.email,
       username: this.editUser.username,
+      phoneNumber: this.editUser.phoneNumber,
       role: this.editUser.role
     };
     if (this.editUser.password) payload.password = this.editUser.password;

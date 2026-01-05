@@ -1,1 +1,244 @@
-h2 { color: #1976d2; }
+.reports-page {
+  padding: 20px;
+  color: #0f172a;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.controls input,
+.controls select {
+  padding: 8px 10px;
+  border: 1px solid #cbd5f5;
+  border-radius: 10px;
+  min-width: 280px;
+}
+
+.controls button {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #cbd5f5;
+  background: #fff;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  border-color: #2563eb;
+  color: #1e3a8a;
+}
+
+.controls button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status {
+  padding: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+
+.table-wrap {
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+.address-cell {
+  min-width: 220px;
+}
+
+.consignment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.consignment-list span {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
+
+.print-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+
+.print-btn:hover {
+  background: #1e3a8a;
+  border-color: #1e3a8a;
+}
+
+.payment-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #0f766e;
+  background: #0f766e;
+  color: #fff;
+  cursor: pointer;
+}
+
+.payment-btn:hover {
+  background: #115e59;
+  border-color: #115e59;
+}
+
+.payment-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.payment-btn.cancel {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+
+.payment-btn.cancel:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+}
+
+.delete-btn {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #dc2626;
+  background: #fef2f2;
+  color: #dc2626;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+.delete-btn:hover {
+  background: #fee2e2;
+}
+
+.delete-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 12px;
+  text-transform: capitalize;
+}
+
+.status-pill.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.empty {
+  text-align: center;
+  color: #64748b;
+  padding: 18px;
+}
+
+.popup-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1100;
+}
+
+.popup-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: min(420px, 90vw);
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.25);
+}
+
+.popup-card h3 {
+  margin: 0 0 8px;
+}
+
+.popup-card p {
+  margin: 0 0 16px;
+  color: #475569;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.popup-actions button {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #cbd5f5;
+  background: #fff;
+  cursor: pointer;
+}
+
+.popup-actions .danger {
+  border-color: #dc2626;
+  background: #dc2626;
+  color: #fff;
+}
+
+.popup-actions .danger:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 700px) {
+  .controls input {
+    min-width: 100%;
+  }
+}

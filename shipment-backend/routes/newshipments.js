@@ -5,9 +5,15 @@ import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import Invoice from '../models/NewShipment/NewShipmentInvoice.js';
 import InvoiceProduct from '../models/NewShipment/NewShipmentInvoiceProduct.js';
 import InvoicePackage from '../models/NewShipment/NewShipmentInvoicePackage.js';
+import GeneratedInvoice from '../models/NewShipment/NewShipmentGeneratedInvoice.js';
 import Client from '../models/Client.js';
 import Guest from '../models/Guest.js';
+import User from '../models/User.js';
+import Payment from '../models/Payment/Payment.js';
+import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
+import PaymentTransaction from '../models/Payment/PaymentTransaction.js';
 import { requireAuth } from '../middleware/auth.js';
+import { syncPaymentsFromGeneratedInvoices } from '../services/paymentSync.js';
 
 const router = express.Router();
 
@@ -26,6 +32,26 @@ function findLocationById(locations, targetId) {
     const locId = loc?.delivery_id || loc?._id || loc?.id;
     return locId && String(locId) === matchId;
   }) || null;
+}
+
+function getFiscalYearWindow(date = new Date()) {
+  const year = date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;
+  const start = new Date(year, 3, 1);
+  const end = new Date(year + 1, 2, 31, 23, 59, 59);
+  return { year, start, end, label: `${year}-${year + 1}` };
+}
+
+function buildBillingKey(shipment) {
+  const clientId = shipment?.billingClientId ? String(shipment.billingClientId) : '';
+  const locationId = shipment?.billingLocationId ? String(shipment.billingLocationId) : '';
+  return `${clientId}::${locationId}`;
+}
+
+function normalizeInvoiceStatus(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'paid') return 'Paid';
+  if (normalized === 'active' || normalized === 'invoiced') return 'Active';
+  return '';
 }
 
 async function buildShipmentViews(shipments) {
@@ -295,6 +321,388 @@ router.get('/nextConsignment', requireAuth, async (req, res) => {
     res.json({ nextNumber, fiscalYear: `${year}-${year + 1}` });
   } catch (err) {
     res.status(500).json({ error: 'Failed to get next consignment number', details: err });
+  }
+});
+
+// Generate invoices by billing address + client
+router.post('/generateInvoices', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const consignmentNumbers = (req.body?.consignmentNumbers || [])
+      .map((c) => String(c || '').trim())
+      .filter(Boolean);
+
+    if (!consignmentNumbers.length) {
+      return res.status(400).json({ message: 'Missing consignmentNumbers' });
+    }
+
+    const shipments = await Shipment.find({
+      GSTIN_ID: gstinId,
+      consignmentNumber: { $in: consignmentNumbers }
+    }).lean();
+
+    if (!shipments.length) {
+      return res.status(404).json({ message: 'No consignments found' });
+    }
+
+    const missingBilling = shipments
+      .filter((s) => !s.billingClientId || !s.billingLocationId)
+      .map((s) => s.consignmentNumber);
+    if (missingBilling.length) {
+      return res.status(400).json({
+        message: 'Missing billing client/location for consignments',
+        consignments: missingBilling
+      });
+    }
+
+    const groups = new Map();
+    for (const shipment of shipments) {
+      const key = buildBillingKey(shipment);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(shipment);
+    }
+
+    const billingClientIds = Array.from(groups.values())
+      .map((group) => group[0]?.billingClientId)
+      .filter(Boolean)
+      .map((id) => String(id));
+    const clients = billingClientIds.length
+      ? await Client.find({ _id: { $in: billingClientIds } }).lean()
+      : [];
+    const clientsById = new Map((clients || []).map((c) => [String(c._id), c]));
+
+    const { label: fiscalYear, start: fiscalYearStart } = getFiscalYearWindow();
+    const lastInvoice = await GeneratedInvoice.findOne({
+      GSTIN_ID: gstinId,
+      fiscalYear
+    })
+      .sort({ invoiceNumber: -1 })
+      .select('invoiceNumber')
+      .lean();
+    let nextNumber = Number(lastInvoice?.invoiceNumber) || 0;
+
+    const invoiceDocs = [];
+    const updates = [];
+
+    for (const group of groups.values()) {
+      nextNumber += 1;
+      const first = group[0] || {};
+      const billingClientId = first.billingClientId || null;
+      const billingLocationId = first.billingLocationId || null;
+      const client = billingClientId ? clientsById.get(String(billingClientId)) : null;
+      const location = client?.deliveryLocations?.length
+        ? (findLocationById(client.deliveryLocations, billingLocationId) || client.deliveryLocations[0])
+        : null;
+      const billingAddress = location ? formatLocation(location) : (client?.address || '');
+
+      const consignments = group.map((s) => ({
+        consignmentNumber: String(s.consignmentNumber || ''),
+        shipmentId: s._id
+      }));
+
+      invoiceDocs.push({
+        GSTIN_ID: gstinId,
+        fiscalYear,
+        fiscalYearStart,
+        invoiceNumber: nextNumber,
+        billingClientId,
+        billingLocationId,
+        clientName: client?.clientName || '',
+        clientGSTIN: client?.GSTIN || '',
+        billingAddress,
+        consignments,
+        createdBy: req.user.username || ''
+      });
+
+      updates.push({
+        updateMany: {
+          filter: {
+            GSTIN_ID: gstinId,
+            consignmentNumber: { $in: group.map((s) => s.consignmentNumber) }
+          },
+          update: {
+            $set: {
+              shipmentStatus: 'Invoiced',
+              shipmentStatusDetails: String(nextNumber)
+            }
+          }
+        }
+      });
+    }
+
+    const created = invoiceDocs.length ? await GeneratedInvoice.insertMany(invoiceDocs) : [];
+    if (updates.length) {
+      await Shipment.bulkWrite(updates);
+    }
+
+    const clientIds = Array.from(
+      new Set(invoiceDocs.map((inv) => String(inv.billingClientId || '')).filter(Boolean))
+    );
+    if (clientIds.length) {
+      await syncPaymentsFromGeneratedInvoices(gstinId, clientIds);
+    }
+
+    res.json({
+      message: 'Invoices generated',
+      invoices: created
+    });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// List generated invoices (defaults to current fiscal year)
+router.get('/generatedInvoices', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const fy = String(req.query.fiscalYear || '').trim();
+    const fiscalWindow = getFiscalYearWindow();
+    const fiscalYear = fy || fiscalWindow.label;
+
+    const [invoices, company] = await Promise.all([
+      GeneratedInvoice.find({
+        GSTIN_ID: gstinId,
+        fiscalYear
+      }).sort({ invoiceNumber: -1 }).lean(),
+      User.findById(gstinId).lean()
+    ]);
+
+    const gstPercent = Number(company?.companyType) || 0;
+
+    const consignmentNumbers = invoices.flatMap((inv) =>
+      (inv.consignments || []).map((c) => c.consignmentNumber)
+    );
+    const shipments = consignmentNumbers.length
+      ? await Shipment.find({
+          GSTIN_ID: gstinId,
+          consignmentNumber: { $in: consignmentNumbers }
+        }).lean()
+      : [];
+    const shipmentsByNumber = new Map(
+      (shipments || []).map((s) => [String(s.consignmentNumber), s])
+    );
+
+    const response = invoices.map((inv) => ({
+      ...inv,
+      consignments: (inv.consignments || []).map((c) => {
+        const shipment = shipmentsByNumber.get(String(c.consignmentNumber)) || {};
+        return {
+          ...c,
+          consignor: shipment.consignor || '',
+          deliveryAddress: shipment.deliveryAddress || '',
+          finalAmount: shipment.finalAmount || 0,
+          charges: shipment.charges || {},
+          date: shipment.date || null
+        };
+      })
+    }));
+
+    res.json({ fiscalYear, gstPercent, invoices: response });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// List available fiscal years for generated invoices
+router.get('/generatedInvoices/years', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const years = await GeneratedInvoice.distinct('fiscalYear', { GSTIN_ID: gstinId });
+    const sorted = (years || []).slice().sort((a, b) => String(b).localeCompare(String(a)));
+    res.json({ years: sorted });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Cancel generated invoice and revert consignments
+router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const invoice = await GeneratedInvoice.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
+    if (!invoice) return res.status(404).json({ message: 'Generated invoice not found' });
+
+    if (String(invoice.status || '').toLowerCase() !== 'cancelled') {
+      invoice.status = 'cancelled';
+      await invoice.save();
+    }
+
+    const consignmentNumbers = (invoice.consignments || [])
+      .map((c) => String(c?.consignmentNumber || '').trim())
+      .filter(Boolean);
+
+    if (consignmentNumbers.length) {
+      await Shipment.updateMany(
+        { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
+        { $set: { shipmentStatus: 'Pre-Invoiced' }, $unset: { shipmentStatusDetails: '' } }
+      );
+    }
+
+    const clientIds = invoice.billingClientId ? [String(invoice.billingClientId)] : [];
+    if (clientIds.length) {
+      await syncPaymentsFromGeneratedInvoices(gstinId, clientIds);
+    }
+
+    res.json({ message: 'Generated invoice cancelled', invoice });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Update generated invoice payment status (Paid/Active)
+router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const desired = normalizeInvoiceStatus(req.body?.status);
+    if (!desired) return res.status(400).json({ message: 'Invalid status' });
+
+    const invoice = await GeneratedInvoice.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
+    if (!invoice) return res.status(404).json({ message: 'Generated invoice not found' });
+
+    if (String(invoice.status || '').toLowerCase() === 'cancelled') {
+      return res.status(400).json({ message: 'Cancelled invoices cannot be updated' });
+    }
+
+    const current = normalizeInvoiceStatus(invoice.status) || 'Active';
+    if (current === desired) {
+      return res.json({ invoice });
+    }
+
+    const consignmentNumbers = (invoice.consignments || [])
+      .map((c) => String(c?.consignmentNumber || '').trim())
+      .filter(Boolean);
+
+    const shipments = consignmentNumbers.length
+      ? await Shipment.find({
+          GSTIN_ID: gstinId,
+          consignmentNumber: { $in: consignmentNumbers }
+        }).select('consignmentNumber finalAmount').lean()
+      : [];
+    const invoiceTotal = shipments.reduce((sum, s) => sum + Number(s.finalAmount || 0), 0);
+
+    const delta = desired === 'Paid' ? invoiceTotal : -invoiceTotal;
+
+    // Update shipment statuses
+    const shipmentStatus = desired === 'Paid' ? 'Paid' : 'Invoiced';
+    if (consignmentNumbers.length) {
+      await Shipment.updateMany(
+        { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
+        { $set: { shipmentStatus } }
+      );
+    }
+
+    // Update payment summaries for client
+    const billingClientId = invoice.billingClientId ? String(invoice.billingClientId) : '';
+    if (billingClientId) {
+      let [summary, payment] = await Promise.all([
+        PaymentEntitySummary.findOne({ GSTIN_ID: gstinId, entityType: 'client', entityId: billingClientId }),
+        Payment.findOne({ GSTIN_ID: gstinId, entityType: 'client', entityId: billingClientId })
+      ]);
+
+      if (!summary) {
+        const totalPaid = desired === 'Paid' ? invoiceTotal : 0;
+        const totalBalance = Math.max(invoiceTotal - totalPaid, 0);
+        summary = await PaymentEntitySummary.create({
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: billingClientId,
+          totalDue: invoiceTotal,
+          totalPaid,
+          totalBalance,
+          status: desired === 'Paid' ? 'Paid' : 'Active'
+        });
+      }
+
+      if (summary) {
+        const totalPaid = Math.max(Number(summary.totalPaid || 0) + delta, 0);
+        const totalDue = Number(summary.totalDue || 0);
+        const totalBalance = Math.max(totalDue - totalPaid, 0);
+        summary.totalPaid = totalPaid;
+        summary.totalBalance = totalBalance;
+        summary.status = desired === 'Paid' ? 'Paid' : 'Active';
+        summary.lastPaymentDate = desired === 'Paid' ? new Date() : summary.lastPaymentDate;
+        await summary.save();
+      }
+
+      if (!payment) {
+        const amountPaid = desired === 'Paid' ? invoiceTotal : 0;
+        const balance = Math.max(invoiceTotal - amountPaid, 0);
+        payment = await Payment.create({
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: billingClientId,
+          amountDue: invoiceTotal,
+          amountPaid,
+          balance,
+          status: desired === 'Paid' ? 'Paid' : 'Active',
+          paymentDate: desired === 'Paid' ? new Date() : null
+        });
+      }
+
+      if (payment) {
+        const amountPaid = Math.max(Number(payment.amountPaid || 0) + delta, 0);
+        const amountDue = Number(payment.amountDue || 0);
+        const balance = Math.max(amountDue - amountPaid, 0);
+        payment.amountPaid = amountPaid;
+        payment.balance = balance;
+        payment.status = desired === 'Paid' ? 'Paid' : 'Active';
+        payment.paymentDate = desired === 'Paid' ? new Date() : payment.paymentDate;
+        await payment.save();
+
+        if (desired === 'Paid') {
+          const referenceNo = invoice.invoiceNumber ? `INV-${invoice.invoiceNumber}` : undefined;
+          await PaymentTransaction.create({
+            paymentId: payment._id,
+            invoiceId: invoice._id,
+            amount: invoiceTotal,
+            transactionDate: new Date(),
+            method: 'Invoice',
+            referenceNo,
+            notes: `Marked paid via invoice ${invoice.invoiceNumber || ''}`,
+            status: 'posted'
+          });
+        } else {
+          const referenceNo = invoice.invoiceNumber ? `INV-${invoice.invoiceNumber}` : undefined;
+          const tx = await PaymentTransaction.findOne({
+            paymentId: payment._id,
+            method: 'Invoice',
+            status: { $ne: 'voided' },
+            ...(invoice._id ? { invoiceId: invoice._id } : {}),
+            ...(referenceNo ? { referenceNo } : {})
+          })
+            .sort({ createdAt: -1 })
+            .lean();
+          if (tx?._id) {
+            await PaymentTransaction.updateOne(
+              { _id: tx._id },
+              { $set: { status: 'voided', voidedAt: new Date(), voidReason: 'Payment cancelled' } }
+            );
+          }
+        }
+      }
+    }
+
+    invoice.status = desired;
+    await invoice.save();
+
+    const clientIds = invoice.billingClientId ? [String(invoice.billingClientId)] : [];
+    if (clientIds.length) {
+      await syncPaymentsFromGeneratedInvoices(gstinId, clientIds, { preserveStatus: true });
+    }
+
+    res.json({ invoice });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
   }
 });
 

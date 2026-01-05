@@ -220,8 +220,27 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   }
 
   confirmGenerateInvoice() {
-    this.showGenerateInvoicePopup = false;
-    this.finalizePreInvoiced();
+    const selectedConsignments = (this.filteredPreInvoiced || []).filter(i => i.selected);
+    if (selectedConsignments.length === 0) {
+      console.warn('No consignments selected for invoicing.');
+      this.showGenerateInvoicePopup = false;
+      return;
+    }
+
+    const consignmentNumbers = selectedConsignments.map((s) => s.consignmentNumber);
+    this.http.post('http://localhost:3000/api/newshipments/generateInvoices', {
+      consignmentNumbers
+    }).subscribe({
+      next: () => {
+        this.showGenerateInvoicePopup = false;
+        this.filteredPreInvoiced.forEach(i => i.selected = false);
+        this.loadInvoices();
+      },
+      error: (err) => {
+        console.error('Error generating invoices:', err);
+        this.showGenerateInvoicePopup = false;
+      }
+    });
   }
 
   cancelGenerateInvoice() {

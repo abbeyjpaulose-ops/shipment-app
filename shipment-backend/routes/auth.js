@@ -3,6 +3,8 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Profile from '../models/Profile.js';
+import AuditLog from '../models/AuditLog.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -67,6 +69,25 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
+    try {
+      await AuditLog.create({
+        GSTIN_ID: gstinId,
+        actorUserId: Number(account._id),
+        actorUsername: account.username,
+        actorEmail: account.email,
+        actorRole: account.role,
+        action: 'auth.login',
+        entity: accountType === 'user' ? 'User' : 'Profile',
+        source: 'auth-login',
+        metadata: {
+          ip: req.ip,
+          userAgent: req.get('user-agent') || ''
+        }
+      });
+    } catch (err) {
+      console.error('Audit log write failed:', err.message);
+    }
+
     return res.json({
       token,
       username: account.username,
@@ -82,6 +103,29 @@ router.post('/login', async (req, res) => {
     console.error('Error in /login route:', err);
     res.status(500).json({ message: 'Server error' });
   }
+});
+
+router.post('/logout', requireAuth, async (req, res) => {
+  try {
+    await AuditLog.create({
+      GSTIN_ID: Number(req.user.id),
+      actorUserId: Number(req.user.userId),
+      actorUsername: req.user.username,
+      actorEmail: req.user.email,
+      actorRole: req.user.role,
+      action: 'auth.logout',
+      entity: req.user.accountType === 'user' ? 'User' : 'Profile',
+      source: 'auth-logout',
+      metadata: {
+        ip: req.ip,
+        userAgent: req.get('user-agent') || ''
+      }
+    });
+  } catch (err) {
+    console.error('Audit log write failed:', err.message);
+  }
+
+  res.json({ success: true });
 });
 
 export default router;

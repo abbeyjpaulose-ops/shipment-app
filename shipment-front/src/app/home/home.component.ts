@@ -77,5 +77,20 @@ export class HomeComponent implements OnInit {
       window.location.reload();
     }
   }
+
+  logout() {
+    const ok = window.confirm('Log out now?');
+    if (!ok) return;
+    this.http.post('http://localhost:3000/api/auth/logout', {}).subscribe({
+      next: () => {
+        localStorage.clear();
+        window.location.href = '/';
+      },
+      error: () => {
+        localStorage.clear();
+        window.location.href = '/';
+      }
+    });
+  }
 }
 

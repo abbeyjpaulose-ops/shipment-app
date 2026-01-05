@@ -7,7 +7,7 @@
         <img *ngIf="profile.photo" [src]="profile.photo" alt="Profile Photo" />
         <span *ngIf="!profile.photo">No Photo</span>
       </div>
-      <input type="file" (change)="onFileSelected($event)" />
+      <input type="file" (change)="onFileSelected($event)" [disabled]="!isAdmin()" />
     </div>
 
     <!-- Profile Form -->
@@ -20,22 +20,27 @@
 
       <div class="form-row">
         <label>Address:</label>
-        <textarea [(ngModel)]="profile.address" placeholder="Enter address"></textarea>
+        <textarea [(ngModel)]="profile.address" placeholder="Enter address" [disabled]="!isAdmin()"></textarea>
       </div>
 
       <div class="form-row">
         <label>Company Name:</label>
-        <input type="text" [(ngModel)]="profile.company" placeholder="Enter company name" />
+        <input type="text" [(ngModel)]="profile.company" placeholder="Enter company name" [disabled]="!isAdmin()" />
       </div>
 
       <div class="form-row">
         <label>Mobile Number:</label>
-        <input type="text" [(ngModel)]="profile.mobile" placeholder="Enter mobile number" />
+        <input type="text" [(ngModel)]="profile.mobile" placeholder="Enter mobile number" [disabled]="!isAdmin()" />
       </div>
 
       <div class="form-row">
         <label>Email:</label>
         <span>{{ profile.email }}</span>
+      </div>
+
+      <div class="form-row">
+        <label>GSTIN:</label>
+        <span>{{ profile.gstin }}</span>
       </div>
 
       <div class="form-row">
@@ -51,15 +56,15 @@
     <label>Type of Business:</label>
     <div>
       <label>
-        <input type="radio" [(ngModel)]="profile.businessType" value="5" />
+        <input type="radio" [(ngModel)]="profile.businessType" value="5" [disabled]="!isAdmin()" />
         Goods Transport Agency (GTA) - 5%
       </label>
       <label>
-        <input type="radio" [(ngModel)]="profile.businessType" value="12" />
+        <input type="radio" [(ngModel)]="profile.businessType" value="12" [disabled]="!isAdmin()" />
         Parcel - 12%
       </label>
       <label>
-        <input type="radio" [(ngModel)]="profile.businessType" value="18" />
+        <input type="radio" [(ngModel)]="profile.businessType" value="18" [disabled]="!isAdmin()" />
         Courier - 18%
       </label>
     </div>
@@ -67,7 +72,7 @@
 
 
   <!-- ⭐ NEW SECTION: Standard Pricing -->
-  <div class="pricing-section">
+  <div class="pricing-section" *ngIf="isAdmin()">
     <h3>Standard Pricing</h3>
     
     <div class="grid-3">
@@ -88,8 +93,9 @@
 
   <!-- Buttons at bottom -->
   <div class="button-section">
-    <button (click)="saveProfile()">Save</button>
-    <button (click)="clearProfile()">Clear</button>
+    <button (click)="saveProfile()" [disabled]="!isAdmin()">Save</button>
+    <button (click)="backfillBusinessType()" *ngIf="isAdmin()">Backfill Business Type</button>
+    <button (click)="clearProfile()" *ngIf="isAdmin()">Clear</button>
   </div>
 
 </div>
