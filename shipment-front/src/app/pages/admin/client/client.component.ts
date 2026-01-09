@@ -194,6 +194,10 @@ export class ClientComponent implements OnInit {
       alert('Please select a specific branch before adding a client.');
       return;
     }
+    if (!this.hasRequiredPinCodes(this.newClient)) {
+      alert('Please enter a Pin Code for every delivery location.');
+      return;
+    }
 
     this.http.post('http://localhost:3000/api/clients/add', this.newClient, {
       headers: { 'Content-Type': 'application/json' }
@@ -212,6 +216,10 @@ export class ClientComponent implements OnInit {
 
   /** Edit Functions */
   saveEdit() {
+    if (!this.hasRequiredPinCodes(this.editingClient)) {
+      alert('Please enter a Pin Code for every delivery location.');
+      return;
+    }
     this.http.put(`http://localhost:3000/api/clients/${this.editingClient._id}`, this.editingClient)
       .subscribe(() => {
         this.loadClients();
@@ -255,5 +263,17 @@ export class ClientComponent implements OnInit {
           }))
         : [this.createRateEntry()]
     };
+  }
+
+  private hasRequiredPinCodes(client: any): boolean {
+    if (!client) return false;
+    if (Array.isArray(client.deliveryLocations)) {
+      const missing = client.deliveryLocations.some((loc: any) => !String(loc?.pinCode || '').trim());
+      if (missing) return false;
+    }
+    if ('pinCode' in client && !String(client?.pinCode || '').trim()) {
+      return false;
+    }
+    return true;
   }
 }

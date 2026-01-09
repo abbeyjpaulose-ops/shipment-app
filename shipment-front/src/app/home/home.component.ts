@@ -27,6 +27,7 @@ export class HomeComponent implements OnInit {
   // Branch data
   branchOptions: string[] = [];
   selectedBranch: string = localStorage.getItem('branch') || '';
+  showLogoutModal = false;
 
   constructor(private http: HttpClient, private branchService: BranchService) {}
 
@@ -78,9 +79,20 @@ export class HomeComponent implements OnInit {
     }
   }
 
-  logout() {
-    const ok = window.confirm('Log out now?');
-    if (!ok) return;
+  openLogoutModal() {
+    this.showLogoutModal = true;
+  }
+
+  closeLogoutModal() {
+    this.showLogoutModal = false;
+  }
+
+  confirmLogout() {
+    this.showLogoutModal = false;
+    this.performLogout();
+  }
+
+  private performLogout() {
     this.http.post('http://localhost:3000/api/auth/logout', {}).subscribe({
       next: () => {
         localStorage.clear();

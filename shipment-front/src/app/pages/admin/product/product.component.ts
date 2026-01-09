@@ -29,6 +29,14 @@ export class ProductComponent implements OnInit {
   };
   editingProduct: any = null;
 
+  get filteredProducts(): any[] {
+    const branch = localStorage.getItem('branch') || 'All Branches';
+    if (branch === 'All Branches') {
+      return this.products;
+    }
+    return (this.products || []).filter((product: any) => product?.branch === branch);
+  }
+
   constructor(private http: HttpClient) {}
 
   ngOnInit() {

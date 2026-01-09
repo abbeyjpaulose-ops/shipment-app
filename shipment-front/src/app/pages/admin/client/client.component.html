@@ -16,7 +16,7 @@
         <input [(ngModel)]="newClient.deliveryLocations[0].address" placeholder="Address" required>
         <input [(ngModel)]="newClient.deliveryLocations[0].city" placeholder="City">
         <input [(ngModel)]="newClient.deliveryLocations[0].state" placeholder="State">
-        <input [(ngModel)]="newClient.deliveryLocations[0].pinCode" placeholder="Pin Code">
+        <input [(ngModel)]="newClient.deliveryLocations[0].pinCode" placeholder="Pin Code" required>
         <input [(ngModel)]="newClient.GSTIN" placeholder="GSTIN" required>
         <input [(ngModel)]="newClient.phoneNum" placeholder="Contact Number" required>
         <input [(ngModel)]="newClient.perDis" placeholder="% of Discount" required>
@@ -33,7 +33,7 @@
           <input [(ngModel)]="d.address" placeholder="Delivery Address" required>
           <input [(ngModel)]="d.city" placeholder="City">
           <input [(ngModel)]="d.state" placeholder="State">
-          <input [(ngModel)]="d.pinCode" placeholder="Pin Code">
+          <input [(ngModel)]="d.pinCode" placeholder="Pin Code" required>
 
           <!-- Remove -->
           <button type="button" (click)="removeDeliveryLocation(i)">Remove</button>
@@ -155,7 +155,7 @@
       <input [(ngModel)]="editingClient.address" placeholder="Address" required>
       <input [(ngModel)]="editingClient.city" placeholder="City">
       <input [(ngModel)]="editingClient.state" placeholder="State">
-      <input [(ngModel)]="editingClient.pinCode" placeholder="Pin Code">
+      <input [(ngModel)]="editingClient.pinCode" placeholder="Pin Code" required>
       <input [(ngModel)]="editingClient.GSTIN" placeholder="GSTIN" required>
       <input [(ngModel)]="editingClient.phoneNum" placeholder="Contact Number" required>
       <input [(ngModel)]="editingClient.perDis" placeholder="% of Discount" required>
@@ -170,7 +170,7 @@
         <input [(ngModel)]="d.address" placeholder="Delivery Address" required>
           <input [(ngModel)]="d.city" placeholder="City">
           <input [(ngModel)]="d.state" placeholder="State">
-          <input [(ngModel)]="d.pinCode" placeholder="Pin Code">
+          <input [(ngModel)]="d.pinCode" placeholder="Pin Code" required>
         <button type="button" (click)="removeDeliveryLocationEdit(i)">Remove</button>
       </div>
       <button type="button" (click)="addDeliveryLocationEdit()">+ Add Delivery Location</button>

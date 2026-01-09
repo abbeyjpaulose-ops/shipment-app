@@ -1,7 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
+import { BranchService } from '../../../services/branch.service';
 
 @Component({
   selector: 'app-transport-partner',
@@ -10,11 +12,13 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './tpartner.component.html',
   styleUrls: ['./tpartner.component.css']
 })
-export class TpartnerComponent implements OnInit {
+export class TpartnerComponent implements OnInit, OnDestroy {
 
   partners: any[] = [];
   showAddPartnerPopup = false;
   showEditPartnerPopup = false;
+  branch: string = localStorage.getItem('branch') || 'All Branches';
+  private branchSub?: Subscription;
 
   newPartner = {
     partnerName: '',
@@ -26,7 +30,8 @@ export class TpartnerComponent implements OnInit {
     vehicleNumbers: [] as { number: string; phone: string }[],
     rateType: 'km',
     rateValue: 0,
-    status: 'active'
+    status: 'active',
+    branch: localStorage.getItem('branch') || 'All Branches'
   };
 
   newVehicle = { number: '', phone: '' };
@@ -34,10 +39,23 @@ export class TpartnerComponent implements OnInit {
 
   editing: any = null;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private branchService: BranchService) {}
 
   ngOnInit() {
+    this.branch = this.branchService.currentBranch || this.branch;
+    this.branchSub = this.branchService.branch$.subscribe(branch => {
+      if (branch !== this.branch) {
+        this.branch = branch;
+        this.loadPartners();
+      }
+    });
+    window.addEventListener('storage', this.onStorageChange);
     this.loadPartners();
+  }
+
+  ngOnDestroy(): void {
+    this.branchSub?.unsubscribe();
+    window.removeEventListener('storage', this.onStorageChange);
   }
 
   // Add Vehicle to new Partner form
@@ -66,7 +84,11 @@ export class TpartnerComponent implements OnInit {
 
   // Fetch Data
   loadPartners() {
-    this.http.get<any[]>(`http://localhost:3000/api/tpartners`)
+    this.http.get<any[]>(`http://localhost:3000/api/tpartners`, {
+      params: {
+        branch: this.branch || localStorage.getItem('branch') || 'All Branches'
+      }
+    })
       .subscribe(res => this.partners = res);
   }
 
@@ -80,6 +102,11 @@ export class TpartnerComponent implements OnInit {
 
   // Add Partner
   addPartner() {
+    this.newPartner.branch = this.branch || localStorage.getItem('branch') || 'All Branches';
+    if (this.newPartner.branch === 'All Branches') {
+      alert('Please select a specific branch before adding a transport partner.');
+      return;
+    }
     this.http.post('http://localhost:3000/api/tpartners/add', this.newPartner)
       .subscribe({
         next: () => {
@@ -104,7 +131,8 @@ export class TpartnerComponent implements OnInit {
       vehicleNumbers: [],
       rateType: 'km',
       rateValue: 0,
-      status: 'active'
+      status: 'active',
+      branch: this.branch || localStorage.getItem('branch') || 'All Branches'
     };
   }
 
@@ -135,4 +163,11 @@ export class TpartnerComponent implements OnInit {
     this.http.patch(`http://localhost:3000/api/tpartners/${p._id}/status`, {})
       .subscribe(() => this.loadPartners());
   }
+
+  private onStorageChange = (e: StorageEvent) => {
+    if (e.key === 'branch' && e.newValue && e.newValue !== this.branch) {
+      this.branch = e.newValue;
+      this.loadPartners();
+    }
+  };
 }

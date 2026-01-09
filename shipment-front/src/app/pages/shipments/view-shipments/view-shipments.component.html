@@ -1,58 +1,165 @@
 <div class="shipments-container">
   <h2>View Shipments</h2>
 
-  <!-- dY"? Search and Filters -->
-  <div class="filters">
-    <input
-      type="text"
-      placeholder="Search by consignment no. or consignor"
-      [(ngModel)]="searchText"
-      (input)="applyFilters()" />
-
-    <input
-      type="date"
-      [(ngModel)]="filterDate"
-      (change)="applyFilters()" />
-
-    <select [(ngModel)]="filterStatus" (change)="applyFilters()">
-      <option value="">All Status</option>
-      <option value="Pending">Pending</option>
-      <option value="In Transit">In Transit</option>
-      <option value="Delivered">Delivered</option>
-    </select>
-
-    <input
-      type="text"
-      placeholder="Filter by consignor"
-      [(ngModel)]="filterConsignor"
-      (input)="applyFilters()" />
+  <div class="tabs">
+    <button type="button" (click)="activeTab='all'" [class.active]="activeTab==='all'">All Shipments</button>
+    <button type="button" (click)="activeTab='received'" [class.active]="activeTab==='received'">Received Shipments</button>
   </div>
 
-  <!-- dY"İ Shipments Table -->
-  <div class="table-wrapper">
-    <table class="shipments-table">
-      <thead>
-        <tr>
-          <th>Consignment No.</th>
-          <th>Status</th>
-          <th>Consignor</th>
-          <th>Delivery Address</th>
-          <th>No. of Products</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let s of filteredShipments" (click)="openShipmentDetails(s)">
-          <td>{{ s.consignmentNumber }}</td>
-          <td>{{ s.shipmentStatus }}</td>
-          <td>{{ s.consignor }}</td>
-          <td>{{ s.deliveryAddress }}</td>
-          <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
-        </tr>
-      </tbody>
-    </table>
+  <div *ngIf="activeTab==='all'">
+    <!-- dY"? Search and Filters -->
+    <div class="filters">
+      <input
+        type="text"
+        placeholder="Search by consignment no. or consignor"
+        [(ngModel)]="searchText"
+        (input)="applyFilters()" />
+
+      <input
+        type="date"
+        [(ngModel)]="filterDate"
+        (change)="applyFilters()" />
+
+      <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+        <option value="">All Status</option>
+        <option value="Pending">Pending</option>
+        <option value="In Transit">In Transit</option>
+        <option value="Delivered">Delivered</option>
+      </select>
+
+      <input
+        type="text"
+        placeholder="Filter by consignor"
+        [(ngModel)]="filterConsignor"
+        (input)="applyFilters()" />
+    </div>
+
+    <!-- dY"Žř Shipments Table -->
+    <div class="table-wrapper">
+      <table class="shipments-table">
+        <thead>
+          <tr>
+            <th>Consignment No.</th>
+            <th>Status</th>
+            <th>Branch</th>
+            <th>Consignor</th>
+            <th>Delivery Address</th>
+            <th>No. of Products</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of filteredShipments" (click)="openShipmentDetails(s)">
+            <td>{{ s.consignmentNumber }}</td>
+            <td>{{ s.shipmentStatus }}</td>
+            <td>{{ s.branch }}</td>
+            <td>{{ s.consignor }}</td>
+            <td>{{ s.deliveryAddress }}</td>
+            <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div *ngIf="activeTab==='received'">
+    <div class="actions-bar">
+      <button type="button" class="return-btn" *ngIf="hasSelectedReceived()" (click)="openReturnModal()">Return</button>
+    </div>
+    <div class="filters">
+      <input
+        type="text"
+        placeholder="Search by consignment no. or consignor"
+        [(ngModel)]="searchText"
+        (input)="applyFilters()" />
+
+      <input
+        type="date"
+        [(ngModel)]="filterDate"
+        (change)="applyFilters()" />
+
+      <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+        <option value="">All Status</option>
+        <option value="Pending">Pending</option>
+        <option value="In Transit">In Transit</option>
+        <option value="Delivered">Delivered</option>
+      </select>
+
+      <input
+        type="text"
+        placeholder="Filter by consignor"
+        [(ngModel)]="filterConsignor"
+        (input)="applyFilters()" />
+    </div>
+
+    <div class="table-wrapper">
+      <table class="shipments-table">
+        <thead>
+          <tr>
+            <th><input type="checkbox" (change)="toggleAllReceived($event)" /></th>
+            <th>Consignment No.</th>
+            <th>Branch</th>
+            <th>Consignor</th>
+            <th>Status</th>
+            <th>Delivery Address</th>
+            <th>No. of Products</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of filteredReceived" (click)="openShipmentDetails(s)">
+            <td>
+              <input
+                type="checkbox"
+                [(ngModel)]="s._returnSelected"
+                [disabled]="isCancelled(s)"
+                (click)="$event.stopPropagation()"
+              />
+            </td>
+            <td>{{ s.consignmentNumber }}</td>
+            <td>{{ s.branch }}</td>
+            <td>{{ s.consignor }}</td>
+            <td>{{ s.shipmentStatus }}</td>
+            <td>{{ s.deliveryAddress }}</td>
+            <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
-
+  <div class="modal return-modal" *ngIf="showReturnModal">
+  <div class="modal-content return-content">
+    <button class="details-close" type="button" (click)="closeReturnModal()">&times;</button>
+    <h3>Confirm Return</h3>
+    <p>Mark the selected consignments as returned?</p>
+    <label class="return-toggle">
+      <span>Customer side return and paid by the customer</span>
+      <span class="toggle">
+        <input type="checkbox" [(ngModel)]="showReturnFinalAmount" />
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+      </span>
+    </label>
+    <ul class="return-list">
+      <li *ngFor="let s of getSelectedReceived()">
+        <span class="return-line">
+          <span>{{ s.consignmentNumber }} - {{ s.consignor }}</span>
+          <input
+            *ngIf="showReturnFinalAmount"
+            type="number"
+            min="0"
+            placeholder="Final amount"
+            [(ngModel)]="s.returnFinalAmount"
+          />
+        </span>
+      </li>
+    </ul>
+    <div class="return-actions">
+      <button type="button" class="ghost" (click)="closeReturnModal()">Cancel</button>
+      <button type="button" class="return-btn" (click)="returnSelected()">Return</button>
+    </div>
+  </div>
+</div>
 <!-- dY"` Shipment Details Modal -->
 <div class="modal details-modal" *ngIf="selectedShipment">
   <div class="modal-content details-content">
@@ -68,10 +175,41 @@
     <div class="shipment-details details-grid">
       <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
+      <p><strong>Status Details:</strong> {{ selectedShipment.shipmentStatusDetails }}</p>
+      <p><strong>Branch:</strong> {{ selectedShipment.branch }}</p>
       <p><strong>Consignor:</strong> {{ selectedShipment.consignor }}</p>
+      <p><strong>Consignor GST:</strong> {{ selectedShipment.consignorGST }}</p>
+      <p><strong>Consignor Phone:</strong> {{ selectedShipment.consignorPhone }}</p>
+      <p><strong>Consignor Address:</strong> {{ selectedShipment.consignorAddress }}</p>
       <p><strong>Consignee:</strong> {{ selectedShipment.consignee }}</p>
+      <p><strong>Consignee GST:</strong> {{ selectedShipment.consigneeGST }}</p>
+      <p><strong>Consignee Phone:</strong> {{ selectedShipment.consigneePhone }}</p>
+      <p><strong>Consignee Address:</strong> {{ selectedShipment.consigneeAddress }}</p>
+      <p><strong>Payment Mode:</strong> {{ selectedShipment.paymentMode }}</p>
+      <p><strong>External Ref ID:</strong> {{ selectedShipment.externalRefId }}</p>
+      <p><strong>Billing Type:</strong> {{ selectedShipment.billingType }}</p>
+      <p><strong>Billing Name:</strong> {{ selectedShipment.billingName }}</p>
+      <p><strong>Billing GSTIN:</strong> {{ selectedShipment.billingGSTIN }}</p>
+      <p><strong>Billing Phone:</strong> {{ selectedShipment.billingPhone }}</p>
+      <p><strong>Billing Address:</strong> {{ selectedShipment.billingAddress }}</p>
+      <p><strong>Pickup Type:</strong> {{ selectedShipment.pickupType }}</p>
+      <p><strong>Pickup Name:</strong> {{ selectedShipment.pickupName }}</p>
+      <p><strong>Pickup Phone:</strong> {{ selectedShipment.pickupPhone }}</p>
+      <p><strong>Pickup Address:</strong> {{ selectedShipment.pickupAddress }}</p>
+      <p><strong>Pickup Pincode:</strong> {{ selectedShipment.pickupPincode }}</p>
+      <p><strong>Delivery Type:</strong> {{ selectedShipment.deliveryType }}</p>
+      <p><strong>Delivery To:</strong> {{ getDeliveryDisplayName(selectedShipment) }}</p>
+      <p><strong>Delivery Phone:</strong> {{ selectedShipment.deliveryPhone }}</p>
       <p><strong>Delivery Address:</strong> {{ selectedShipment.deliveryAddress }}</p>
+      <p><strong>Delivery Pincode:</strong> {{ selectedShipment.deliveryPincode }}</p>
       <p><strong>Date:</strong> {{ selectedShipment.date | date:'short' }}</p>
+      <p><strong>Final Amount:</strong> {{ selectedShipment.finalAmount }}</p>
+      <p><strong>Charges - ODC:</strong> {{ selectedShipment?.charges?.odc }}</p>
+      <p><strong>Charges - Unloading:</strong> {{ selectedShipment?.charges?.unloading }}</p>
+      <p><strong>Charges - Docket:</strong> {{ selectedShipment?.charges?.docket }}</p>
+      <p><strong>Charges - Other:</strong> {{ selectedShipment?.charges?.other }}</p>
+      <p><strong>Charges - CCC:</strong> {{ selectedShipment?.charges?.ccc }}</p>
+      <p><strong>Charges - Consignor Discount:</strong> {{ selectedShipment?.charges?.consignorDiscount }}</p>
       <p><strong>Products in stock:</strong> {{ getInStockAmountTotal(selectedShipment.invoices) }}</p>
       <p><strong>No. of Products:</strong> {{ getInvoiceAmountTotal(selectedShipment.invoices) }}</p>
     </div>

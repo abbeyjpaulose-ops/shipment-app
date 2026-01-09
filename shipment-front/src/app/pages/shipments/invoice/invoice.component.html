@@ -104,8 +104,108 @@
           <div class="details-value">{{ selectedInvoice?.consignor }}</div>
         </div>
         <div class="details-item">
+          <div class="details-label">Consignor GST</div>
+          <div class="details-value">{{ selectedInvoice?.consignorGST }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Consignor Phone</div>
+          <div class="details-value">{{ selectedInvoice?.consignorPhone }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Consignor Address</div>
+          <div class="details-value">{{ selectedInvoice?.consignorAddress }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Consignee</div>
+          <div class="details-value">{{ selectedInvoice?.consignee }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Consignee GST</div>
+          <div class="details-value">{{ selectedInvoice?.consigneeGST }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Consignee Phone</div>
+          <div class="details-value">{{ selectedInvoice?.consigneePhone }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Consignee Address</div>
+          <div class="details-value">{{ selectedInvoice?.consigneeAddress }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Branch</div>
+          <div class="details-value">{{ selectedInvoice?.branch }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Date</div>
+          <div class="details-value">{{ selectedInvoice?.date | date:'short' }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Payment Mode</div>
+          <div class="details-value">{{ selectedInvoice?.paymentMode }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">External Ref ID</div>
+          <div class="details-value">{{ selectedInvoice?.externalRefId }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Billing Type</div>
+          <div class="details-value">{{ selectedInvoice?.billingType }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Billing Name</div>
+          <div class="details-value">{{ selectedInvoice?.billingName }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Billing GSTIN</div>
+          <div class="details-value">{{ selectedInvoice?.billingGSTIN }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Billing Phone</div>
+          <div class="details-value">{{ selectedInvoice?.billingPhone }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Billing Address</div>
+          <div class="details-value">{{ selectedInvoice?.billingAddress }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Pickup Type</div>
+          <div class="details-value">{{ selectedInvoice?.pickupType }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Pickup Name</div>
+          <div class="details-value">{{ selectedInvoice?.pickupName }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Pickup Phone</div>
+          <div class="details-value">{{ selectedInvoice?.pickupPhone }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Pickup Address</div>
+          <div class="details-value">{{ selectedInvoice?.pickupAddress }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Pickup Pincode</div>
+          <div class="details-value">{{ selectedInvoice?.pickupPincode }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Delivery Type</div>
+          <div class="details-value">{{ selectedInvoice?.deliveryType }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Delivery To</div>
+          <div class="details-value">{{ selectedInvoice?.deliveryName || selectedInvoice?.deliveryID }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Delivery Phone</div>
+          <div class="details-value">{{ selectedInvoice?.deliveryPhone }}</div>
+        </div>
+        <div class="details-item">
           <div class="details-label">Delivery Address</div>
           <div class="details-value">{{ selectedInvoice?.deliveryAddress }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Delivery Pincode</div>
+          <div class="details-value">{{ selectedInvoice?.deliveryPincode }}</div>
         </div>
         <div class="details-item">
           <div class="details-label">Products</div>
@@ -114,6 +214,34 @@
         <div class="details-item">
           <div class="details-label">Status</div>
           <div class="details-value">{{ selectedInvoice?.shipmentStatus }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Final Amount</div>
+          <div class="details-value">{{ selectedInvoice?.finalAmount }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Charges - ODC</div>
+          <div class="details-value">{{ selectedInvoice?.charges?.odc }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Charges - Unloading</div>
+          <div class="details-value">{{ selectedInvoice?.charges?.unloading }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Charges - Docket</div>
+          <div class="details-value">{{ selectedInvoice?.charges?.docket }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Charges - Other</div>
+          <div class="details-value">{{ selectedInvoice?.charges?.other }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Charges - CCC</div>
+          <div class="details-value">{{ selectedInvoice?.charges?.ccc }}</div>
+        </div>
+        <div class="details-item">
+          <div class="details-label">Charges - Consignor Discount</div>
+          <div class="details-value">{{ selectedInvoice?.charges?.consignorDiscount }}</div>
         </div>
       </div>
 

@@ -35,6 +35,7 @@ const ShipmentSchema = new mongoose.Schema(
     pickupLocationId: { type: mongoose.Schema.Types.ObjectId },
 
     deliveryType: { type: String, trim: true },
+    deliveryID: { type: mongoose.Schema.Types.ObjectId },
     deliveryLocationId: { type: mongoose.Schema.Types.ObjectId },
     deliveryClientId: { type: mongoose.Schema.Types.ObjectId },
 

@@ -304,7 +304,8 @@ router.get('/nextConsignment', requireAuth, async (req, res) => {
         $match: {
           GSTIN_ID: gstinId,
           branch,
-          date: { $gte: fiscalYearStart, $lte: fiscalYearEnd }
+          date: { $gte: fiscalYearStart, $lte: fiscalYearEnd },
+          consignmentNumber: { $regex: '^[0-9]+$' }
         }
       },
       { $addFields: { consignmentNumberInt: { $toInt: '$consignmentNumber' } } },
@@ -416,19 +417,21 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
         createdBy: req.user.username || ''
       });
 
-      updates.push({
-        updateMany: {
-          filter: {
-            GSTIN_ID: gstinId,
-            consignmentNumber: { $in: group.map((s) => s.consignmentNumber) }
-          },
-          update: {
-            $set: {
-              shipmentStatus: 'Invoiced',
-              shipmentStatusDetails: String(nextNumber)
+      group.forEach((shipment) => {
+        updates.push({
+          updateOne: {
+            filter: {
+              GSTIN_ID: gstinId,
+              consignmentNumber: shipment.consignmentNumber
+            },
+            update: {
+              $set: {
+                shipmentStatus: 'Invoiced',
+                shipmentStatusDetails: shipment.branch || ''
+              }
             }
           }
-        }
+        });
       });
     }
 
@@ -540,10 +543,29 @@ router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
       .filter(Boolean);
 
     if (consignmentNumbers.length) {
-      await Shipment.updateMany(
-        { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
-        { $set: { shipmentStatus: 'Pre-Invoiced' }, $unset: { shipmentStatusDetails: '' } }
-      );
+      const shipments = await Shipment.find({
+        GSTIN_ID: gstinId,
+        consignmentNumber: { $in: consignmentNumbers }
+      }).select('consignmentNumber branch').lean();
+
+      if (shipments.length) {
+        await Shipment.bulkWrite(
+          shipments.map((shipment) => ({
+            updateOne: {
+              filter: {
+                GSTIN_ID: gstinId,
+                consignmentNumber: shipment.consignmentNumber
+              },
+              update: {
+                $set: {
+                  shipmentStatus: 'Pre-Invoiced',
+                  shipmentStatusDetails: shipment.branch || ''
+                }
+              }
+            }
+          }))
+        );
+      }
     }
 
     const clientIds = invoice.billingClientId ? [String(invoice.billingClientId)] : [];

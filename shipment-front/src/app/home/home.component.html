@@ -80,11 +80,22 @@
       </ul>
 
       <li><a routerLink="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
-      <li><a (click)="logout()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+      <li><a (click)="openLogoutModal()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
     </ul>
   </aside>
 
   <main class="content">
     <router-outlet></router-outlet>
   </main>
+</div>
+
+<div class="modal-overlay" *ngIf="showLogoutModal">
+  <div class="modal-card">
+    <h3>Log out?</h3>
+    <p>Are you sure you want to end this session?</p>
+    <div class="modal-actions">
+      <button type="button" class="btn ghost" (click)="closeLogoutModal()">Cancel</button>
+      <button type="button" class="btn danger" (click)="confirmLogout()">Log out</button>
+    </div>
+  </div>
 </div>

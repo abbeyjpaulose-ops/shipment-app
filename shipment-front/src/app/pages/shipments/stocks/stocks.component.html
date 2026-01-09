@@ -76,10 +76,40 @@
     <div class="stock-details details-grid">
       <p><strong>Consignment No.:</strong> {{ selectedStock.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedStock.shipmentStatus }}</p>
+      <p><strong>Branch:</strong> {{ selectedStock.branch }}</p>
       <p><strong>Consignor:</strong> {{ selectedStock.consignor }}</p>
+      <p><strong>Consignor GST:</strong> {{ selectedStock.consignorGST }}</p>
+      <p><strong>Consignor Phone:</strong> {{ selectedStock.consignorPhone }}</p>
+      <p><strong>Consignor Address:</strong> {{ selectedStock.consignorAddress }}</p>
       <p><strong>Consignee:</strong> {{ selectedStock.consignee }}</p>
+      <p><strong>Consignee GST:</strong> {{ selectedStock.consigneeGST }}</p>
+      <p><strong>Consignee Phone:</strong> {{ selectedStock.consigneePhone }}</p>
+      <p><strong>Consignee Address:</strong> {{ selectedStock.consigneeAddress }}</p>
+      <p><strong>Payment Mode:</strong> {{ selectedStock.paymentMode }}</p>
+      <p><strong>External Ref ID:</strong> {{ selectedStock.externalRefId }}</p>
+      <p><strong>Billing Type:</strong> {{ selectedStock.billingType }}</p>
+      <p><strong>Billing Name:</strong> {{ selectedStock.billingName }}</p>
+      <p><strong>Billing GSTIN:</strong> {{ selectedStock.billingGSTIN }}</p>
+      <p><strong>Billing Phone:</strong> {{ selectedStock.billingPhone }}</p>
+      <p><strong>Billing Address:</strong> {{ selectedStock.billingAddress }}</p>
+      <p><strong>Pickup Type:</strong> {{ selectedStock.pickupType }}</p>
+      <p><strong>Pickup Name:</strong> {{ selectedStock.pickupName }}</p>
+      <p><strong>Pickup Phone:</strong> {{ selectedStock.pickupPhone }}</p>
+      <p><strong>Pickup Address:</strong> {{ selectedStock.pickupAddress }}</p>
+      <p><strong>Pickup Pincode:</strong> {{ selectedStock.pickupPincode }}</p>
+      <p><strong>Delivery Type:</strong> {{ selectedStock.deliveryType }}</p>
+      <p><strong>Delivery To:</strong> {{ getDeliveryDisplayName(selectedStock) }}</p>
+      <p><strong>Delivery Phone:</strong> {{ selectedStock.deliveryPhone }}</p>
       <p><strong>Delivery Address:</strong> {{ selectedStock.deliveryAddress }}</p>
+      <p><strong>Delivery Pincode:</strong> {{ selectedStock.deliveryPincode }}</p>
       <p><strong>Date:</strong> {{ selectedStock.date | date:'short' }}</p>
+      <p><strong>Final Amount:</strong> {{ selectedStock.finalAmount }}</p>
+      <p><strong>Charges - ODC:</strong> {{ selectedStock?.charges?.odc }}</p>
+      <p><strong>Charges - Unloading:</strong> {{ selectedStock?.charges?.unloading }}</p>
+      <p><strong>Charges - Docket:</strong> {{ selectedStock?.charges?.docket }}</p>
+      <p><strong>Charges - Other:</strong> {{ selectedStock?.charges?.other }}</p>
+      <p><strong>Charges - CCC:</strong> {{ selectedStock?.charges?.ccc }}</p>
+      <p><strong>Charges - Consignor Discount:</strong> {{ selectedStock?.charges?.consignorDiscount }}</p>
       <p><strong>Products in stock:</strong> {{ getInStockAmountTotal(selectedStock.invoices) }}</p>
       <p><strong>No. of Products:</strong> {{ getInvoiceAmountTotal(selectedStock.invoices) }}</p>
     </div>

@@ -256,9 +256,20 @@
           <div class="panel-head">
             <h4>Delivery</h4>
             <div class="tab-buttons ghost">
+              <button (click)="setDeliveryType('branch')" [class.active]="deliveryType==='branch'">Branches</button>
               <button (click)="setDeliveryType('consignee')" [class.active]="deliveryType==='consignee'">Use Consignee</button>
               <button (click)="setDeliveryType('different')" [class.active]="deliveryType==='different'">Different</button>
             </div>
+          </div>
+          <div *ngIf="deliveryType==='branch'" class="panel-body">
+            <label>Delivery Branch
+              <select [(ngModel)]="deliveryBranch" (change)="onDeliveryBranchSelect(deliveryBranch)">
+                <option value="">Select branch</option>
+                <option *ngFor="let b of branches" [value]="b.branchName">
+                  {{ b.branchName }}
+                </option>
+              </select>
+            </label>
           </div>
           <div *ngIf="deliveryType==='consignee'" class="panel-body">
             <label>Consignee Address
@@ -269,6 +280,20 @@
                 </option>
               </select>
             </label>
+          </div>
+          <div *ngIf="deliveryType==='branch'">
+            <div class="field-display">
+              <span class="label">Delivery Branch</span>
+              <span class="value">{{ deliveryName || deliveryBranch || '-' }}</span>
+            </div>
+            <div class="field-display">
+              <span class="label">Delivery Address</span>
+              <span class="value">{{ deliveryAddress || '-' }}</span>
+            </div>
+            <div class="field-display">
+              <span class="label">Delivery Phone</span>
+              <span class="value">{{ deliveryPhone || '-' }}</span>
+            </div>
           </div>
           <div class="field-display">
             <span class="label">Delivery Pincode</span>
@@ -449,9 +474,24 @@
     <div class="action-buttons">
       <button class="ghost" (click)="resetForm()">Reset</button>
       <button class="ghost" (click)="calculateFinalAmount()">Calculate</button>
-      <button class="primary" (click)="saveShipment()" [disabled]="isSaving">
+      <button class="ghost" (click)="saveShipment()" [disabled]="isSaving || !hasValidProduct()">
         {{ isSaving ? 'Saving...' : 'Save' }}
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Final Amount Modal -->
+<div class="modal-backdrop" *ngIf="showFinalAmountModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Final Amount is 0</h3>
+      <button class="icon-btn" (click)="cancelFinalAmountSave()">x</button>
+    </div>
+    <p class="muted small-text">Do you want to continue saving?</p>
+    <div class="modal-actions">
+      <button (click)="cancelFinalAmountSave()">Cancel</button>
+      <button (click)="confirmFinalAmountSave()">Continue</button>
     </div>
   </div>
 </div>

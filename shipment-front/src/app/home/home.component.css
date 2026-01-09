@@ -51,3 +51,56 @@
   padding: 8px;
   font-size: 14px;
 }
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.modal-card {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 12px;
+  padding: 20px;
+  width: min(360px, 90vw);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+}
+
+.modal-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+.modal-card p {
+  margin: 0 0 16px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn {
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+}
+
+.btn.ghost {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.btn.danger {
+  background: #ef4444;
+  color: #ffffff;
+}

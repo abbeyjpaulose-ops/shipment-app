@@ -222,6 +222,137 @@ calculateFinalAmount() {
     );
   }
 
+  private normalizeId(value: any): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value?._id) return String(value._id);
+    if (value?.$oid) return String(value.$oid);
+    return String(value);
+  }
+
+  getDeliveryDisplayName(stock: any): string {
+    const name = String(stock?.deliveryName || '').trim();
+    if (name) return name;
+    const deliveryId = this.normalizeId(stock?.deliveryID);
+    if (!deliveryId) return '-';
+    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === deliveryId);
+    if (branch?.branchName) return branch.branchName;
+    const client = (this.clientList || []).find(c => this.normalizeId(c?._id) === deliveryId);
+    if (client?.clientName) return client.clientName;
+    const guest = (this.guestList || []).find(g => this.normalizeId(g?._id) === deliveryId);
+    if (guest?.guestName) return guest.guestName;
+    return deliveryId;
+  }
+
+  private firstNonEmpty(...values: any[]): string {
+    for (const value of values) {
+      if (value === undefined || value === null) continue;
+      const text = String(value).trim();
+      if (text) return text;
+    }
+    return '-';
+  }
+
+  private resolveClientByIdOrName(id: any, name: any): any | null {
+    const normId = this.normalizeId(id);
+    const normName = String(name || '').trim().toLowerCase();
+    return (this.clientList || []).find((c) =>
+      (normId && this.normalizeId(c?._id) === normId) ||
+      (normName && String(c?.clientName || '').trim().toLowerCase() === normName)
+    ) || null;
+  }
+
+  private resolveGuestByIdOrName(id: any, name: any): any | null {
+    const normId = this.normalizeId(id);
+    const normName = String(name || '').trim().toLowerCase();
+    return (this.guestList || []).find((g) =>
+      (normId && this.normalizeId(g?._id) === normId) ||
+      (normName && String(g?.guestName || '').trim().toLowerCase() === normName)
+    ) || null;
+  }
+
+  private resolveBranchByIdOrName(id: any, name: any): any | null {
+    const normId = this.normalizeId(id);
+    const normName = String(name || '').trim().toLowerCase();
+    return (this.branches || []).find((b) =>
+      (normId && this.normalizeId(b?._id) === normId) ||
+      (normName && String(b?.branchName || '').trim().toLowerCase() === normName)
+    ) || null;
+  }
+
+  private resolveClientLocation(client: any, locationId: any): any | null {
+    if (!client) return null;
+    const normId = this.normalizeId(locationId);
+    const locations = client?.deliveryLocations || [];
+    if (!normId) return locations[0] || null;
+    return locations.find((loc: any) => this.normalizeId(loc?.delivery_id) === normId) || null;
+  }
+
+  private enrichShipmentDetails(stock: any): any {
+    const enriched = { ...stock };
+    const consignor = stock?.consignorTab === 'guest'
+      ? this.resolveGuestByIdOrName(stock?.consignorId, stock?.consignor)
+      : this.resolveClientByIdOrName(stock?.consignorId, stock?.consignor);
+    const consignee = stock?.consigneeTab === 'guest'
+      ? this.resolveGuestByIdOrName(stock?.consigneeId, stock?.consignee)
+      : this.resolveClientByIdOrName(stock?.consigneeId, stock?.consignee);
+
+    enriched.consignor = this.firstNonEmpty(enriched.consignor, consignor?.clientName, consignor?.guestName);
+    enriched.consignorGST = this.firstNonEmpty(enriched.consignorGST, consignor?.GSTIN, stock?.consignorTab === 'guest' ? 'GUEST' : '');
+    enriched.consignorPhone = this.firstNonEmpty(enriched.consignorPhone, consignor?.phoneNum);
+    enriched.consignorAddress = this.firstNonEmpty(enriched.consignorAddress, consignor?.address);
+
+    enriched.consignee = this.firstNonEmpty(enriched.consignee, consignee?.clientName, consignee?.guestName);
+    enriched.consigneeGST = this.firstNonEmpty(enriched.consigneeGST, consignee?.GSTIN, stock?.consigneeTab === 'guest' ? 'GUEST' : '');
+    enriched.consigneePhone = this.firstNonEmpty(enriched.consigneePhone, consignee?.phoneNum);
+    enriched.consigneeAddress = this.firstNonEmpty(enriched.consigneeAddress, consignee?.address);
+
+    if (stock?.billingType === 'consignor') {
+      enriched.billingName = this.firstNonEmpty(enriched.billingName, enriched.consignor);
+      enriched.billingGSTIN = this.firstNonEmpty(enriched.billingGSTIN, enriched.consignorGST);
+      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, enriched.consignorPhone);
+      enriched.billingAddress = this.firstNonEmpty(enriched.billingAddress, enriched.consignorAddress);
+    } else {
+      const billingClient = this.resolveClientByIdOrName(stock?.billingClientId, stock?.billingName);
+      enriched.billingName = this.firstNonEmpty(enriched.billingName, billingClient?.clientName);
+      enriched.billingGSTIN = this.firstNonEmpty(enriched.billingGSTIN, billingClient?.GSTIN);
+      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, billingClient?.phoneNum);
+      enriched.billingAddress = this.firstNonEmpty(enriched.billingAddress, billingClient?.address);
+    }
+
+    if (stock?.pickupType === 'branch') {
+      const pickupBranch = this.resolveBranchByIdOrName(stock?.pickupLocationId, stock?.pickupName) ||
+        this.resolveBranchByIdOrName(null, stock?.branch);
+      enriched.pickupName = this.firstNonEmpty(enriched.pickupName, pickupBranch?.branchName);
+      enriched.pickupAddress = this.firstNonEmpty(enriched.pickupAddress, pickupBranch?.address);
+      enriched.pickupPhone = this.firstNonEmpty(enriched.pickupPhone, pickupBranch?.phoneNum);
+      enriched.pickupPincode = this.firstNonEmpty(enriched.pickupPincode, pickupBranch?.pinCode);
+    } else if (stock?.pickupType === 'consignor') {
+      enriched.pickupName = this.firstNonEmpty(enriched.pickupName, enriched.consignor);
+      enriched.pickupAddress = this.firstNonEmpty(enriched.pickupAddress, enriched.consignorAddress);
+      enriched.pickupPhone = this.firstNonEmpty(enriched.pickupPhone, enriched.consignorPhone);
+      enriched.pickupPincode = this.firstNonEmpty(enriched.pickupPincode, consignor?.pinCode);
+    }
+
+    if (stock?.deliveryType === 'branch') {
+      const deliveryBranch = this.resolveBranchByIdOrName(stock?.deliveryID, stock?.deliveryName);
+      enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryBranch?.branchName);
+      enriched.deliveryAddress = this.firstNonEmpty(enriched.deliveryAddress, deliveryBranch?.address);
+      enriched.deliveryPhone = this.firstNonEmpty(enriched.deliveryPhone, deliveryBranch?.phoneNum);
+      enriched.deliveryPincode = this.firstNonEmpty(enriched.deliveryPincode, deliveryBranch?.pinCode);
+    } else {
+      const deliveryClient = this.resolveClientByIdOrName(stock?.deliveryClientId || stock?.deliveryID, stock?.deliveryName);
+      const deliveryGuest = this.resolveGuestByIdOrName(stock?.deliveryID, stock?.deliveryName);
+      const deliveryLocation = this.resolveClientLocation(deliveryClient, stock?.deliveryLocationId);
+      enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryClient?.clientName, deliveryGuest?.guestName, enriched.consignee);
+      enriched.deliveryAddress = this.firstNonEmpty(enriched.deliveryAddress, deliveryLocation?.address, deliveryClient?.address, deliveryGuest?.address, enriched.consigneeAddress);
+      enriched.deliveryPhone = this.firstNonEmpty(enriched.deliveryPhone, deliveryClient?.phoneNum, deliveryGuest?.phoneNum, enriched.consigneePhone);
+      enriched.deliveryPincode = this.firstNonEmpty(enriched.deliveryPincode, deliveryLocation?.pinCode, deliveryClient?.pinCode, deliveryGuest?.pinCode);
+    }
+
+    return enriched;
+  }
+
   isManifestSelectable(stock: any): boolean {
     const status = String(stock?.shipmentStatus || '').trim();
     return status !== 'To Pay';
@@ -238,7 +369,7 @@ calculateFinalAmount() {
 
 
   openStockDetails(stock: any) {
-    this.selectedStock = stock;
+    this.selectedStock = this.enrichShipmentDetails(stock);
   }
 
   closeStockDetails() {

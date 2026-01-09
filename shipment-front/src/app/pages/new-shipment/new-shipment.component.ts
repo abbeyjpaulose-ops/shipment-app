@@ -91,7 +91,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   pickupSource = 'branch';
 
   // Delivery
-  deliveryType: 'consignee' | 'different' = 'consignee';
+  deliveryType: 'branch' | 'consignee' | 'different' = 'branch';
   deliveryName = '';
   deliveryAddress = '';
   deliveryPhone = '';
@@ -100,6 +100,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   deliveryLocationId: string | null = null;
   deliveryPreviousReceiver = '';
   deliveryClientId: string | null = null;
+  deliveryID: string | null = null;
+  deliveryBranch = '';
 
   consignorTab: 'consignor' | 'guest' = 'consignor';
   consigneeTab: 'consignee' | 'guest' = 'consignee';
@@ -130,6 +132,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   suggestedRates: Record<string, number | null> = {};
   showRateOverrideModal = false;
   branchDetails: any | null = null;
+  branches: any[] = [];
   rateOverrides: Array<{
     productName: string;
     hsnNum?: string;
@@ -157,6 +160,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   applyConsignorDiscount = true;
   maxConsignorDiscount = 0;
   finalAmount: number = 0;
+  showFinalAmountModal: boolean = false;
 
   shipmentStatus: string = 'Pending';
   shipmentStatusDetails: string = '';
@@ -170,6 +174,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';
     this.newClient.branch = this.branch;
+    this.deliveryBranch = this.branch;
 
     this.loadDraft(this.branch);
     this.getCurrentConsignmentNumber();
@@ -215,6 +220,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.branch = newBranch || 'All Branches';
     this.newClient.branch = this.branch;
     this.editClient.branch = this.branch;
+    if (this.deliveryType === 'branch') {
+      this.deliveryBranch = this.branch;
+    }
     this.loadDraft(this.branch);
     this.getCurrentConsignmentNumber();
     this.loadLists();
@@ -246,6 +254,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       pickupPreviousSender: this.pickupPreviousSender,
       pickupSource: this.pickupSource,
       deliveryType: this.deliveryType,
+      deliveryBranch: this.deliveryBranch,
+      deliveryID: this.deliveryID,
       deliveryName: this.deliveryName,
       deliveryAddress: this.deliveryAddress,
       deliveryPhone: this.deliveryPhone,
@@ -303,6 +313,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         pickupPreviousSender: draft.pickupPreviousSender ?? this.pickupPreviousSender,
         pickupSource: draft.pickupSource ?? this.pickupSource,
         deliveryType: draft.deliveryType ?? this.deliveryType,
+        deliveryBranch: draft.deliveryBranch ?? this.deliveryBranch,
+        deliveryID: draft.deliveryID ?? this.deliveryID,
         deliveryName: draft.deliveryName ?? this.deliveryName,
         deliveryAddress: draft.deliveryAddress ?? this.deliveryAddress,
         deliveryPhone: draft.deliveryPhone ?? this.deliveryPhone,
@@ -335,6 +347,11 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       });
       this.onPaymentModeChange();
       this.updatePickupFromBranch();
+      if (this.deliveryType === 'branch') {
+        this.updateDeliveryFromBranch();
+      } else if (this.deliveryType === 'consignee') {
+        this.updateDeliveryFromConsignee();
+      }
     } catch {
       /* ignore bad draft */
     }
@@ -445,7 +462,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.pickupLocationId = null;
     this.pickupPreviousSender = '';
     this.pickupSource = 'branch';
-    this.deliveryType = 'consignee';
+    this.deliveryType = 'branch';
+    this.deliveryBranch = this.branch;
     this.deliveryName = '';
     this.deliveryAddress = '';
     this.deliveryPhone = '';
@@ -454,6 +472,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.deliveryLocationId = null;
     this.deliveryPreviousReceiver = '';
     this.deliveryClientId = null;
+    this.deliveryID = null;
     this.consignorTab = 'consignor';
     this.consigneeTab = 'consignee';
     this.selectedConsignorId = null;
@@ -513,6 +532,23 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   saveShipment() {
     if (this.isSaving) return;
     if (!this.ensureProductAmounts()) return;
+    if (Number(this.finalAmount || 0) === 0) {
+      this.showFinalAmountModal = true;
+      return;
+    }
+    this.beginSaveFlow();
+  }
+
+  confirmFinalAmountSave() {
+    this.showFinalAmountModal = false;
+    this.beginSaveFlow();
+  }
+
+  cancelFinalAmountSave() {
+    this.showFinalAmountModal = false;
+  }
+
+  private beginSaveFlow() {
     const overrides = this.collectRateOverrides();
     if (overrides.length) {
       this.rateOverrides = overrides;
@@ -531,7 +567,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       username: localStorage.getItem('username'),
       branch: localStorage.getItem('branch'),
       shipmentStatus: this.shipmentStatus,
-      shipmentStatusDetails: `${localStorage.getItem('username')}$$${this.date}$$${this.shipmentStatus}`,
+      shipmentStatusDetails: localStorage.getItem('branch') || '',
       consignmentNumber: this.consignmentNumber,
       date: this.date,
       paymentMode: this.paymentMode,
@@ -562,6 +598,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       pickupPincode: this.pickupPincode,
       pickupLocationId: this.pickupLocationId,
       deliveryType: this.deliveryType,
+      deliveryID: this.deliveryID,
       deliveryName: this.deliveryName,
       deliveryAddress: this.deliveryAddress,
       deliveryPhone: this.deliveryPhone,
@@ -719,7 +756,12 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       if (fallbackPin) this.pickupPincode = fallbackPin;
     }
     if (!this.deliveryPincode) {
-      if (this.deliveryType === 'different') {
+      if (this.deliveryType === 'branch') {
+        const selected = (this.branches || []).find(b => b.branchName === this.deliveryBranch);
+        const source = selected || (this.branchDetails?.branchName === this.deliveryBranch ? this.branchDetails : null);
+        const fallbackPin = String(source?.pinCode || '').trim();
+        if (fallbackPin) this.deliveryPincode = fallbackPin;
+      } else if (this.deliveryType === 'different') {
         const locations = this.getClientLocationsByName(this.deliveryPreviousReceiver);
         const byId = this.getLocationById(locations, this.deliveryLocationId);
         const fallbackPin =
@@ -755,22 +797,62 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   private ensureProductAmounts(): boolean {
+    let hasAnyProduct = false;
     for (const ewb of this.ewaybills) {
+      let ewbHasProduct = false;
       for (const inv of ewb.invoices || []) {
+        const validProducts = (inv.products || []).filter(
+          (prod: any) => String(prod?.type || '').trim() && Number(prod?.amount) > 0
+        );
+        if (!validProducts.length) {
+          alert('Please add at least one product to each invoice.');
+          return false;
+        }
         for (const prod of inv.products || []) {
-          if (!prod.amount || prod.amount <= 0) {
+          const type = String(prod?.type || '').trim();
+          const amount = Number(prod?.amount || 0);
+          if (!type && !amount) continue;
+          if (!type) {
+            alert('Please select a product type for all products.');
+            return false;
+          }
+          if (amount <= 0) {
             alert('Please enter a quantity greater than 0 for all products.');
             return false;
           }
+          ewbHasProduct = true;
+          hasAnyProduct = true;
           if (!prod.instock || prod.instock <= 0) {
-            prod.instock = prod.amount;
+            prod.instock = amount;
           }
         }
       }
+      if (!ewbHasProduct) {
+        alert('Please add at least one product to each e-waybill.');
+        return false;
+      }
+    }
+    if (!hasAnyProduct) {
+      alert('Please add at least one product before saving.');
+      return false;
     }
     return true;
   }
 
+  hasValidProduct(): boolean {
+    for (const ewb of this.ewaybills) {
+      for (const inv of ewb.invoices || []) {
+        for (const prod of inv.products || []) {
+          const type = String(prod?.type || '').trim();
+          const amount = Number(prod?.amount || 0);
+          if (type && amount > 0) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
   private setPincodeIfEmpty(target: 'pickup' | 'delivery', value?: string) {
     const pin = String(value || '').trim();
     if (!pin) return;
@@ -905,6 +987,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.deliveryPincode = String(guest?.pinCode ?? guest?.pincode ?? '').trim();
       this.deliveryLocationId = null;
       this.deliveryLocationIndex = '';
+      this.deliveryID = guest._id || null;
       this.onRouteChange();
       return;
     }
@@ -921,6 +1004,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
     this.deliveryLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
     this.deliveryLocationIndex = '';
+    this.deliveryID = client._id || null;
   }
 
   setPickupType(type: 'branch' | 'consignor' | 'different') {
@@ -978,8 +1062,13 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
   }
 
-  setDeliveryType(type: 'consignee' | 'different') {
+  setDeliveryType(type: 'branch' | 'consignee' | 'different') {
     this.deliveryType = type;
+    if (type === 'branch') {
+      if (!this.deliveryBranch) this.deliveryBranch = this.branch;
+      this.updateDeliveryFromBranch();
+      return;
+    }
     if (type === 'consignee') {
       this.updateDeliveryFromConsignee();
       return;
@@ -987,6 +1076,11 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (this.deliveryPreviousReceiver) {
       this.onDeliveryPreviousReceiverSelect(this.deliveryPreviousReceiver);
     }
+  }
+
+  onDeliveryBranchSelect(name: string) {
+    this.deliveryBranch = name;
+    this.updateDeliveryFromBranch();
   }
 
   onBillingLocationSelect(index: string) {
@@ -1063,6 +1157,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.deliveryLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
     this.deliveryClientId = selected._id || null;
     this.deliveryLocationIndex = '';
+    this.deliveryID = selected._id || null;
     this.onRouteChange();
   }
 
@@ -1247,19 +1342,48 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.onRouteChange();
   }
 
-  private loadBranchDetails() {
-    if (!this.branch || this.branch === 'All Branches') {
-      this.branchDetails = null;
-      this.updatePickupFromBranch();
+  private updateDeliveryFromBranch() {
+    const target = String(this.deliveryBranch || this.branch || '').trim();
+    if (!target) {
+      this.deliveryName = '';
+      this.deliveryAddress = '';
+      this.deliveryPhone = '';
+      this.deliveryPincode = '';
+      this.deliveryLocationIndex = '';
+      this.deliveryLocationId = null;
+      this.deliveryClientId = null;
       return;
     }
+    const selected = (this.branches || []).find(b => b.branchName === target);
+    const source = selected || (this.branchDetails?.branchName === target ? this.branchDetails : null);
+    if (!source) {
+      return;
+    }
+    this.deliveryID = source._id || null;
+    this.deliveryBranch = source.branchName || target;
+    this.deliveryName = source.branchName || target;
+    this.deliveryAddress = this.formatBranchAddress(source);
+    this.deliveryPhone = source.phoneNum || '';
+    this.deliveryPincode = String(source.pinCode || '').trim();
+    this.deliveryLocationIndex = '';
+    this.deliveryLocationId = null;
+    this.deliveryClientId = null;
+    this.onRouteChange();
+  }
+
+  private loadBranchDetails() {
     this.http.get<any[]>('http://localhost:3000/api/branches')
       .subscribe({
         next: (branches) => {
-          this.branchDetails = (branches || []).find(b => b.branchName === this.branch) || null;
+          this.branches = branches || [];
+          this.branchDetails = this.branches.find(b => b.branchName === this.branch) || null;
           this.updatePickupFromBranch();
+          if (this.deliveryType === 'branch') {
+            this.updateDeliveryFromBranch();
+          }
         },
         error: () => {
+          this.branches = [];
           this.branchDetails = null;
           this.updatePickupFromBranch();
         }
@@ -1271,10 +1395,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     const client = this.clientList.find(x => x.clientName === name);
     const creditType = String(client?.creditType || '').toLowerCase();
     this.allowAccountCredit = creditType === 'credit' || creditType === 'credit allowed';
-    if (!this.allowAccountCredit && this.paymentMode === 'Account Credit') {
-      this.paymentMode = 'To Pay';
-      this.onPaymentModeChange();
-    }
+    this.paymentMode = this.allowAccountCredit ? 'Account Credit' : 'To Pay';
+    this.onPaymentModeChange();
   }
 
   isPaymentModeEnabled(): boolean {

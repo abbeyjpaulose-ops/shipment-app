@@ -47,7 +47,12 @@ router.get('/', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const partners = await TransportPartner.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
+    const branch = String(req.query.branch || '').trim();
+    const query = { GSTIN_ID: gstinId };
+    if (branch && branch !== 'All Branches') {
+      query.branch = branch;
+    }
+    const partners = await TransportPartner.find(query).sort({ createdAt: -1 });
     res.json(partners);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -106,7 +111,12 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const partners = await TransportPartner.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
+    const branch = String(req.query.branch || '').trim();
+    const query = { GSTIN_ID: gstinId };
+    if (branch && branch !== 'All Branches') {
+      query.branch = branch;
+    }
+    const partners = await TransportPartner.find(query).sort({ createdAt: -1 });
     res.json(partners);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
@@ -118,7 +128,12 @@ router.get('/tpartnerslist', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const partners = await TransportPartner.find({ GSTIN_ID: gstinId, status: 'active' })
+    const branch = String(req.query.branch || '').trim();
+    const query = { GSTIN_ID: gstinId, status: 'active' };
+    if (branch && branch !== 'All Branches') {
+      query.branch = branch;
+    }
+    const partners = await TransportPartner.find(query)
       .select('partnerName address phoneNum vehicleNumbers');
     res.json(partners);
   } catch (err) {
