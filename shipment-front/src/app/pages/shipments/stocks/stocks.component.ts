@@ -161,10 +161,11 @@ calculateFinalAmount() {
       console.error('Missing username for loading stocks');
       return;
     }
+    const branchParam = this.activeTab === 'stocks' ? branchId : 'all';
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username,
-        branchId
+        branchId: branchParam
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -226,7 +227,17 @@ calculateFinalAmount() {
       });
     }
     if (this.activeTab === 'others-in-branch') {
-      if (!branchId || branchId === 'all') return [];
+      if (!branchId || branchId === 'all') {
+        return (this.allStocks || []).filter(stock => {
+          const status = String(stock.shipmentStatus || '').trim();
+          const currentBranchId = this.normalizeId(stock.currentBranchId || stock.currentBranch);
+          const originBranchId = this.normalizeId(stock.branchId);
+          return status === 'DPending' &&
+            currentBranchId &&
+            originBranchId &&
+            originBranchId !== currentBranchId;
+        });
+      }
       return (this.allStocks || []).filter(stock => {
         const status = String(stock.shipmentStatus || '').trim();
         const currentBranchId = this.normalizeId(stock.currentBranchId || stock.currentBranch);
@@ -256,7 +267,7 @@ calculateFinalAmount() {
   setActiveTab(tab: 'stocks' | 'other-branch' | 'others-in-branch') {
     if (this.activeTab === tab) return;
     this.activeTab = tab;
-    this.refreshStocksView();
+    this.loadStocks();
   }
 
   applyFilters() {
@@ -284,9 +295,23 @@ calculateFinalAmount() {
     return branch?._id ? String(branch._id) : '';
   }
 
+  private getBranchNameById(id: string): string {
+    const target = this.normalizeId(id);
+    if (!target) return '';
+    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === target);
+    return branch?.branchName ? String(branch.branchName) : '';
+  }
+
   private isCurrentBranchMatch(currentBranchId: string, uiBranchId: string): boolean {
     if (!currentBranchId || !uiBranchId) return false;
     if (this.normalizeId(currentBranchId) === this.normalizeId(uiBranchId)) return true;
+    const uiBranchName = this.getBranchNameById(uiBranchId);
+    if (
+      uiBranchName &&
+      String(currentBranchId || '').trim().toLowerCase() === String(uiBranchName).trim().toLowerCase()
+    ) {
+      return true;
+    }
     const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(currentBranchId));
     if (!hub?.branch) return false;
     const branchId = this.getBranchIdByName(hub.branch);
@@ -1403,16 +1428,17 @@ finalizeManifestation() {
     const nextPointId = nextPointName ? this.getNextDeliveryPointId(nextPointName) : '';
     const nextPoint = nextPointName ? `$$${nextPointName}` : '';
     const payload = {
-      ...consignment,
+      shipmentId: consignment?._id || '',
       shipmentStatus: this.manifestationStatus || 'Manifestation',
       shipmentStatusDetails: `${consignment.shipmentStatusDetails || ''}${nextPoint}`,
       currentBranchId: nextPointId || consignment.currentBranchId || consignment.currentBranch,
       ewaybills: updatedEwaybills
     };
-    delete (payload as any).paymentMode;
+    const shipmentId = consignment?._id ? encodeURIComponent(consignment._id) : '';
+    const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
 
     return this.http.put(
-      `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`,
+      `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
       payload
     );
   });

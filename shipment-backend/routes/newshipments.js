@@ -819,7 +819,12 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = req.body;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const shipmentId = String(req.query.shipmentId || '').trim();
+    const shipmentId = String(req.query.shipmentId || req.body?.shipmentId || '').trim();
+    delete shipmentData._id;
+    delete shipmentData.consignmentNumber;
+    delete shipmentData.GSTIN_ID;
+    delete shipmentData.branchId;
+    delete shipmentData.branchName;
     if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
       shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
     }

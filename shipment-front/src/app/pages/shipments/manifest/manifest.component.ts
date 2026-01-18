@@ -1229,22 +1229,31 @@ closeManifestationPopup() {
       const isManifestation = status === 'Manifestation';
 
       const payload = {
-        ...consignment,
+        shipmentId: consignment?._id || '',
         shipmentStatus: isManifestation ? 'DPending' : 'Delivered',
         currentBranchId: consignment?.currentBranchId || consignment?.currentBranch,
         ewaybills: updatedEwaybills
       };
+      const shipmentId = consignment?._id ? encodeURIComponent(consignment._id) : '';
+      const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
 
+      console.log('[manifest:update] payload', {
+        consignmentNumber: consignment.consignmentNumber,
+        shipmentId: payload.shipmentId,
+        shipmentStatus: payload.shipmentStatus,
+        currentBranchId: payload.currentBranchId
+      });
       return this.http.put(
-        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`,
-      payload
+        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
+        payload
     );
   });
 
   if (!updates.length) return;
 
   forkJoin(updates).subscribe({
-    next: () => {
+    next: (responses: any[]) => {
+      console.log('[manifest:update] response', responses);
       this.showManifestationPopup = false;
       this.selectedForManifestation = [];
       this.filteredStocks.forEach(s => s.selected = false);
