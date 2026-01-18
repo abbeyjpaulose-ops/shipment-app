@@ -1427,9 +1427,18 @@ finalizeManifestation() {
     const nextPointName = String(this.selectedNextDeliveryPoint || '').trim();
     const nextPointId = nextPointName ? this.getNextDeliveryPointId(nextPointName) : '';
     const nextPoint = nextPointName ? `$$${nextPointName}` : '';
+    const currentStatus = String(consignment?.shipmentStatus || '').trim();
+    let nextStatus = this.manifestationStatus || 'Manifestation';
+    if (currentStatus === 'DPending') {
+      if (nextStatus === 'Out for Delivery') {
+        nextStatus = 'D-Out for Delivery';
+      } else if (nextStatus === 'Will be Picked-Up') {
+        nextStatus = 'D-Will be Picked-Up';
+      }
+    }
     const payload = {
       shipmentId: consignment?._id || '',
-      shipmentStatus: this.manifestationStatus || 'Manifestation',
+      shipmentStatus: nextStatus,
       shipmentStatusDetails: `${consignment.shipmentStatusDetails || ''}${nextPoint}`,
       currentBranchId: nextPointId || consignment.currentBranchId || consignment.currentBranch,
       ewaybills: updatedEwaybills

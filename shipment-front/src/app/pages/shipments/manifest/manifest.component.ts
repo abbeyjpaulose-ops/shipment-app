@@ -15,6 +15,7 @@ import { BranchService } from '../../../services/branch.service';
 export class ManifestComponent implements OnInit, OnDestroy {
   stocks: any[] = [];
   filteredStocks: any[] = [];
+  activeTab: 'stocks' | 'other-branch' | 'others-in-branch' = 'stocks';
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
@@ -156,10 +157,11 @@ calculateFinalAmount() {
       console.error('Missing username for loading stocks');
       return;
     }
+    const branchParam = this.activeTab === 'stocks' ? branchId : 'all';
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username,
-        branchId
+        branchId: branchParam
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -167,11 +169,7 @@ calculateFinalAmount() {
           ...stock,
           invoices: this.flattenInvoices(stock.ewaybills || stock.invoices || [])
         }));
-        this.stocks = normalized
-          .filter(stock => {
-            const status = String(stock.shipmentStatus || '').trim();
-            return status === 'Manifestation' || status === 'Out for Delivery' || status === 'Will be Picked-Up';
-          })
+        this.stocks = this.getBaseStocks(normalized)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         this.routeOptions = this.buildRouteOptions(this.stocks);
         this.applyFilters();
@@ -222,6 +220,109 @@ calculateFinalAmount() {
     if (value?._id) return String(value._id);
     if (value?.$oid) return String(value.$oid);
     return String(value);
+  }
+
+  getOriginBranchDisplay(stock: any): string {
+    const originBranchId = this.normalizeId(stock?.branchId || stock?.branch);
+    if (!originBranchId) return '-';
+    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === originBranchId);
+    if (branch?.branchName) return branch.branchName;
+    return originBranchId;
+  }
+
+  getCurrentBranchDisplay(stock: any): string {
+    const currentBranchId = this.normalizeId(stock?.currentBranchId || stock?.currentBranch);
+    if (!currentBranchId) return '-';
+    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === currentBranchId);
+    if (branch?.branchName) return branch.branchName;
+    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentBranchId);
+    if (hub?.hubName) return hub.hubName;
+    return currentBranchId;
+  }
+
+  private getBranchIdByName(name: string): string {
+    const target = String(name || '').trim().toLowerCase();
+    if (!target) return '';
+    const branch = (this.branches || []).find((b) =>
+      String(b?.branchName || '').trim().toLowerCase() === target
+    );
+    return branch?._id ? String(branch._id) : '';
+  }
+
+  private getBranchNameById(id: string): string {
+    const target = this.normalizeId(id);
+    if (!target) return '';
+    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === target);
+    return branch?.branchName ? String(branch.branchName) : '';
+  }
+
+  private isCurrentBranchMatch(currentBranchId: string, uiBranchId: string): boolean {
+    if (!currentBranchId || !uiBranchId) return false;
+    if (this.normalizeId(currentBranchId) === this.normalizeId(uiBranchId)) return true;
+    const uiBranchName = this.getBranchNameById(uiBranchId);
+    if (
+      uiBranchName &&
+      String(currentBranchId || '').trim().toLowerCase() === String(uiBranchName).trim().toLowerCase()
+    ) {
+      return true;
+    }
+    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(currentBranchId));
+    if (!hub?.branch) return false;
+    const branchId = this.getBranchIdByName(hub.branch);
+    return branchId ? this.normalizeId(branchId) === this.normalizeId(uiBranchId) : false;
+  }
+
+  private isManifestStatus(status: string): boolean {
+    return status === 'Manifestation' ||
+      status === 'Out for Delivery' ||
+      status === 'Will be Picked-Up';
+  }
+
+  private isDeliveryStatus(status: string): boolean {
+    return status === 'DPending' ||
+      status === 'D-Out for Delivery' ||
+      status === 'D-Will be Picked-Up';
+  }
+
+  private getBaseStocks(allStocks: any[]): any[] {
+    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+    if (this.activeTab === 'other-branch') {
+      if (!branchId || branchId === 'all') return [];
+      return (allStocks || []).filter(stock => {
+        const status = String(stock.shipmentStatus || '').trim();
+        return this.isDeliveryStatus(status) && this.normalizeId(stock.branchId) === this.normalizeId(branchId);
+      });
+    }
+    if (this.activeTab === 'others-in-branch') {
+      if (!branchId || branchId === 'all') {
+        return (allStocks || []).filter(stock => {
+          const status = String(stock.shipmentStatus || '').trim();
+          const currentBranchId = this.normalizeId(stock.currentBranchId || stock.currentBranch);
+          const originBranchId = this.normalizeId(stock.branchId);
+          return this.isDeliveryStatus(status) &&
+            currentBranchId &&
+            originBranchId &&
+            originBranchId !== currentBranchId;
+        });
+      }
+      return (allStocks || []).filter(stock => {
+        const status = String(stock.shipmentStatus || '').trim();
+        const currentBranchId = this.normalizeId(stock.currentBranchId || stock.currentBranch);
+        const originBranchId = this.normalizeId(stock.branchId);
+        const currentUiBranchId = this.normalizeId(branchId);
+        const matchesCurrent = this.isCurrentBranchMatch(currentBranchId, currentUiBranchId);
+        return this.isDeliveryStatus(status) &&
+          currentBranchId &&
+          originBranchId &&
+          currentUiBranchId &&
+          originBranchId !== currentUiBranchId &&
+          matchesCurrent;
+      });
+    }
+    return (allStocks || []).filter(stock => {
+      const status = String(stock.shipmentStatus || '').trim();
+      return this.isManifestStatus(status);
+    });
   }
 
   getDeliveryDisplayName(stock: any): string {
@@ -395,6 +496,12 @@ calculateFinalAmount() {
   toggleAllSelection(event: any) {
     const checked = event.target.checked;
     this.filteredStocks.forEach(s => s.selected = checked);
+  }
+
+  setActiveTab(tab: 'stocks' | 'other-branch' | 'others-in-branch') {
+    if (this.activeTab === tab) return;
+    this.activeTab = tab;
+    this.loadStocks();
   }
 
 

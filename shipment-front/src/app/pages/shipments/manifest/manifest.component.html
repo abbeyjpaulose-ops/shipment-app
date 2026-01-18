@@ -1,6 +1,24 @@
 ﻿<div class="stocks-container">
   <h2>Manifested/ On Delivery</h2>
 
+  <div class="stocks-tabs">
+    <button
+      (click)="setActiveTab('stocks')"
+      [class.active]="activeTab === 'stocks'">
+      Stocks
+    </button>
+    <button
+      (click)="setActiveTab('other-branch')"
+      [class.active]="activeTab === 'other-branch'">
+      Stocks in Other branch
+    </button>
+    <button
+      (click)="setActiveTab('others-in-branch')"
+      [class.active]="activeTab === 'others-in-branch'">
+      Others stocks in our branch
+    </button>
+  </div>
+
   <!-- 🔍 Search and Filters (no status filter here) -->
   <div class="filters">
     <input
@@ -90,7 +108,8 @@
     <div class="stock-details details-grid">
       <p><strong>Consignment No.:</strong> {{ selectedStock.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedStock.shipmentStatus }}</p>
-      <p><strong>Branch:</strong> {{ selectedStock.branch }}</p>
+      <p><strong>Branch:</strong> {{ getOriginBranchDisplay(selectedStock) }}</p>
+      <p><strong>Current Branch:</strong> {{ getCurrentBranchDisplay(selectedStock) }}</p>
       <p><strong>Consignor:</strong> {{ selectedStock.consignor }}</p>
       <p><strong>Consignor GST:</strong> {{ selectedStock.consignorGST }}</p>
       <p><strong>Consignor Phone:</strong> {{ selectedStock.consignorPhone }}</p>
