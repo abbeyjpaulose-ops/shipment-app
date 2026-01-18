@@ -157,22 +157,44 @@
               </div>
             </div>
             <div *ngIf="billingType==='different'" class="panel-body">
-              <label>Previous Sender
-                <input
-                  type="search"
-                  list="billing-client-list"
-                  [(ngModel)]="billingPreviousSender"
-                  (ngModelChange)="onBillingPreviousSenderSelect(billingPreviousSender)">
-                <datalist id="billing-client-list">
-                  <option *ngFor="let c of clientList" [value]="c.clientName">
-                    {{ formatClientOption(c) }}
-                  </option>
-                </datalist>
+              <div class="inline-actions">
+                <span class="muted">Saved clients</span>
+                <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
+              </div>
+              <label>Billing Name
+                <select [(ngModel)]="billingSource" (change)="onBillingSourceSelect(billingSource)">
+                  <option value="">Select client or hub</option>
+                  <optgroup label="Clients">
+                    <option *ngFor="let c of clientList" [value]="'client:' + c._id">
+                      {{ c.clientName }}
+                    </option>
+                  </optgroup>
+                  <optgroup label="Hubs">
+                    <option *ngFor="let h of getAvailableHubs()" [value]="'hub:' + h._id">
+                      {{ h.hubName }}
+                    </option>
+                  </optgroup>
+                </select>
               </label>
-              <label>Name <input [(ngModel)]="billingName"></label>
-              <label>GSTIN <input [(ngModel)]="billingGSTIN"></label>
-              <label>Phone <input [(ngModel)]="billingPhone"></label>
-              <label>Address <textarea [(ngModel)]="billingAddress"></textarea></label>
+              <label>Billing Address
+                <select
+                  [(ngModel)]="billingLocationIndex"
+                  (change)="onBillingAddressSelect(billingLocationIndex)"
+                  [disabled]="!billingSource">
+                  <option value="">Select address</option>
+                  <option *ngFor="let addr of billingAddressOptions; let i = index" [value]="i">
+                    {{ addr.label }}
+                  </option>
+                </select>
+              </label>
+              <div class="field-display">
+                <span class="label">GSTIN</span>
+                <span class="value">{{ billingGSTIN || '-' }}</span>
+              </div>
+              <div class="field-display">
+                <span class="label">Phone</span>
+                <span class="value">{{ billingPhone || '-' }}</span>
+              </div>
             </div>
             <div *ngIf="billingType==='consignor' && consignorTab==='consignor'" class="panel-body">
               <label>Consignor Address
@@ -194,42 +216,28 @@
               <h4>Pickup</h4>
               <div class="tab-buttons ghost">
                 <button (click)="activatePickupPrimary()" [class.active]="pickupType!=='different'">Branch / Consignor</button>
-                <button (click)="setPickupType('different')" [class.active]="pickupType==='different'">Different</button>
               </div>
             </div>
             <div *ngIf="pickupType!=='different'" class="panel-body">
+              <div class="inline-actions" *ngIf="getPickupSourceClientId()">
+                <span class="muted">Selected client</span>
+                <button class="tiny-btn" (click)="openPickupEditClient()">+ Edit address</button>
+              </div>
               <label>Pickup Source
                 <select [(ngModel)]="pickupSource" (change)="onPickupSourceSelect(pickupSource)">
                   <option value="branch">Branch - {{ pickupName || branch || '-' }}</option>
-                  <option *ngIf="consignorTab==='consignor' && consignor" value="consignor-primary">
-                    Consignor: Primary address
-                  </option>
-                  <option *ngIf="consignorTab==='guest' && consignor" value="consignor-guest">
-                    Consignor (guest): {{ consignorAddress || '-' }}
-                  </option>
-                  <option *ngFor="let loc of getConsignorLocations(); let i = index" [value]="'consignor:' + i">
-                    Consignor: {{ formatLocation(loc) }}
-                  </option>
+                  <optgroup *ngIf="getPickupConsignorLocations().length" label="Consignor">
+                    <option *ngFor="let loc of getPickupConsignorLocations(); let i = index" [value]="'consignor:' + i">
+                      Consignor: {{ formatLocation(loc) }}
+                    </option>
+                  </optgroup>
+                  <optgroup *ngIf="getPickupBillingLocations().length" label="Billing">
+                    <option *ngFor="let loc of getPickupBillingLocations(); let i = index" [value]="'billing:' + i">
+                      Billing: {{ formatLocation(loc) }}
+                    </option>
+                  </optgroup>
                 </select>
               </label>
-            </div>
-            <div *ngIf="pickupType==='different'" class="panel-body">
-              <label>Previous Sender
-                <input
-                  type="search"
-                  list="pickup-client-list"
-                  [(ngModel)]="pickupPreviousSender"
-                  (ngModelChange)="onPickupPreviousSenderSelect(pickupPreviousSender)">
-                <datalist id="pickup-client-list">
-                  <option *ngFor="let c of clientList" [value]="c.clientName">
-                    {{ formatClientOption(c) }}
-                  </option>
-                </datalist>
-              </label>
-              <label>Name <input [(ngModel)]="pickupName"></label>
-              <label>Phone <input [(ngModel)]="pickupPhone"></label>
-              <label>Pickup Address <textarea [(ngModel)]="pickupAddress"></textarea></label>
-              <label>Pickup Pincode <input [(ngModel)]="pickupPincode"></label>
             </div>
             <div *ngIf="pickupType==='branch'">
               <div class="field-display">
@@ -256,35 +264,44 @@
           <div class="panel-head">
             <h4>Delivery</h4>
             <div class="tab-buttons ghost">
-              <button (click)="setDeliveryType('branch')" [class.active]="deliveryType==='branch'">Branches</button>
-              <button (click)="setDeliveryType('consignee')" [class.active]="deliveryType==='consignee'">Use Consignee</button>
-              <button (click)="setDeliveryType('different')" [class.active]="deliveryType==='different'">Different</button>
+              <button (click)="setDeliveryPickupTab()" [class.active]="deliveryType==='branch' || deliveryType==='hub'">Customer self pick up</button>
+              <button (click)="setDeliveryType('different')" [class.active]="deliveryType==='different'">Out for Delivery</button>
             </div>
           </div>
-          <div *ngIf="deliveryType==='branch'" class="panel-body">
-            <label>Delivery Branch
-              <select [(ngModel)]="deliveryBranch" (change)="onDeliveryBranchSelect(deliveryBranch)">
-                <option value="">Select branch</option>
-                <option *ngFor="let b of branches" [value]="b.branchName">
-                  {{ b.branchName }}
-                </option>
+          <div *ngIf="deliveryType==='branch' || deliveryType==='hub'" class="panel-body">
+            <label>Pickup Destination
+              <select
+                [ngModel]="deliveryType === 'hub' ? ('hub:' + (deliveryHub || '')) : ('branch:' + (deliveryBranch || ''))"
+                (ngModelChange)="onDeliveryPickupSelect($event)">
+                <option value="">Select branch or hub</option>
+                <optgroup label="Branches">
+                  <option *ngFor="let b of branches" [value]="'branch:' + b.branchName">
+                    {{ b.branchName }}
+                  </option>
+                </optgroup>
+                <optgroup label="Hubs">
+                  <option *ngFor="let h of getAvailableHubs()" [value]="'hub:' + h.hubName">
+                    {{ h.hubName }}
+                  </option>
+                </optgroup>
               </select>
             </label>
-          </div>
-          <div *ngIf="deliveryType==='consignee'" class="panel-body">
-            <label>Consignee Address
-              <select [(ngModel)]="deliveryLocationIndex" (change)="onDeliveryLocationSelect(deliveryLocationIndex)">
-                <option value="">Primary address</option>
-                <option *ngFor="let loc of getConsigneeLocations(); let i = index" [value]="i">
+            <label *ngIf="deliveryType==='hub'">Hub Address
+              <select
+                [(ngModel)]="deliveryHubLocationIndex"
+                (change)="onHubDeliveryAddressSelect(deliveryHubLocationIndex)"
+                [disabled]="!deliveryHub">
+                <option value="">Select address</option>
+                <option *ngFor="let loc of getSelectedHubAddresses(); let i = index" [value]="i">
                   {{ formatLocation(loc) }}
                 </option>
               </select>
             </label>
           </div>
-          <div *ngIf="deliveryType==='branch'">
+          <div *ngIf="deliveryType==='branch' || deliveryType==='hub'">
             <div class="field-display">
-              <span class="label">Delivery Branch</span>
-              <span class="value">{{ deliveryName || deliveryBranch || '-' }}</span>
+              <span class="label">Delivery Destination</span>
+              <span class="value">{{ deliveryName || deliveryBranch || deliveryHub || '-' }}</span>
             </div>
             <div class="field-display">
               <span class="label">Delivery Address</span>
@@ -300,25 +317,30 @@
             <span class="value">{{ deliveryPincode || '-' }}</span>
           </div>
           <div *ngIf="deliveryType==='different'" class="panel-body">
-            <label>Receiver
-              <input
-                type="search"
-                list="delivery-client-list"
-                [(ngModel)]="deliveryPreviousReceiver"
-                (ngModelChange)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
-              <datalist id="delivery-client-list">
+            <div class="inline-actions">
+              <span class="muted">Out for delivery too</span>
+              <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
+            </div>
+            <label>Client Name
+              <select [(ngModel)]="deliveryPreviousReceiver" (change)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
+                <option value="">Select client</option>
                 <option *ngFor="let c of clientList" [value]="c.clientName">
                   {{ formatClientOption(c) }}
                 </option>
-              </datalist>
+              </select>
             </label>
-            <div class="grid-2">
-              <label>Name <input [(ngModel)]="deliveryName"></label>
-              <label>Phone <input [(ngModel)]="deliveryPhone"></label>
-            </div>
-            <label>Address <textarea [(ngModel)]="deliveryAddress"></textarea></label>
+            <label>Delivery Address
+              <select
+                [(ngModel)]="deliveryLocationIndex"
+                (change)="onDeliverySelectedLocationSelect(deliveryLocationIndex)"
+                [disabled]="!deliveryPreviousReceiver">
+                <option value="">Select address</option>
+                <option *ngFor="let loc of getDeliverySelectedClientLocations(); let i = index" [value]="i">
+                  {{ formatLocation(loc) }}
+                </option>
+              </select>
+            </label>
           </div>
-          <div *ngIf="deliveryType==='consignee'" class="muted small-text">Using consignee details</div>
         </div>
       </div>
     </div>
@@ -367,7 +389,10 @@
             </div>
 
             <div class="subsection">
-              <div class="subsection-title">Products</div>
+              <div class="subsection-head">
+                <div class="subsection-title">Products</div>
+                <button class="tiny-btn" (click)="openProductModal()">+ New Product</button>
+              </div>
               <div *ngFor="let product of invoice.products; let p=index" class="product-row">
                 <div class="compact-row">
                   <select [(ngModel)]="product.type" (change)="onProductTypeChange(product)">
@@ -429,7 +454,7 @@
             <select [(ngModel)]="shipmentStatus" [disabled]="paymentMode === 'To Pay'">
               <option>To Pay</option>
               <option>Pending</option>
-              <option>In Transit</option>
+              <option>Manifested</option>
               <option>Delivered</option>
               <option>Cancelled</option>
             </select>
@@ -532,19 +557,48 @@
   </div>
 </div>
 
+<!-- Add Product Modal -->
+<div class="modal-backdrop" *ngIf="showProductModal">
+  <div class="modal product-modal">
+    <div class="modal-head">
+      <h3>Add Product</h3>
+      <button class="icon-btn" type="button" (click)="closeProductModal()">x</button>
+    </div>
+    <label>HSN Number* <input [(ngModel)]="newProduct.hsnNum" /></label>
+    <label>Product Name* <input [(ngModel)]="newProduct.productName" /></label>
+    <h4>Rates by Route</h4>
+    <div *ngFor="let rate of newProduct.rates; let i = index" class="inline-fields">
+      <input placeholder="Pickup Address Id" [(ngModel)]="rate.pickupLocationId" list="rate-addresses" />
+      <input placeholder="Delivery Address Id" [(ngModel)]="rate.deliveryLocationId" list="rate-addresses" />
+      <input type="number" placeholder="Rate / Box" [(ngModel)]="rate.rate.ratePerNum" />
+      <input type="number" placeholder="Rate / cmA3" [(ngModel)]="rate.rate.ratePerVolume" />
+      <input type="number" placeholder="Rate / Kg" [(ngModel)]="rate.rate.ratePerKg" />
+      <button class="tiny-btn" type="button" (click)="removeProductRateRow(i)">Remove</button>
+    </div>
+    <button class="tiny-btn" type="button" (click)="addProductRateRow()">+ Add Rate</button>
+    <datalist id="rate-addresses">
+      <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
+    </datalist>
+    <div class="modal-actions">
+      <button (click)="saveNewProduct()">Save</button>
+      <button (click)="closeProductModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- Add Client Modal -->
 <div class="modal-backdrop" *ngIf="showClientModal">
   <div class="modal">
     <div class="modal-head">
-      <h3>Add Client</h3>
+      <h3>{{ showClientAddTab ? 'Add Client' : 'Edit Address' }}</h3>
       <button class="icon-btn" (click)="closeModals()">?</button>
     </div>
-    <div class="tab-buttons" style="margin-bottom: 12px;">
+    <div class="tab-buttons" style="margin-bottom: 12px;" *ngIf="showClientAddTab">
       <button (click)="setClientModalTab('add')" [class.active]="clientModalTab==='add'">New Client</button>
       <button (click)="setClientModalTab('edit')" [class.active]="clientModalTab==='edit'">Edit Client</button>
     </div>
 
-    <div *ngIf="clientModalTab==='add'">
+    <div *ngIf="showClientAddTab && clientModalTab==='add'">
       <label>Name* <input [(ngModel)]="newClient.clientName" /></label>
       <label>GSTIN* <input [(ngModel)]="newClient.GSTIN" /></label>
       <label>Phone* <input [(ngModel)]="newClient.phoneNum" /></label>

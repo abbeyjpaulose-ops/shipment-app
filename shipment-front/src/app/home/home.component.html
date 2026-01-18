@@ -5,12 +5,12 @@
  
       <!-- Branch Dropdown --> 
       <select
-        [(ngModel)]="selectedBranch"
+        [(ngModel)]="selectedBranchId"
         (change)="onBranchChange($event)"
         [disabled]="!isAdmin && branchOptions.length <= 1"
       > 
-        <option *ngIf="isAdmin" value="All Branches">All Branches</option>
-        <option *ngFor="let b of branchOptions" [value]="b">{{ b }}</option>
+        <option *ngIf="isAdmin" value="all">All Branches</option>
+        <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.name }}</option>
       </select>
  
     </div>

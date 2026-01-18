@@ -15,7 +15,7 @@ const AddressSchema = new mongoose.Schema(
     location: { type: String, required: true, trim: true },
     vehicles: { type: [VehicleSchema], default: [] }
   },
-  { _id: false }
+  { _id: true }
 );
 
 export const HubSchema = new mongoose.Schema(
@@ -25,7 +25,7 @@ export const HubSchema = new mongoose.Schema(
 
     hubName: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
-    branch: { type: String, required: true, trim: true },
+    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
     city: { type: String, trim: true },
     state: { type: String, trim: true },
     pinCode: { type: String, trim: true },

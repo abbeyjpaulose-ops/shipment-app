@@ -9,6 +9,18 @@ const VehicleSchema = new mongoose.Schema(
   { _id: false }
 );
 
+// Address entry for branch (allows storing address _id)
+const AddressSchema = new mongoose.Schema(
+  {
+    address: { type: String, required: true, trim: true },
+    city: { type: String, trim: true },
+    state: { type: String, trim: true },
+    pinCode: { type: String, trim: true },
+    phoneNum: { type: String, trim: true }
+  },
+  { _id: true }
+);
+
 export const BranchSchema = new mongoose.Schema(
   {
     // Company link (User.GSTIN_ID == User._id)
@@ -20,6 +32,8 @@ export const BranchSchema = new mongoose.Schema(
     state: { type: String, trim: true },
     pinCode: { type: String, trim: true },
     phoneNum: { type: String, required: true, trim: true },
+
+    addresses: { type: [AddressSchema], default: [] },
 
     vehicles: { type: [VehicleSchema], default: [] },
 
@@ -36,4 +50,3 @@ export const BranchSchema = new mongoose.Schema(
 BranchSchema.index({ GSTIN_ID: 1, branchName: 1 }, { unique: true });
 
 export default mongoose.models.Branch || mongoose.model('Branch', BranchSchema);
-

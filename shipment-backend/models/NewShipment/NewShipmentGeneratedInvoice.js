@@ -22,7 +22,6 @@ const GeneratedInvoiceSchema = new mongoose.Schema(
     // Billing details (resolved from billingClientId + billingLocationId)
     billingClientId: { type: mongoose.Schema.Types.ObjectId },
     billingLocationId: { type: mongoose.Schema.Types.ObjectId },
-    clientName: { type: String, trim: true },
     clientGSTIN: { type: String, trim: true },
     billingAddress: { type: String, trim: true },
 

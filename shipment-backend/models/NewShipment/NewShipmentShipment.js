@@ -7,7 +7,8 @@ const ShipmentSchema = new mongoose.Schema(
 
     // User / branch scope
     username: { type: String, required: true, trim: true },
-    branch: { type: String, required: true, trim: true },
+    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
+    currentBranchId: { type: mongoose.Schema.Types.ObjectId, index: true },
 
     // Consignment header
     consignmentNumber: { type: String, required: true, trim: true },
@@ -37,7 +38,6 @@ const ShipmentSchema = new mongoose.Schema(
     deliveryType: { type: String, trim: true },
     deliveryID: { type: mongoose.Schema.Types.ObjectId },
     deliveryLocationId: { type: mongoose.Schema.Types.ObjectId },
-    deliveryClientId: { type: mongoose.Schema.Types.ObjectId },
 
     // Charges
     charges: {
@@ -55,14 +55,14 @@ const ShipmentSchema = new mongoose.Schema(
 
 // Unique per company/branch (when GSTIN_ID present)
 ShipmentSchema.index(
-  { GSTIN_ID: 1, branch: 1, consignmentNumber: 1 },
-  { unique: true, partialFilterExpression: { GSTIN_ID: { $exists: true } } }
+  { GSTIN_ID: 1, branchId: 1, consignmentNumber: 1 },
+  { unique: true, partialFilterExpression: { GSTIN_ID: { $exists: true }, branchId: { $exists: true } } }
 );
 
 // Unique per user/branch
 ShipmentSchema.index(
-  { username: 1, branch: 1, consignmentNumber: 1 },
-  { unique: true }
+  { username: 1, branchId: 1, consignmentNumber: 1 },
+  { unique: true, partialFilterExpression: { branchId: { $exists: true } } }
 );
 
 export default mongoose.models.NewShipmentShipment ||

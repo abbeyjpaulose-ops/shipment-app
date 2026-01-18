@@ -24,6 +24,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   selectedInvoice: any = null;
   showInvoiceModal = false;
   branch: string = localStorage.getItem('branch') || 'All Branches';
+  branchId: string = localStorage.getItem('branchId') || 'all';
   private branchSub?: Subscription;
 
   editingInvoice: any = null;   // âo. Track the invoice being edited
@@ -32,16 +33,17 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.branch = this.branchService.currentBranch || this.branch;
+    this.branchId = localStorage.getItem('branchId') || 'all';
     this.branchSub = this.branchService.branch$.subscribe(branch => {
       if (branch !== this.branch) {
         this.branch = branch;
+        this.branchId = localStorage.getItem('branchId') || 'all';
         this.loadInvoices();
       }
     });
     window.addEventListener('storage', this.onStorageChange);
     this.loadInvoices();
   }
-
   ngOnDestroy(): void {
     this.branchSub?.unsubscribe();
     window.removeEventListener('storage', this.onStorageChange);
@@ -51,7 +53,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.http.get<any>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branch: this.branch || localStorage.getItem('branch') || ''
+        branchId: this.branchId || localStorage.getItem('branchId') || 'all'
       }
     }).subscribe({
       next: (res) => {
@@ -76,9 +78,14 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   }
 
   private onStorageChange = (e: StorageEvent) => {
-    if (e.key === 'branch' && e.newValue && e.newValue !== this.branch) {
-      this.branch = e.newValue;
-      this.loadInvoices();
+    if (e.key === 'branch' || e.key === 'branchId') {
+      const current = localStorage.getItem('branch') || 'All Branches';
+      const currentId = localStorage.getItem('branchId') || 'all';
+      if (current !== this.branch || currentId !== this.branchId) {
+        this.branch = current;
+        this.branchId = currentId;
+        this.loadInvoices();
+      }
     }
   };
 

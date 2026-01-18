@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import Profile from '../models/Profile.js';
 import AuditLog from '../models/AuditLog.js';
+import Branch from '../models/Branch.js';
 import { requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -37,18 +38,21 @@ router.post('/login', async (req, res) => {
 
     // Always set `id` to GSTIN_ID (company id) so company-scoped APIs work for all users.
     const gstinId = accountType === 'profile' ? account.GSTIN_ID : account._id;
-    const branch =
-      String(account.role || '').toLowerCase() === 'admin'
-        ? 'All Branches'
+    const isAdmin = String(account.role || '').toLowerCase() === 'admin';
+    const branchId =
+      isAdmin
+        ? 'all'
         : accountType === 'profile'
-          ? account.branch
-          : 'All Branches';
-    const branches =
-      String(account.role || '').toLowerCase() === 'admin'
-        ? ['All Branches']
+          ? account.branchId
+          : 'all';
+    const branchIds =
+      isAdmin
+        ? ['all']
         : accountType === 'profile'
-          ? (Array.isArray(account.branches) && account.branches.length ? account.branches : (account.branch ? [account.branch] : []))
-          : ['All Branches'];
+          ? (Array.isArray(account.branchIds) && account.branchIds.length
+            ? account.branchIds
+            : (account.branchId ? [account.branchId] : []))
+          : ['all'];
 
     let gstin = accountType === 'user' ? account.GSTIN : null;
     if (!gstin) {
@@ -88,14 +92,31 @@ router.post('/login', async (req, res) => {
       console.error('Audit log write failed:', err.message);
     }
 
+    let branchName = '';
+    let branchNames = [];
+    if (branchId === 'all') {
+      branchName = 'All Branches';
+      branchNames = ['All Branches'];
+    } else if (branchId) {
+      const ids = Array.from(new Set([branchId, ...(branchIds || [])].map((id) => String(id))));
+      const branches = await Branch.find({ _id: { $in: ids } }).select('_id branchName').lean();
+      const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
+      branchName = branchNameById.get(String(branchId)) || '';
+      branchNames = (branchIds || [])
+        .map((id) => branchNameById.get(String(id)) || '')
+        .filter(Boolean);
+    }
+
     return res.json({
       token,
       username: account.username,
       role: account.role,
       email: account.email,
       accountType,
-      branch,
-      branches,
+      branchId,
+      branchIds,
+      branchName,
+      branchNames,
       GSTIN_ID: gstinId,
       GSTIN: gstin
     });

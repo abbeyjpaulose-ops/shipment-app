@@ -4,7 +4,7 @@ const TransportPartnerSchema = new mongoose.Schema(
   {
     // Company link (User.GSTIN_ID == User._id)
     GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
-    branch: { type: String, required: true, trim: true },
+    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
 
     partnerName: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
@@ -33,7 +33,7 @@ const TransportPartnerSchema = new mongoose.Schema(
 );
 
 // Unique transport partner per company + branch
-TransportPartnerSchema.index({ GSTIN_ID: 1, branch: 1, partnerName: 1, address: 1 }, { unique: true });
+TransportPartnerSchema.index({ GSTIN_ID: 1, branchId: 1, partnerName: 1, address: 1 }, { unique: true });
 
 export default mongoose.models.TransportPartner ||
  mongoose.model('TransportPartner', TransportPartnerSchema);

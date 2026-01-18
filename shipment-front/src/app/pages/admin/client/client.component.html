@@ -52,14 +52,17 @@
           </select><br>
           <div class="rate-rows">
             <div class="rate-row" *ngFor="let rateEntry of p.rates; let r = index">
-              <input [(ngModel)]="rateEntry.pickupPincode" placeholder="Pickup Pincode">
-              <input [(ngModel)]="rateEntry.deliveryPincode" placeholder="Delivery Pincode">
+              <input [(ngModel)]="rateEntry.pickupLocationId" placeholder="Pickup Address Id" list="rate-addresses">
+              <input [(ngModel)]="rateEntry.deliveryLocationId" placeholder="Delivery Address Id" list="rate-addresses">
               <input [(ngModel)]="rateEntry.rate.ratePerNum" type="number" placeholder="Rate per Box">
               <input [(ngModel)]="rateEntry.rate.ratePerVolume" type="number" placeholder="Rate per Volume">
               <input [(ngModel)]="rateEntry.rate.ratePerKg" type="number" placeholder="Rate per Kg">
               <button type="button" (click)="removeRateRow(p, r)">Remove</button>
             </div>
             <button type="button" (click)="addRateRow(p)">+ Add Rate</button>
+            <datalist id="rate-addresses">
+              <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
+            </datalist>
           </div>
           <button type="button" (click)="removeProduct(i)">Remove Product</button>
         </div>
@@ -186,14 +189,17 @@
         </select><br>
         <div class="rate-rows">
           <div class="rate-row" *ngFor="let rateEntry of p.rates; let r = index">
-            <input [(ngModel)]="rateEntry.pickupPincode" placeholder="Pickup Pincode">
-            <input [(ngModel)]="rateEntry.deliveryPincode" placeholder="Delivery Pincode">
+            <input [(ngModel)]="rateEntry.pickupLocationId" placeholder="Pickup Address Id" list="rate-addresses">
+            <input [(ngModel)]="rateEntry.deliveryLocationId" placeholder="Delivery Address Id" list="rate-addresses">
             <input [(ngModel)]="rateEntry.rate.ratePerNum" type="number" placeholder="Rate per Box">
             <input [(ngModel)]="rateEntry.rate.ratePerVolume" type="number" placeholder="Rate per Volume">
             <input [(ngModel)]="rateEntry.rate.ratePerKg" type="number" placeholder="Rate per Kg">
             <button type="button" (click)="removeRateRow(p, r)">Remove</button>
           </div>
           <button type="button" (click)="addRateRow(p)">+ Add Rate</button>
+          <datalist id="rate-addresses">
+            <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
+          </datalist>
         </div>
         <button type="button" (click)="removeProductEdit(i)">Remove Product</button>
       </div>

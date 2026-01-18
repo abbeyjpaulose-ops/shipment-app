@@ -19,7 +19,7 @@ const usage = () => {
   node create-user.js company-admin <GSTIN> <adminEmail> <adminUsername> <adminPassword> <companyName> <companyType> <phoneNumber> <billingAddress>
 
   # Add a user (Profile) under an existing company (same GSTIN)
-  node create-user.js add-user <GSTIN> <email> <username> <password> <branch> [role]`);
+  node create-user.js add-user <GSTIN> <email> <username> <password> <branchId> [role]`);
 };
 
 const normalizeEmail = (value) => String(value || '').toLowerCase().trim();
@@ -93,8 +93,8 @@ const main = async () => {
 
     const profile = await Profile.create({
       GSTIN_ID: user._id,
-      branches: ['All Branches'],
-      branch: 'All Branches',
+      branchIds: [],
+      branchId: null,
       email,
       username,
       passwordHash,
@@ -115,10 +115,10 @@ const main = async () => {
     const emailArg = process.argv[4];
     const usernameArg = process.argv[5];
     const password = process.argv[6];
-    const branchArg = process.argv[7];
+    const branchIdArg = process.argv[7];
     const roleArg = process.argv[8] || 'user';
 
-    if (!gstin || !emailArg || !usernameArg || !password || !branchArg) {
+    if (!gstin || !emailArg || !usernameArg || !password || !branchIdArg) {
       usage();
       process.exit(1);
     }
@@ -141,17 +141,17 @@ const main = async () => {
 
     const passwordHash = await bcrypt.hash(password, 10);
     const isAdmin = String(role).toLowerCase() === 'admin';
-    const branches = isAdmin
-      ? ['All Branches']
-      : normalizeText(branchArg)
+    const branchIds = isAdmin
+      ? []
+      : normalizeText(branchIdArg)
           .split(',')
           .map((b) => normalizeText(b))
           .filter(Boolean);
 
     const profile = await Profile.create({
       GSTIN_ID: company._id,
-      branches,
-      branch: branches[0],
+      branchIds,
+      branchId: branchIds[0],
       email,
       username,
       passwordHash,
@@ -164,7 +164,7 @@ const main = async () => {
       user_id: profile._id,
       email,
       role,
-      branches
+      branchIds
     });
     return;
   }

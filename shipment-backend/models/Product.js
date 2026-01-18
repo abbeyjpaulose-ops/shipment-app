@@ -12,8 +12,8 @@ const RateSchema = new mongoose.Schema(
 
 const RateEntrySchema = new mongoose.Schema(
   {
-    pickupPincode: { type: String, trim: true },
-    deliveryPincode: { type: String, trim: true },
+    pickupLocationId: { type: mongoose.Schema.Types.ObjectId },
+    deliveryLocationId: { type: mongoose.Schema.Types.ObjectId },
     rate: { type: RateSchema, default: () => ({}) }
   },
   { _id: false }
@@ -22,7 +22,7 @@ const RateEntrySchema = new mongoose.Schema(
 const ProductSchema = new mongoose.Schema({
   // Company link (User.GSTIN_ID == User._id)
   GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
-  branch: { type: String, required: true, trim: true },
+  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
 
   hsnNum: { type: String, required: true, trim: true },
   productName: { type: String, required: true, trim: true },
@@ -33,6 +33,6 @@ const ProductSchema = new mongoose.Schema({
 });
 
 // Unique product per company + branch
-ProductSchema.index({ GSTIN_ID: 1, branch: 1, hsnNum: 1, productName: 1 }, { unique: true });
+ProductSchema.index({ GSTIN_ID: 1, branchId: 1, hsnNum: 1, productName: 1 }, { unique: true });
 
 export default mongoose.models.Product || mongoose.model('Product', ProductSchema);

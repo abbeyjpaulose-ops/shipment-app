@@ -1,5 +1,5 @@
 ﻿<div class="stocks-container">
-  <h2>In Transit/ On Delivery</h2>
+  <h2>Manifested/ On Delivery</h2>
 
   <!-- 🔍 Search and Filters (no status filter here) -->
   <div class="filters">
@@ -23,6 +23,12 @@
       <option value="">All routes</option>
       <option *ngFor="let route of routeOptions" [value]="route">{{ route }}</option>
     </select>
+    <select [(ngModel)]="filterStatus" (change)="applyFilters()">
+      <option value="">All status</option>
+      <option value="Manifested">Manifested</option>
+      <option value="Out for Delivery">Out for Delivery</option>
+      <option value="Will be Picked-Up">Will be Picked-Up</option>
+    </select>
 
     <button (click)="openManifestationPopup()">Delivery</button>
       <button (click)="printReceipts()">🖨️ Print Receipts</button>
@@ -40,6 +46,7 @@
       <tr>
         <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
         <th>Consignment No.</th>
+        <th>Status</th>
         <th>Consignor</th>
         <th>Delivery Address</th>
         <th>Routes</th>
@@ -53,6 +60,7 @@
           <input type="checkbox" [(ngModel)]="s.selected" (click)="$event.stopPropagation()" />
         </td>
         <td>{{ s.consignmentNumber }}</td>
+        <td>{{ s.shipmentStatus }}</td>
         <td>{{ s.consignor }}</td>
         <td>{{ s.deliveryAddress }}</td>
         <td>{{ getRoutesDisplay(s) }}</td>
@@ -417,21 +425,11 @@
 
         <!-- Eway Bill Section -->
         <div class="ewaybill-section">
-          <ng-container *ngIf="consignment.ewaybillNumber === ''; else showEwaybill">
-            <label class="eway-toggle-label">
-              <input
-                type="checkbox"
-                [(ngModel)]="consignment.ewayBillRequired"
-                class="eway-toggle-input"
-              />
-              <span class="eway-toggle-slider"></span>
-              <span class="eway-toggle-text">
-                {{ consignment.ewayBillRequired ? 'Eway Bill will be created' : 'Eway Bill not required' }}
-              </span>
-            </label>
-          </ng-container>
-          <ng-template #showEwaybill>
-            <p><strong>Customer created Eway Bill No:</strong> {{ consignment.ewaybillNumber }}</p>
+          <p *ngIf="consignment.ewaybillNumber; else ewayNotCreated">
+            <strong>Eway Bill created:</strong> {{ consignment.ewaybillNumber }}
+          </p>
+          <ng-template #ewayNotCreated>
+            <p><strong>Eway Bill created:</strong> No</p>
           </ng-template>
         </div>
 
@@ -481,3 +479,7 @@
     </ng-template>
   </div>
 </div>
+
+
+
+

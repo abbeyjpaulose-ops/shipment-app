@@ -2,11 +2,11 @@ import express from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import Product from '../models/Product.js';
 import Client from '../models/Client.js';
+import Branch from '../models/Branch.js';
 
 const router = express.Router();
 
-const normalizeBranch = (value) => String(value || '').trim();
-const normalizePin = (value) => String(value || '').trim();
+const normalizeId = (value) => String(value || '').trim();
 const keyFor = (hsnNum, productName) =>
   `${String(hsnNum || '').toUpperCase()}::${String(productName || '').toUpperCase()}`;
 const rateFieldForUnit = (rateUnit) => {
@@ -26,13 +26,13 @@ const rateForEntry = (entry, rateUnit) => {
   return Number(entry?.rate?.[field]) || 0;
 };
 
-const rateForRoute = (rates, pickupPincode, deliveryPincode, rateUnit) => {
-  if (!Array.isArray(rates) || !pickupPincode || !deliveryPincode) return null;
-  const pickup = normalizePin(pickupPincode);
-  const delivery = normalizePin(deliveryPincode);
+const rateForRoute = (rates, pickupLocationId, deliveryLocationId, rateUnit) => {
+  if (!Array.isArray(rates) || !pickupLocationId || !deliveryLocationId) return null;
+  const pickup = normalizeId(pickupLocationId);
+  const delivery = normalizeId(deliveryLocationId);
   const match = rates.find((r) =>
-    normalizePin(r?.pickupPincode) === pickup &&
-    normalizePin(r?.deliveryPincode) === delivery
+    normalizeId(r?.pickupLocationId) === pickup &&
+    normalizeId(r?.deliveryLocationId) === delivery
   );
   if (!match) return null;
   return rateForEntry(match, rateUnit);
@@ -44,20 +44,24 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
-    const branch = normalizeBranch(req.query.branch);
-    if (!branch || branch === 'All Branches') {
-      return res.status(400).json({ message: 'branch is required and must not be "All Branches"' });
+    const branchId = normalizeId(req.query.branchId);
+    if (!branchId || branchId === 'all') {
+      return res.status(400).json({ message: 'branchId is required and must not be "all"' });
     }
 
     const clientId = req.query.clientId;
-    const pickupPincode = normalizePin(req.query.pickupPincode);
-    const deliveryPincode = normalizePin(req.query.deliveryPincode);
+    const pickupLocationId = normalizeId(req.query.pickupLocationId);
+    const deliveryLocationId = normalizeId(req.query.deliveryLocationId);
     const rateUnit = req.query.rateUnit;
 
     // Company defaults
+    const branchFilters = [];
+    if (branchId && branchId !== 'all') {
+      branchFilters.push({ branchId });
+    }
     const defaults = await Product.find({
       GSTIN_ID: gstinId,
-      branch
+      ...(branchFilters.length ? { $or: branchFilters } : {})
     }).lean();
 
     // Client overrides (if provided)
@@ -75,7 +79,7 @@ router.get('/suggestions', requireAuth, async (req, res) => {
       map.set(key, {
         hsnNum: p.hsnNum,
         productName: p.productName,
-        suggestedRate: rateForRoute(p.rates, pickupPincode, deliveryPincode, rateUnit),
+        suggestedRate: rateForRoute(p.rates, pickupLocationId, deliveryLocationId, rateUnit),
         source: 'company',
         productId: p._id?.toString()
       });
@@ -85,7 +89,7 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     for (const o of overrides) {
       const key = keyFor(o.hsnNum, o.productName);
       const base = map.get(key);
-      const suggestedRate = rateForRoute(o.rates, pickupPincode, deliveryPincode, rateUnit);
+      const suggestedRate = rateForRoute(o.rates, pickupLocationId, deliveryLocationId, rateUnit);
       const mergedEntry = {
         hsnNum: o.hsnNum,
         productName: o.productName,
@@ -98,8 +102,10 @@ router.get('/suggestions', requireAuth, async (req, res) => {
 
     const merged = Array.from(map.values());
 
+    const branch = await Branch.findById(branchId).select('branchName').lean();
     res.json({
-      branch,
+      branchId: branchId || '',
+      branchName: branch?.branchName || '',
       clientId: clientId || null,
       count: merged.length,
       pricing: merged

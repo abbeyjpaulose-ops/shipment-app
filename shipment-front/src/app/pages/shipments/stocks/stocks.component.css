@@ -20,6 +20,28 @@
   margin-bottom: 15px;
 }
 
+.stocks-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.stocks-tabs button {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--stock-border);
+  background: #ffffff;
+  color: var(--stock-muted);
+  cursor: pointer;
+}
+
+.stocks-tabs button.active {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: var(--stock-primary-strong);
+  font-weight: 600;
+}
+
 .filters input,
 .filters select {
   padding: 8px 10px;
@@ -408,6 +430,28 @@
   top: 10px;
   font-size: 24px;
   cursor: pointer;
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.terminal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.terminal-status select {
+  background: #2a2a2a;
+  color: #d4d4d4;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 4px 8px;
 }
 
 .modal-content.terminal-style {

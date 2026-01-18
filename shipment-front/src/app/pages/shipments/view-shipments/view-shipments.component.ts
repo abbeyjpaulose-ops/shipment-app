@@ -16,6 +16,7 @@ export class ViewShipmentsComponent implements OnInit {
   receivedShipments: any[] = [];
   filteredReceived: any[] = [];
   branches: any[] = [];
+  hubs: any[] = [];
   clientList: any[] = [];
   guestList: any[] = [];
   email: string = '';
@@ -37,6 +38,7 @@ export class ViewShipmentsComponent implements OnInit {
     this.loadShipments();
     this.loadReceivedShipments();
     this.loadBranches();
+    this.loadHubs();
     this.loadClients();
     this.loadGuests();
   }
@@ -45,7 +47,7 @@ export class ViewShipmentsComponent implements OnInit {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branch: localStorage.getItem('branch') || 'All Branches'
+        branchId: localStorage.getItem('branchId') || 'all'
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -64,7 +66,7 @@ export class ViewShipmentsComponent implements OnInit {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branch: 'All Branches'
+        branchId: 'all'
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -86,6 +88,16 @@ export class ViewShipmentsComponent implements OnInit {
           this.branches = branches || [];
         },
         error: (err: any) => console.error('Error loading branches:', err)
+      });
+  }
+
+  loadHubs(): void {
+    this.http.get<any[]>('http://localhost:3000/api/hubs')
+      .subscribe({
+        next: (hubs) => {
+          this.hubs = hubs || [];
+        },
+        error: (err: any) => console.error('Error loading hubs:', err)
       });
   }
 
@@ -161,15 +173,17 @@ export class ViewShipmentsComponent implements OnInit {
       return matchesSearch && matchesDate && matchesStatus && matchesConsignor;
     });
     this.filteredReceived = this.receivedShipments.filter(s => {
-      const branchName = String(localStorage.getItem('branch') || '').trim();
-      const deliveryName = this.getDeliveryDisplayName(s).toLowerCase();
+      const branchId = String(localStorage.getItem('branchId') || '').trim();
+      const deliveryId = this.normalizeId(s?.deliveryID);
       let matchesDelivery = true;
-      if (branchName) {
-        if (branchName === 'All Branches') {
-          const branchNames = (this.branches || []).map(b => String(b?.branchName || '').toLowerCase()).filter(Boolean);
-          matchesDelivery = branchNames.includes(deliveryName);
+      if (branchId) {
+        if (branchId === 'all') {
+          const branchIds = (this.branches || [])
+            .map(b => this.normalizeId(b?._id))
+            .filter(Boolean);
+          matchesDelivery = Boolean(deliveryId && branchIds.includes(deliveryId));
         } else {
-          matchesDelivery = deliveryName === branchName.toLowerCase();
+          matchesDelivery = Boolean(deliveryId && deliveryId === branchId);
         }
       }
       const matchesSearch = this.searchText
@@ -238,10 +252,11 @@ export class ViewShipmentsComponent implements OnInit {
       const now = new Date().toISOString();
       const username = localStorage.getItem('username') || '';
       const branch = localStorage.getItem('branch') || '';
+      const statusDetailsBranch = branch ? `/${branch}` : '';
       const updatedConsignment: any = {
         ...consignment,
         shipmentStatus: 'Returned',
-        shipmentStatusDetails: branch
+        shipmentStatusDetails: statusDetailsBranch
       };
       if (this.showReturnFinalAmount) {
         updatedConsignment.finalAmount = consignment.returnFinalAmount ?? consignment.finalAmount;
@@ -278,6 +293,24 @@ export class ViewShipmentsComponent implements OnInit {
     return String(value);
   }
 
+  getCurrentBranchDisplay(shipment: any): string {
+    const currentBranchId = this.normalizeId(shipment?.currentBranchId || shipment?.currentBranch);
+    if (!currentBranchId) return '-';
+    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentBranchId);
+    if (branch?.branchName) return branch.branchName;
+    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === currentBranchId);
+    if (hub?.hubName) return hub.hubName;
+    return currentBranchId;
+  }
+
+  getOriginBranchDisplay(shipment: any): string {
+    const originBranchId = this.normalizeId(shipment?.branchId || shipment?.branch);
+    if (!originBranchId) return '-';
+    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === originBranchId);
+    if (branch?.branchName) return branch.branchName;
+    return originBranchId;
+  }
+
   private firstNonEmpty(...values: any[]): string {
     for (const value of values) {
       if (value === undefined || value === null) continue;
@@ -311,6 +344,15 @@ export class ViewShipmentsComponent implements OnInit {
     return (this.branches || []).find((b) =>
       (normId && this.normalizeId(b?._id) === normId) ||
       (normName && String(b?.branchName || '').trim().toLowerCase() === normName)
+    ) || null;
+  }
+
+  private resolveHubByIdOrName(id: any, name: any): any | null {
+    const normId = this.normalizeId(id);
+    const normName = String(name || '').trim().toLowerCase();
+    return (this.hubs || []).find((h) =>
+      (normId && this.normalizeId(h?._id) === normId) ||
+      (normName && String(h?.hubName || '').trim().toLowerCase() === normName)
     ) || null;
   }
 
@@ -368,14 +410,19 @@ export class ViewShipmentsComponent implements OnInit {
       enriched.pickupPincode = this.firstNonEmpty(enriched.pickupPincode, consignor?.pinCode);
     }
 
-    if (shipment?.deliveryType === 'branch') {
+    const isSelfPickup =
+      shipment?.deliveryType === 'Customer self pick up' ||
+      shipment?.deliveryType === 'branch' ||
+      shipment?.deliveryType === 'hub';
+    if (isSelfPickup) {
       const deliveryBranch = this.resolveBranchByIdOrName(shipment?.deliveryID, shipment?.deliveryName);
-      enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryBranch?.branchName);
-      enriched.deliveryAddress = this.firstNonEmpty(enriched.deliveryAddress, deliveryBranch?.address);
-      enriched.deliveryPhone = this.firstNonEmpty(enriched.deliveryPhone, deliveryBranch?.phoneNum);
-      enriched.deliveryPincode = this.firstNonEmpty(enriched.deliveryPincode, deliveryBranch?.pinCode);
+      const deliveryHub = deliveryBranch ? null : this.resolveHubByIdOrName(shipment?.deliveryID, shipment?.deliveryName);
+      enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryBranch?.branchName, deliveryHub?.hubName);
+      enriched.deliveryAddress = this.firstNonEmpty(enriched.deliveryAddress, deliveryBranch?.address, deliveryHub?.address);
+      enriched.deliveryPhone = this.firstNonEmpty(enriched.deliveryPhone, deliveryBranch?.phoneNum, deliveryHub?.phoneNum);
+      enriched.deliveryPincode = this.firstNonEmpty(enriched.deliveryPincode, deliveryBranch?.pinCode, deliveryHub?.pinCode);
     } else {
-      const deliveryClient = this.resolveClientByIdOrName(shipment?.deliveryClientId || shipment?.deliveryID, shipment?.deliveryName);
+      const deliveryClient = this.resolveClientByIdOrName(shipment?.deliveryID, shipment?.deliveryName);
       const deliveryGuest = this.resolveGuestByIdOrName(shipment?.deliveryID, shipment?.deliveryName);
       const deliveryLocation = this.resolveClientLocation(deliveryClient, shipment?.deliveryLocationId);
       enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryClient?.clientName, deliveryGuest?.guestName, enriched.consignee);
@@ -404,8 +451,11 @@ export class ViewShipmentsComponent implements OnInit {
   private getReturnBranchName(consignment: any): string {
     const deliveryName = String(this.getDeliveryDisplayName(consignment) || '').trim();
     if (deliveryName && deliveryName !== '-') return deliveryName;
-    const currentBranch = String(localStorage.getItem('branch') || '').trim();
-    if (currentBranch && currentBranch !== 'All Branches') return currentBranch;
+    const currentBranchId = this.normalizeId(localStorage.getItem('branchId'));
+    if (currentBranchId && currentBranchId !== 'all') {
+      const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentBranchId);
+      if (branch?.branchName) return branch.branchName;
+    }
     return String(consignment?.branch || '').trim();
   }
 
@@ -452,19 +502,24 @@ export class ViewShipmentsComponent implements OnInit {
       address: consignment.deliveryAddress,
       phone: consignment.deliveryPhone,
       pincode: consignment.deliveryPincode,
-      locationId: consignment.deliveryLocationId,
-      clientId: consignment.deliveryClientId
+      locationId: consignment.deliveryLocationId
     };
     const finalPickup = options.swapAddresses ? deliveryFields : pickupFields;
     const finalDelivery = options.swapAddresses ? pickupFields : deliveryFields;
-    const deliveryId = options.swapAddresses && finalDelivery.type === 'branch'
+    const isSelfPickup =
+      finalDelivery.type === 'Customer self pick up' ||
+      finalDelivery.type === 'branch' ||
+      finalDelivery.type === 'hub';
+    const deliveryId = options.swapAddresses && isSelfPickup
       ? this.getBranchIdByName(String(finalDelivery.name || '')) || finalDelivery.id
       : finalDelivery.id;
 
-    const statusDetailsBranch = options.branchName || consignment.branch || localStorage.getItem('branch') || '';
+    const rawStatusDetailsBranch = options.branchName || consignment.branch || localStorage.getItem('branch') || '';
+    const statusDetailsBranch = rawStatusDetailsBranch ? `/${rawStatusDetailsBranch}` : '';
     const payload: any = {
       username,
       branch: options.branchName || consignment.branch,
+      branchId: this.getBranchIdByName(String(options.branchName || consignment.branch || '')) || consignment.branchId,
       shipmentStatus: 'Pending',
       shipmentStatusDetails: statusDetailsBranch,
       consignmentNumber: options.consignmentNumber,
@@ -503,7 +558,6 @@ export class ViewShipmentsComponent implements OnInit {
       deliveryPhone: finalDelivery.phone,
       deliveryPincode: finalDelivery.pincode,
       deliveryLocationId: finalDelivery.locationId,
-      deliveryClientId: finalDelivery.clientId,
       ewaybills: this.getReturnEwaybills(consignment),
       charges: consignment.charges,
       finalAmount: options.finalAmount
@@ -511,14 +565,13 @@ export class ViewShipmentsComponent implements OnInit {
 
     if (options.deliveryBranchName) {
       const deliveryBranch = this.resolveBranchByIdOrName(null, options.deliveryBranchName);
-      payload.deliveryType = 'branch';
+      payload.deliveryType = 'Customer self pick up';
       payload.deliveryID = deliveryBranch?._id || payload.deliveryID;
       payload.deliveryName = deliveryBranch?.branchName || options.deliveryBranchName;
       payload.deliveryAddress = deliveryBranch?.address || payload.deliveryAddress;
       payload.deliveryPhone = deliveryBranch?.phoneNum || payload.deliveryPhone;
       payload.deliveryPincode = deliveryBranch?.pinCode || payload.deliveryPincode;
       payload.deliveryLocationId = null;
-      payload.deliveryClientId = null;
     }
 
     return payload;
@@ -553,7 +606,7 @@ export class ViewShipmentsComponent implements OnInit {
     }
     const username = localStorage.getItem('username') || '';
     this.http.get<{ nextNumber: number }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(username)}&branch=${encodeURIComponent(branchName)}`
+      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(username)}&branchId=${encodeURIComponent(this.getBranchIdByName(branchName) || '')}&branch=${encodeURIComponent(branchName)}`
     ).subscribe({
       next: (res) => {
         const payload = this.buildReturnPayload(consignment, {

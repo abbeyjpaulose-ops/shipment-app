@@ -23,7 +23,7 @@
       <select [(ngModel)]="filterStatus" (change)="applyFilters()">
         <option value="">All Status</option>
         <option value="Pending">Pending</option>
-        <option value="In Transit">In Transit</option>
+        <option value="Manifested">Manifested</option>
         <option value="Delivered">Delivered</option>
       </select>
 
@@ -80,7 +80,7 @@
       <select [(ngModel)]="filterStatus" (change)="applyFilters()">
         <option value="">All Status</option>
         <option value="Pending">Pending</option>
-        <option value="In Transit">In Transit</option>
+        <option value="Manifested">Manifested</option>
         <option value="Delivered">Delivered</option>
       </select>
 
@@ -176,7 +176,8 @@
       <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
       <p><strong>Status Details:</strong> {{ selectedShipment.shipmentStatusDetails }}</p>
-      <p><strong>Branch:</strong> {{ selectedShipment.branch }}</p>
+      <p><strong>Branch:</strong> {{ getOriginBranchDisplay(selectedShipment) }}</p>
+      <p><strong>Current Branch:</strong> {{ getCurrentBranchDisplay(selectedShipment) }}</p>
       <p><strong>Consignor:</strong> {{ selectedShipment.consignor }}</p>
       <p><strong>Consignor GST:</strong> {{ selectedShipment.consignorGST }}</p>
       <p><strong>Consignor Phone:</strong> {{ selectedShipment.consignorPhone }}</p>

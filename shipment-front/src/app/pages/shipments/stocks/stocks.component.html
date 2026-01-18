@@ -1,6 +1,24 @@
 <div class="stocks-container">
   <h2>Stocks</h2>
 
+  <div class="stocks-tabs">
+    <button
+      (click)="setActiveTab('stocks')"
+      [class.active]="activeTab === 'stocks'">
+      Stocks
+    </button>
+    <button
+      (click)="setActiveTab('other-branch')"
+      [class.active]="activeTab === 'other-branch'">
+      Stocks in Other branch
+    </button>
+    <button
+      (click)="setActiveTab('others-in-branch')"
+      [class.active]="activeTab === 'others-in-branch'">
+      Others stocks in our branch
+    </button>
+  </div>
+
   <!-- 🔍 Search and Filters (no status filter here) -->
   <div class="filters">
     <input
@@ -401,7 +419,15 @@
 <div class="modal" *ngIf="showManifestationPopup">
   <div class="modal-content terminal-style">
     <span class="close" (click)="closeManifestationPopup()">&times;</span>
-    <h2>Manifestation Terminal</h2>
+    <div class="terminal-header">
+      <h2>Manifestation Terminal</h2>
+      <label class="terminal-status">
+        <span>Status</span>
+        <select [(ngModel)]="manifestationStatus">
+          <option *ngFor="let status of manifestationStatusOptions" [value]="status">{{ status }}</option>
+        </select>
+      </label>
+    </div>
 
     <div *ngIf="selectedForManifestation.length > 0; else noSelection">
       <hr>
@@ -462,7 +488,7 @@
 
 
       <!-- Shipment Routing Section -->
-      <div class="routing-section">
+      <div class="routing-section" *ngIf="manifestationStatus !== 'Will be Picked-Up'">
         <div class="routing-header">
           <h3>Transportation Vehicle</h3>
           <label class="eway-toggle-label external-toggle">
@@ -496,6 +522,15 @@
       <option *ngFor="let v of getTransportPartnerVehicles()" [value]="v">{{ v }}</option>
     </select>
   </ng-template>
+  <label *ngIf="manifestationStatus === 'Manifestation'">
+    Next delivery point
+    <select [(ngModel)]="selectedNextDeliveryPoint">
+      <option value="">Select next point</option>
+      <option *ngFor="let point of availableRoutePoints" [value]="point.name">
+        {{ point.name }} ({{ point.type }})
+      </option>
+    </select>
+  </label>
 </div>
         <ul class="route-list">
           <li *ngFor="let point of shipmentRoute; let i = index">

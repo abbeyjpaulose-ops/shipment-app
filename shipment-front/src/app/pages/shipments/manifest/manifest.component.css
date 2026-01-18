@@ -1,4 +1,4 @@
-.stocks-container {
+﻿.stocks-container {
   padding: 20px;
   color: var(--stock-text);
 }
@@ -542,3 +542,6 @@
   color: red;
   cursor: pointer;
 }
+
+
+

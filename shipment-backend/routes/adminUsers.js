@@ -1,6 +1,7 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import Profile from '../models/Profile.js';
+import Branch from '../models/Branch.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -8,6 +9,34 @@ const router = express.Router();
 const normalizeEmail = (value) => String(value || '').toLowerCase().trim();
 const normalizeText = (value) => String(value || '').trim();
 const normalizeUsername = (value) => String(value || '').toLowerCase().trim();
+
+async function withBranchNames(records = []) {
+  const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
+  const branchIds = Array.from(
+    new Set(
+      data
+        .flatMap((rec) => [rec?.branchId, ...(rec?.branchIds || [])])
+        .map((id) => String(id || ''))
+        .filter(Boolean)
+    )
+  );
+  const branches = branchIds.length
+    ? await Branch.find({ _id: { $in: branchIds } }).select('_id branchName').lean()
+    : [];
+  const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
+
+  return data.map((rec) => {
+    const isAdmin = String(rec?.role || '').toLowerCase() === 'admin';
+    if (isAdmin) {
+      return { ...rec, branchName: 'All Branches', branchNames: ['All Branches'] };
+    }
+    const branchName = branchNameById.get(String(rec?.branchId || '')) || '';
+    const branchNames = (rec?.branchIds || [])
+      .map((id) => branchNameById.get(String(id)) || '')
+      .filter(Boolean);
+    return { ...rec, branchName, branchNames };
+  });
+}
 
 router.use(requireAuth, requireAdmin);
 
@@ -17,8 +46,9 @@ router.get('/', async (req, res) => {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
-    const profiles = await Profile.find({ GSTIN_ID: gstinId }).sort({ _id: 1 });
-    res.json(profiles);
+    const profiles = await Profile.find({ GSTIN_ID: gstinId }).sort({ _id: 1 }).lean();
+    const withNames = await withBranchNames(profiles);
+    res.json(withNames);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -35,8 +65,8 @@ router.post('/', async (req, res) => {
     const password = String(req.body.password || '');
     const role = normalizeText(req.body.role) || 'user';
     const phoneNumber = normalizeText(req.body.phoneNumber);
-    const branchInput = normalizeText(req.body.branch);
-    const branchesInput = Array.isArray(req.body.branches) ? req.body.branches : null;
+    const branchIdInput = normalizeText(req.body.branchId);
+    const branchIdsInput = Array.isArray(req.body.branchIds) ? req.body.branchIds : null;
 
     if (!email || !username || !password) {
       return res.status(400).json({ message: 'email, username, and password are required' });
@@ -47,20 +77,22 @@ router.post('/', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    let branches =
-      branchesInput?.map((b) => normalizeText(b)).filter(Boolean) ||
-      (branchInput ? [branchInput] : []);
+    let branchIds =
+      branchIdsInput?.map((b) => normalizeText(b)).filter(Boolean) ||
+      (branchIdInput ? [branchIdInput] : []);
 
     if (String(role).toLowerCase() === 'admin') {
-      branches = ['All Branches'];
+      branchIds = [];
     }
 
-    if (!branches.length) return res.status(400).json({ message: 'branches is required' });
+    if (!branchIds.length && String(role).toLowerCase() !== 'admin') {
+      return res.status(400).json({ message: 'branchIds is required' });
+    }
 
     const profile = await Profile.create({
       GSTIN_ID: gstinId,
-      branches,
-      branch: branches[0],
+      branchIds,
+      branchId: branchIds[0],
       email,
       username,
       passwordHash,
@@ -68,7 +100,8 @@ router.post('/', async (req, res) => {
       phoneNumber
     });
 
-    res.status(201).json(profile);
+    const [withName] = await withBranchNames([profile]);
+    res.status(201).json(withName);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -92,19 +125,19 @@ router.put('/:id', async (req, res) => {
     const role = update.role;
     const isAdminRole = String(role || '').toLowerCase() === 'admin';
 
-    if (req.body.branches !== undefined) {
-      const branchesInput = Array.isArray(req.body.branches) ? req.body.branches : [];
-      update.branches = branchesInput.map((b) => normalizeText(b)).filter(Boolean);
-    } else if (req.body.branch !== undefined) {
-      update.branches = [normalizeText(req.body.branch)].filter(Boolean);
+    if (req.body.branchIds !== undefined) {
+      const branchIdsInput = Array.isArray(req.body.branchIds) ? req.body.branchIds : [];
+      update.branchIds = branchIdsInput.map((b) => normalizeText(b)).filter(Boolean);
+    } else if (req.body.branchId !== undefined) {
+      update.branchIds = [normalizeText(req.body.branchId)].filter(Boolean);
     }
 
     if (isAdminRole) {
-      update.branches = ['All Branches'];
-      update.branch = 'All Branches';
+      update.branchIds = [];
+      update.branchId = null;
     } else {
-      if (update.branches && update.branches.length) {
-        update.branch = update.branches[0];
+      if (update.branchIds && update.branchIds.length) {
+        update.branchId = update.branchIds[0];
       }
     }
 
@@ -119,7 +152,8 @@ router.put('/:id', async (req, res) => {
     );
     if (!profile) return res.status(404).json({ message: 'User not found' });
 
-    res.json(profile);
+    const [withName] = await withBranchNames([profile]);
+    res.json(withName);
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

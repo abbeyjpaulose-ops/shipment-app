@@ -1,8 +1,27 @@
 import express from 'express';
 import TransportPartner from '../models/TransportPartner.js';
+import Branch from '../models/Branch.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+
+async function withBranchNames(records = []) {
+  const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
+  const branchIds = Array.from(
+    new Set(data.map((rec) => String(rec?.branchId || '')).filter(Boolean))
+  );
+  if (!branchIds.length) {
+    return data.map((rec) => ({ ...rec, branchName: '' }));
+  }
+  const branches = await Branch.find({ _id: { $in: branchIds } })
+    .select('_id branchName')
+    .lean();
+  const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
+  return data.map((rec) => ({
+    ...rec,
+    branchName: branchNameById.get(String(rec?.branchId || '')) || ''
+  }));
+}
 
 // Create new transport partner (admin only)
 router.post('/add', requireAuth, requireAdmin, async (req, res) => {
@@ -23,7 +42,8 @@ router.post('/add', requireAuth, requireAdmin, async (req, res) => {
     });
 
     await partner.save();
-    res.status(201).json(partner);
+    const [withName] = await withBranchNames([partner]);
+    res.status(201).json(withName);
   } catch (err) {
     if (err?.code === 11000) {
       return res.status(409).json({
@@ -47,13 +67,14 @@ router.get('/', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const branch = String(req.query.branch || '').trim();
+    const branchId = String(req.query.branchId || '').trim();
     const query = { GSTIN_ID: gstinId };
-    if (branch && branch !== 'All Branches') {
-      query.branch = branch;
+    if (branchId && branchId !== 'all') {
+      query.branchId = branchId;
     }
-    const partners = await TransportPartner.find(query).sort({ createdAt: -1 });
-    res.json(partners);
+    const partners = await TransportPartner.find(query).sort({ createdAt: -1 }).lean();
+    const withNames = await withBranchNames(partners);
+    res.json(withNames);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -71,7 +92,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       { new: true }
     );
     if (!partner) return res.status(404).json({ message: 'Transport partner not found' });
-    res.json({ success: true, partner });
+    const [withName] = await withBranchNames([partner]);
+    res.json({ success: true, partner: withName });
   } catch (err) {
     if (err?.code === 11000) {
       return res.status(409).json({
@@ -111,13 +133,14 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const branch = String(req.query.branch || '').trim();
+    const branchId = String(req.query.branchId || '').trim();
     const query = { GSTIN_ID: gstinId };
-    if (branch && branch !== 'All Branches') {
-      query.branch = branch;
+    if (branchId && branchId !== 'all') {
+      query.branchId = branchId;
     }
-    const partners = await TransportPartner.find(query).sort({ createdAt: -1 });
-    res.json(partners);
+    const partners = await TransportPartner.find(query).sort({ createdAt: -1 }).lean();
+    const withNames = await withBranchNames(partners);
+    res.json(withNames);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -128,14 +151,16 @@ router.get('/tpartnerslist', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const branch = String(req.query.branch || '').trim();
+    const branchId = String(req.query.branchId || '').trim();
     const query = { GSTIN_ID: gstinId, status: 'active' };
-    if (branch && branch !== 'All Branches') {
-      query.branch = branch;
+    if (branchId && branchId !== 'all') {
+      query.branchId = branchId;
     }
     const partners = await TransportPartner.find(query)
-      .select('partnerName address phoneNum vehicleNumbers');
-    res.json(partners);
+      .select('partnerName address phoneNum vehicleNumbers branchId')
+      .lean();
+    const withNames = await withBranchNames(partners);
+    res.json(withNames);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

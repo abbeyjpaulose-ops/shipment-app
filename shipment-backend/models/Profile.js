@@ -15,10 +15,10 @@ const ProfileSchema = new mongoose.Schema(
     // Link to the company (User) via GSTIN_ID (User _id).
     GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
 
-    // Allowed branches for this user. Admins are forced to "All Branches".
-    branches: { type: [String], default: [] },
-    // Default/selected branch (kept for backward compatibility and quick access).
-    branch: { type: String, trim: true },
+    // Allowed branch ids for this user. Admins get all branches.
+    branchIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    // Default/selected branch id.
+    branchId: { type: mongoose.Schema.Types.ObjectId },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     username: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
@@ -31,31 +31,31 @@ const ProfileSchema = new mongoose.Schema(
 
 ProfileSchema.pre('validate', function (next) {
   if (String(this.role || '').toLowerCase() === 'admin') {
-    this.branches = ['All Branches'];
-    this.branch = 'All Branches';
+    this.branchIds = [];
+    this.branchId = null;
     return next();
   }
 
-  // Normalize branches; support legacy single-branch writes via `branch`.
-  const normalizedBranches = (Array.isArray(this.branches) ? this.branches : [])
+  // Normalize branch ids; support legacy single-branch writes via `branchId`.
+  const normalizedBranchIds = (Array.isArray(this.branchIds) ? this.branchIds : [])
     .map((b) => String(b || '').trim())
     .filter(Boolean);
 
-  if (normalizedBranches.length === 0 && this.branch) {
-    normalizedBranches.push(String(this.branch).trim());
+  if (normalizedBranchIds.length === 0 && this.branchId) {
+    normalizedBranchIds.push(String(this.branchId).trim());
   }
 
   // Deduplicate while preserving order
   const seen = new Set();
-  this.branches = normalizedBranches.filter((b) => {
+  this.branchIds = normalizedBranchIds.filter((b) => {
     const key = b.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  if (!this.branches.length) return next(new Error('branches is required'));
-  if (!this.branch) this.branch = this.branches[0];
+  if (!this.branchIds.length) return next(new Error('branchIds is required'));
+  if (!this.branchId) this.branchId = this.branchIds[0];
   next();
 });
 

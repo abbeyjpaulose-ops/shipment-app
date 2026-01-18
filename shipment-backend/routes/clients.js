@@ -1,6 +1,8 @@
 // shipment-backend/routes/clients.js
 import express from 'express';
 import Client from '../models/Client.js';
+import Branch from '../models/Branch.js';
+import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -43,6 +45,24 @@ function normalizeClientPayload(payload = {}) {
   return normalized;
 }
 
+async function withBranchNames(records = []) {
+  const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
+  const branchIds = Array.from(
+    new Set(data.map((rec) => String(rec?.branchId || '')).filter(Boolean))
+  );
+  if (!branchIds.length) {
+    return data.map((rec) => ({ ...rec, branchName: '' }));
+  }
+  const branches = await Branch.find({ _id: { $in: branchIds } })
+    .select('_id branchName')
+    .lean();
+  const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
+  return data.map((rec) => ({
+    ...rec,
+    branchName: branchNameById.get(String(rec?.branchId || '')) || ''
+  }));
+}
+
 // Create new client (admin only)
 router.post('/add', requireAuth, requireAdmin, async (req, res) => {
   try {
@@ -58,7 +78,8 @@ router.post('/add', requireAuth, requireAdmin, async (req, res) => {
     });
 
     await client.save();
-    res.status(201).json(client);
+    const [withName] = await withBranchNames([client]);
+    res.status(201).json(withName);
   } catch (err) {
     if (err?.code === 11000) {
       return res.status(409).json({
@@ -83,12 +104,15 @@ router.get('/', requireAuth, async (req, res) => {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
-    const { branch } = req.query;
+    const { branchId } = req.query;
     const query = { GSTIN_ID: gstinId };
-    if (branch && branch !== 'All Branches') query.branch = branch;
+    if (branchId && branchId !== 'all') {
+      query.branchId = branchId;
+    }
 
-    const clients = await Client.find(query).sort({ createdAt: -1 });
-    res.json(clients);
+    const clients = await Client.find(query).sort({ createdAt: -1 }).lean();
+    const withNames = await withBranchNames(clients);
+    res.json(withNames);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -106,7 +130,8 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
       { new: true }
     );
     if (!client) return res.status(404).json({ message: 'Client not found' });
-    res.json({ success: true, client });
+    const [withName] = await withBranchNames([client]);
+    res.json({ success: true, client: withName });
   } catch (err) {
     if (err?.code === 11000) {
       return res.status(409).json({
@@ -125,6 +150,7 @@ router.put('/:id', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+
 // Update client pricing for a pickup/delivery route
 router.post('/:id/pricing', requireAuth, async (req, res) => {
   try {
@@ -134,13 +160,39 @@ router.post('/:id/pricing', requireAuth, async (req, res) => {
     const client = await Client.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
     if (!client) return res.status(404).json({ message: 'Client not found' });
 
-    const pickupPincode = String(req.body?.pickupPincode || '').trim();
-    const deliveryPincode = String(req.body?.deliveryPincode || '').trim();
+    let pickupLocationId = String(req.body?.pickupLocationId || '').trim();
+    let deliveryLocationId = String(req.body?.deliveryLocationId || '').trim();
+    const consignmentNumber = String(req.body?.consignmentNumber || '').trim();
     const rateUnit = String(req.body?.rateUnit || '').toLowerCase();
     const updates = Array.isArray(req.body?.updates) ? req.body.updates : [];
 
-    if (!pickupPincode || !deliveryPincode) {
-      return res.status(400).json({ message: 'pickupPincode and deliveryPincode are required' });
+    if (!pickupLocationId || !deliveryLocationId) {
+      const shipmentQuery = {
+        GSTIN_ID: gstinId,
+        $or: [{ consignorId: client._id }, { billingClientId: client._id }],
+        pickupLocationId: { $exists: true, $ne: null },
+        deliveryLocationId: { $exists: true, $ne: null }
+      };
+      const shipment = consignmentNumber
+        ? await Shipment.findOne({ ...shipmentQuery, consignmentNumber })
+            .select('pickupLocationId deliveryLocationId')
+            .lean()
+        : await Shipment.findOne(shipmentQuery)
+            .sort({ createdAt: -1 })
+            .select('pickupLocationId deliveryLocationId')
+            .lean();
+      if (shipment) {
+        if (!pickupLocationId) {
+          pickupLocationId = String(shipment.pickupLocationId || '').trim();
+        }
+        if (!deliveryLocationId) {
+          deliveryLocationId = String(shipment.deliveryLocationId || '').trim();
+        }
+      }
+    }
+
+    if (!pickupLocationId || !deliveryLocationId) {
+      return res.status(400).json({ message: 'pickupLocationId and deliveryLocationId are required' });
     }
 
     const rateField = rateUnit === 'cm3' || rateUnit === 'volume'
@@ -184,19 +236,19 @@ router.post('/:id/pricing', requireAuth, async (req, res) => {
       if (!Array.isArray(product.rates)) product.rates = [];
 
       let rateEntry = product.rates.find((r) =>
-        String(r.pickupPincode || '').trim() === pickupPincode &&
-        String(r.deliveryPincode || '').trim() === deliveryPincode
+        String(r.pickupLocationId || '').trim() === pickupLocationId &&
+        String(r.deliveryLocationId || '').trim() === deliveryLocationId
       );
       if (!rateEntry) {
         product.rates.push({
-          pickupPincode,
-          deliveryPincode,
+          pickupLocationId,
+          deliveryLocationId,
           rate: { [rateField]: ratePer }
         });
         return;
       }
-      rateEntry.pickupPincode = pickupPincode;
-      rateEntry.deliveryPincode = deliveryPincode;
+      rateEntry.pickupLocationId = pickupLocationId;
+      rateEntry.deliveryLocationId = deliveryLocationId;
       const existingRate = rateEntry.rate?.toObject ? rateEntry.rate.toObject() : (rateEntry.rate || {});
       rateEntry.rate = { ...existingRate, [rateField]: ratePer };
     });
@@ -247,8 +299,9 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const clients = await Client.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
-    res.json(clients);
+    const clients = await Client.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 }).lean();
+    const withNames = await withBranchNames(clients);
+    res.json(withNames);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -259,11 +312,16 @@ router.get('/clientslist', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const { branch } = req.query;
+    const { branchId } = req.query;
     const query = { GSTIN_ID: gstinId, status: 'active' };
-    if (branch && branch !== 'All Branches') query.branch = branch;
-    const clients = await Client.find(query).select('clientName GSTIN phoneNum branch creditType perDis deliveryLocations');
-    res.json(clients);
+    if (branchId && branchId !== 'all') {
+      query.branchId = branchId;
+    }
+    const clients = await Client.find(query)
+      .select('clientName GSTIN phoneNum branchId creditType perDis deliveryLocations')
+      .lean();
+    const withNames = await withBranchNames(clients);
+    res.json(withNames);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

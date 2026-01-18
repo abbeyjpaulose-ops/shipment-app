@@ -1,5 +1,6 @@
 // shipment-backend/routes/newshipments.js
 import express from 'express';
+import mongoose from 'mongoose';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import Invoice from '../models/NewShipment/NewShipmentInvoice.js';
@@ -12,6 +13,7 @@ import User from '../models/User.js';
 import Payment from '../models/Payment/Payment.js';
 import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
 import PaymentTransaction from '../models/Payment/PaymentTransaction.js';
+import Branch from '../models/Branch.js';
 import { requireAuth } from '../middleware/auth.js';
 import { syncPaymentsFromGeneratedInvoices } from '../services/paymentSync.js';
 
@@ -54,10 +56,23 @@ function normalizeInvoiceStatus(value) {
   return '';
 }
 
+async function buildBranchNameMap(branchIds = []) {
+  const ids = Array.from(new Set((branchIds || []).map((id) => String(id || '')).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const branches = await Branch.find({ _id: { $in: ids } })
+    .select('_id branchName')
+    .lean();
+  return new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
+}
+
 async function buildShipmentViews(shipments) {
   const clientIds = new Set();
   const guestIds = new Set();
+  const branchIds = new Set();
   for (const shipment of shipments || []) {
+    if (shipment?.branchId) {
+      branchIds.add(String(shipment.branchId));
+    }
     if (shipment?.consignorTab === 'guest' && shipment?.consignorId) {
       guestIds.add(String(shipment.consignorId));
     } else if (shipment?.consignorId) {
@@ -70,9 +85,10 @@ async function buildShipmentViews(shipments) {
     }
   }
 
-  const [clients, guests] = await Promise.all([
+  const [clients, guests, branchNameById] = await Promise.all([
     clientIds.size ? Client.find({ _id: { $in: Array.from(clientIds) } }).lean() : [],
-    guestIds.size ? Guest.find({ _id: { $in: Array.from(guestIds) } }).lean() : []
+    guestIds.size ? Guest.find({ _id: { $in: Array.from(guestIds) } }).lean() : [],
+    buildBranchNameMap(Array.from(branchIds))
   ]);
 
   const clientsById = new Map((clients || []).map((c) => [String(c._id), c]));
@@ -164,6 +180,7 @@ async function buildShipmentViews(shipments) {
       }
     }
 
+    data.branchName = branchNameById.get(String(data.branchId || '')) || '';
     return data;
   });
 }
@@ -254,17 +271,25 @@ router.post('/add', requireAuth, async (req, res) => {
     if (!username) return res.status(400).json({ message: 'Invalid username' });
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
+    const currentBranchId =
+      shipmentData.currentBranchId ||
+      shipmentData.originBranchId ||
+      shipmentData.branchId ||
+      null;
     const shipment = await Shipment.create({
       ...shipmentData,
+      currentBranchId,
       GSTIN_ID: gstinId,
       username
     });
     await replaceShipmentLines(shipment._id, ewaybills || [], { defaultInstockToAmount: true });
     if (wantsSummary) {
+      const branchNameById = await buildBranchNameMap([shipment.branchId]);
       res.status(201).json({
         _id: shipment._id,
         consignmentNumber: shipment.consignmentNumber,
-        branch: shipment.branch,
+        branchId: shipment.branchId,
+        branchName: branchNameById.get(String(shipment.branchId || '')) || '',
         shipmentStatus: shipment.shipmentStatus,
         date: shipment.date,
         username: shipment.username,
@@ -281,12 +306,12 @@ router.post('/add', requireAuth, async (req, res) => {
 
 // Get next consignment number for a company/branch (reset on April 1st)
 router.get('/nextConsignment', requireAuth, async (req, res) => {
-  const branch = req.query.branch;
+  const branchId = req.query.branchId;
 
-  if (!branch) {
-    return res.status(400).json({ message: 'Missing branch in query parameters' });
+  if (!branchId) {
+    return res.status(400).json({ message: 'Missing branchId in query parameters' });
   }
-  if (branch === 'All Branches') {
+  if (branchId === 'all') {
     return res.status(400).json({ message: 'Please select a specific branch to fetch consignment number' });
   }
 
@@ -299,11 +324,19 @@ router.get('/nextConsignment', requireAuth, async (req, res) => {
     const fiscalYearStart = new Date(year, 3, 1);
     const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59);
 
+    const matchQuery = branchId && branchId !== 'all'
+      ? (mongoose.Types.ObjectId.isValid(branchId)
+          ? { GSTIN_ID: gstinId, branchId: new mongoose.Types.ObjectId(branchId) }
+          : null)
+      : null;
+    if (!matchQuery) {
+      return res.status(400).json({ message: 'Invalid branchId' });
+    }
+
     const result = await Shipment.aggregate([
       {
         $match: {
-          GSTIN_ID: gstinId,
-          branch,
+          ...matchQuery,
           date: { $gte: fiscalYearStart, $lte: fiscalYearEnd },
           consignmentNumber: { $regex: '^[0-9]+$' }
         }
@@ -358,6 +391,7 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
       });
     }
 
+    const branchNameById = await buildBranchNameMap(shipments.map((s) => s.branchId));
     const groups = new Map();
     for (const shipment of shipments) {
       const key = buildBillingKey(shipment);
@@ -410,7 +444,6 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
         invoiceNumber: nextNumber,
         billingClientId,
         billingLocationId,
-        clientName: client?.clientName || '',
         clientGSTIN: client?.GSTIN || '',
         billingAddress,
         consignments,
@@ -418,6 +451,7 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
       });
 
       group.forEach((shipment) => {
+        const branchName = branchNameById.get(String(shipment.branchId || '')) || '';
         updates.push({
           updateOne: {
             filter: {
@@ -427,7 +461,7 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
             update: {
               $set: {
                 shipmentStatus: 'Invoiced',
-                shipmentStatusDetails: shipment.branch || ''
+                shipmentStatusDetails: branchName ? `/${branchName}` : ''
               }
             }
           }
@@ -475,6 +509,15 @@ router.get('/generatedInvoices', requireAuth, async (req, res) => {
     ]);
 
     const gstPercent = Number(company?.companyType) || 0;
+    const billingClientIds = invoices
+      .map((inv) => String(inv?.billingClientId || ''))
+      .filter(Boolean);
+    const billingClients = billingClientIds.length
+      ? await Client.find({ _id: { $in: billingClientIds } }).select('_id clientName').lean()
+      : [];
+    const billingClientById = new Map(
+      (billingClients || []).map((c) => [String(c._id), c.clientName || ''])
+    );
 
     const consignmentNumbers = invoices.flatMap((inv) =>
       (inv.consignments || []).map((c) => c.consignmentNumber)
@@ -491,6 +534,7 @@ router.get('/generatedInvoices', requireAuth, async (req, res) => {
 
     const response = invoices.map((inv) => ({
       ...inv,
+      clientName: billingClientById.get(String(inv.billingClientId || '')) || '',
       consignments: (inv.consignments || []).map((c) => {
         const shipment = shipmentsByNumber.get(String(c.consignmentNumber)) || {};
         return {
@@ -546,24 +590,28 @@ router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
       const shipments = await Shipment.find({
         GSTIN_ID: gstinId,
         consignmentNumber: { $in: consignmentNumbers }
-      }).select('consignmentNumber branch').lean();
+      }).select('consignmentNumber branchId').lean();
 
       if (shipments.length) {
+        const branchNameById = await buildBranchNameMap(shipments.map((s) => s.branchId));
         await Shipment.bulkWrite(
-          shipments.map((shipment) => ({
-            updateOne: {
-              filter: {
-                GSTIN_ID: gstinId,
-                consignmentNumber: shipment.consignmentNumber
-              },
-              update: {
-                $set: {
-                  shipmentStatus: 'Pre-Invoiced',
-                  shipmentStatusDetails: shipment.branch || ''
+          shipments.map((shipment) => {
+            const branchName = branchNameById.get(String(shipment.branchId || '')) || '';
+            return {
+              updateOne: {
+                filter: {
+                  GSTIN_ID: gstinId,
+                  consignmentNumber: shipment.consignmentNumber
+                },
+                update: {
+                  $set: {
+                    shipmentStatus: 'Pre-Invoiced',
+                    shipmentStatusDetails: branchName ? `/${branchName}` : ''
+                  }
                 }
               }
-            }
-          }))
+            };
+          })
         );
       }
     }
@@ -731,23 +779,31 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
 // GET all shipments for a company/branch
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { branch } = req.query;
-    if (!branch) {
-      return res.status(400).json({ message: 'Branch is required' });
+    const { branchId } = req.query;
+    if (!branchId) {
+      return res.status(400).json({ message: 'branchId is required' });
     }
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     let shipments;
-    if (branch === 'All Branches') {
+    if (branchId && branchId !== 'all') {
+      shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId }).sort({ createdAt: -1 });
+    } else if (branchId === 'all') {
       shipments = await Shipment.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
-    } else {
-      shipments = await Shipment.find({ GSTIN_ID: gstinId, branch }).sort({ createdAt: -1 });
     }
 
     if (wantsSummary) {
-      res.json(shipments);
+      const branchNameById = await buildBranchNameMap(shipments.map((s) => s.branchId));
+      const summary = shipments.map((shipment) => {
+        const data = shipment.toObject ? shipment.toObject() : shipment;
+        return {
+          ...data,
+          branchName: branchNameById.get(String(data?.branchId || '')) || ''
+        };
+      });
+      res.json(summary);
       return;
     }
     const views = await buildShipmentViews(shipments);
@@ -763,11 +819,15 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = req.body;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const shipmentId = String(req.query.shipmentId || '').trim();
     if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
       shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
     }
+    const filter = shipmentId
+      ? { _id: shipmentId, GSTIN_ID: gstinId }
+      : { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId };
     const shipment = await Shipment.findOneAndUpdate(
-      { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId },
+      filter,
       shipmentData,
       { new: true }
     );
@@ -869,7 +929,7 @@ router.post('/deliver', requireAuth, async (req, res) => {
       invoiceId: { $in: invoiceIds },
       $or: [{ instock: { $gt: 0 } }, { intransitstock: { $gt: 0 } }]
     });
-    shipment.shipmentStatus = stillOpen ? 'In Transit/Pending' : 'Delivered';
+    shipment.shipmentStatus = stillOpen ? 'Manifested/Pending' : 'Delivered';
     await shipment.save();
 
     const view = (await buildShipmentViews([shipment]))[0];

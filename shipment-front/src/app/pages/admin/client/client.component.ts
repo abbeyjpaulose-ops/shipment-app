@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-client',
@@ -14,9 +15,12 @@ export class ClientComponent implements OnInit {
 
   clients: any[] = [];
   productOptions: any[] = [];
+  rateAddressOptions: Array<{ id: string; label: string }> = [];
+  private rateAddressLabelById = new Map<string, string>();
   showAddClientPopup = false;
   showEditClientPopup = false;
   cbranch: string = localStorage.getItem('branch') || 'All Branches';
+  cbranchId: string = localStorage.getItem('branchId') || 'all';
   private branchCheck: any;
 
   newClient: any = {
@@ -29,6 +33,7 @@ export class ClientComponent implements OnInit {
     deliveryLocations: [{ address: '', city: '', state: '', pinCode: '' }],
     status: 'active',
     branch: localStorage.getItem('branch') || 'All Branches',
+    branchId: localStorage.getItem('branchId') || 'all',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')
   };
@@ -40,13 +45,17 @@ export class ClientComponent implements OnInit {
   ngOnInit() {
     this.loadClients();
     this.loadProducts();
+    this.loadRateAddressOptions();
     // react to branch changes (same tab)
     this.branchCheck = setInterval(() => {
       const current = localStorage.getItem('branch') || 'All Branches';
-      if (current !== this.cbranch) {
+      const currentId = localStorage.getItem('branchId') || 'all';
+      if (current !== this.cbranch || currentId !== this.cbranchId) {
         this.cbranch = current;
+        this.cbranchId = currentId;
         this.loadClients();
         this.loadProducts();
+        this.loadRateAddressOptions();
       }
     }, 1000);
     // react to branch changes (other tabs)
@@ -59,10 +68,16 @@ export class ClientComponent implements OnInit {
   }
 
   private onStorage = (e: StorageEvent) => {
-    if (e.key === 'branch' && e.newValue && e.newValue !== this.cbranch) {
-      this.cbranch = e.newValue;
+    if (e.key === 'branch' || e.key === 'branchId') {
+      const current = localStorage.getItem('branch') || 'All Branches';
+      const currentId = localStorage.getItem('branchId') || 'all';
+      if (current !== this.cbranch || currentId !== this.cbranchId) {
+        this.cbranch = current;
+        this.cbranchId = currentId;
+      }
       this.loadClients();
       this.loadProducts();
+      this.loadRateAddressOptions();
     }
   };
 
@@ -70,8 +85,9 @@ export class ClientComponent implements OnInit {
   loadClients() {
     const email = localStorage.getItem('email');
     this.cbranch = localStorage.getItem('branch') || 'All Branches';
+    this.cbranchId = localStorage.getItem('branchId') || 'all';
 
-    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branch=${this.cbranch}`)
+    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branchId=${this.cbranchId}`)
       .subscribe({
         next: (data) => {
           console.log("Clients loaded:", data);
@@ -83,16 +99,72 @@ export class ClientComponent implements OnInit {
 
   /** Load Products for dropdown */
   loadProducts() {
-    const branch = localStorage.getItem('branch') || 'All Branches';
-    this.http.get<any[]>(`http://localhost:3000/api/products`)
+    const branch = localStorage.getItem('branch') || '';
+    const branchId = localStorage.getItem('branchId') || 'all';
+    this.http.get<any[]>(`http://localhost:3000/api/products?branchId=${encodeURIComponent(branchId)}&branch=${encodeURIComponent(branch)}`)
       .subscribe({
         next: (data) => {
-          this.productOptions = (data || []).filter((p: any) =>
-            branch === 'All Branches' ? true : p.branch === branch
-          );
+          this.productOptions = data || [];
         },
-        error: (err) => console.error('Error loading products:', err)
-      });
+      error: (err) => console.error('Error loading products:', err)
+    });
+  }
+
+  loadRateAddressOptions() {
+    const branchParams = '?branchId=all';
+    forkJoin({
+      branches: this.http.get<any[]>('http://localhost:3000/api/branches'),
+      hubs: this.http.get<any[]>('http://localhost:3000/api/hubs'),
+      clients: this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist${branchParams}`)
+    }).subscribe({
+      next: ({ branches, hubs, clients }) => {
+        const options: Array<{ id: string; label: string }> = [];
+
+        (branches || []).forEach((branch: any) => {
+          const addresses = Array.isArray(branch?.addresses) ? branch.addresses : [];
+          addresses.forEach((addr: any) => {
+            const id = String(addr?._id || '').trim();
+            if (!id) return;
+            const parts = [addr.address, addr.city, addr.state, addr.pinCode].filter(Boolean);
+            const label = `Branch: ${branch?.branchName || ''} - ${parts.join(', ')}`;
+            options.push({ id, label });
+          });
+          if (!addresses.length && branch?._id) {
+            const parts = [branch.address, branch.city, branch.state, branch.pinCode].filter(Boolean);
+            const label = `Branch: ${branch?.branchName || ''} - ${parts.join(', ')}`.trim();
+            options.push({ id: String(branch._id), label });
+          }
+        });
+
+        (hubs || []).forEach((hub: any) => {
+          const addresses = Array.isArray(hub?.deliveryAddresses) ? hub.deliveryAddresses : [];
+          addresses.forEach((addr: any) => {
+            const id = String(addr?._id || '').trim();
+            if (!id) return;
+            const label = `Hub: ${hub?.hubName || ''} - ${addr?.location || ''}`.trim();
+            options.push({ id, label });
+          });
+        });
+
+        (clients || []).forEach((client: any) => {
+          const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+          locations.forEach((loc: any) => {
+            const id = String(loc?.delivery_id || loc?._id || '').trim();
+            if (!id) return;
+            const parts = [loc.address, loc.city, loc.state, loc.pinCode].filter(Boolean);
+            const label = `Client: ${client?.clientName || ''} - ${parts.join(', ')}`;
+            options.push({ id, label });
+          });
+        });
+
+        this.rateAddressOptions = options;
+        this.rateAddressLabelById = new Map(options.map((o) => [o.id, o.label]));
+      },
+      error: () => {
+        this.rateAddressOptions = [];
+        this.rateAddressLabelById = new Map();
+      }
+    });
   }
 
   /** Popup Control */
@@ -189,8 +261,9 @@ export class ClientComponent implements OnInit {
     console.log('📤 Sending client data:', this.newClient);
 
     this.newClient.branch = localStorage.getItem('branch') || 'All Branches';
+    this.newClient.branchId = localStorage.getItem('branchId') || 'all';
 
-    if (this.newClient.branch === 'All Branches') {
+    if (this.newClient.branch === 'All Branches' || this.newClient.branchId === 'all') {
       alert('Please select a specific branch before adding a client.');
       return;
     }
@@ -242,8 +315,8 @@ export class ClientComponent implements OnInit {
 
   private createRateEntry() {
     return {
-      pickupPincode: '',
-      deliveryPincode: '',
+      pickupLocationId: '',
+      deliveryLocationId: '',
       rate: { ratePerNum: 0, ratePerVolume: 0, ratePerKg: 0 }
     };
   }
@@ -253,8 +326,8 @@ export class ClientComponent implements OnInit {
       ...product,
       rates: Array.isArray(product.rates) && product.rates.length > 0
         ? product.rates.map((rateEntry: any) => ({
-            pickupPincode: rateEntry.pickupPincode || '',
-            deliveryPincode: rateEntry.deliveryPincode || '',
+            pickupLocationId: rateEntry.pickupLocationId || '',
+            deliveryLocationId: rateEntry.deliveryLocationId || '',
             rate: {
               ratePerNum: rateEntry.rate?.ratePerNum ?? 0,
               ratePerVolume: rateEntry.rate?.ratePerVolume ?? 0,

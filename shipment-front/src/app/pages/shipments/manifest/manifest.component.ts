@@ -19,6 +19,7 @@ export class ManifestComponent implements OnInit, OnDestroy {
   filterDate: string = '';
   filterConsignor: string = '';
   filterRoute: string = '';
+  filterStatus: string = '';
   routeOptions: string[] = [];
   selectedStock: any = null;
   editingStock: any = null;   // Γ£à track which stock is being edited
@@ -50,6 +51,7 @@ consigneeTab: 'consignee' | 'guest' = 'consignee';
 email: string = '';
 username: string = '';
 branch: string = localStorage.getItem('branch') || 'All Branches';
+branchId: string = localStorage.getItem('branchId') || 'all';
 consignmentNumber: string = localStorage.getItem('consignmentNumber')||'-999'; // will be loaded asynchronously
 date: string = new Date().toISOString().split('T')[0];
 ewaybillNumber: string = '';
@@ -149,7 +151,7 @@ calculateFinalAmount() {
 
   loadStocks() {
     const username = this.username || localStorage.getItem('username') || '';
-    const branch = this.branch || localStorage.getItem('branch') || 'All Branches';
+    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
     if (!username) {
       console.error('Missing username for loading stocks');
       return;
@@ -157,7 +159,7 @@ calculateFinalAmount() {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username,
-        branch
+        branchId
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -166,9 +168,10 @@ calculateFinalAmount() {
           invoices: this.flattenInvoices(stock.ewaybills || stock.invoices || [])
         }));
         this.stocks = normalized
-          .filter(stock =>
-            stock.shipmentStatus === 'In Transit'
-          )
+          .filter(stock => {
+            const status = String(stock.shipmentStatus || '').trim();
+            return status === 'Manifestation' || status === 'Out for Delivery' || status === 'Will be Picked-Up';
+          })
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         this.routeOptions = this.buildRouteOptions(this.stocks);
         this.applyFilters();
@@ -271,6 +274,15 @@ calculateFinalAmount() {
     ) || null;
   }
 
+  private resolveHubByIdOrName(id: any, name: any): any | null {
+    const normId = this.normalizeId(id);
+    const normName = String(name || '').trim().toLowerCase();
+    return (this.hubs || []).find((h) =>
+      (normId && this.normalizeId(h?._id) === normId) ||
+      (normName && String(h?.hubName || '').trim().toLowerCase() === normName)
+    ) || null;
+  }
+
   private resolveClientLocation(client: any, locationId: any): any | null {
     if (!client) return null;
     const normId = this.normalizeId(locationId);
@@ -325,14 +337,19 @@ calculateFinalAmount() {
       enriched.pickupPincode = this.firstNonEmpty(enriched.pickupPincode, consignor?.pinCode);
     }
 
-    if (stock?.deliveryType === 'branch') {
+    const isSelfPickup =
+      stock?.deliveryType === 'Customer self pick up' ||
+      stock?.deliveryType === 'branch' ||
+      stock?.deliveryType === 'hub';
+    if (isSelfPickup) {
       const deliveryBranch = this.resolveBranchByIdOrName(stock?.deliveryID, stock?.deliveryName);
-      enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryBranch?.branchName);
-      enriched.deliveryAddress = this.firstNonEmpty(enriched.deliveryAddress, deliveryBranch?.address);
-      enriched.deliveryPhone = this.firstNonEmpty(enriched.deliveryPhone, deliveryBranch?.phoneNum);
-      enriched.deliveryPincode = this.firstNonEmpty(enriched.deliveryPincode, deliveryBranch?.pinCode);
+      const deliveryHub = deliveryBranch ? null : this.resolveHubByIdOrName(stock?.deliveryID, stock?.deliveryName);
+      enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryBranch?.branchName, deliveryHub?.hubName);
+      enriched.deliveryAddress = this.firstNonEmpty(enriched.deliveryAddress, deliveryBranch?.address, deliveryHub?.address);
+      enriched.deliveryPhone = this.firstNonEmpty(enriched.deliveryPhone, deliveryBranch?.phoneNum, deliveryHub?.phoneNum);
+      enriched.deliveryPincode = this.firstNonEmpty(enriched.deliveryPincode, deliveryBranch?.pinCode, deliveryHub?.pinCode);
     } else {
-      const deliveryClient = this.resolveClientByIdOrName(stock?.deliveryClientId || stock?.deliveryID, stock?.deliveryName);
+      const deliveryClient = this.resolveClientByIdOrName(stock?.deliveryID, stock?.deliveryName);
       const deliveryGuest = this.resolveGuestByIdOrName(stock?.deliveryID, stock?.deliveryName);
       const deliveryLocation = this.resolveClientLocation(deliveryClient, stock?.deliveryLocationId);
       enriched.deliveryName = this.firstNonEmpty(enriched.deliveryName, deliveryClient?.clientName, deliveryGuest?.guestName, enriched.consignee);
@@ -370,7 +387,8 @@ calculateFinalAmount() {
       (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
       (this.filterDate ? new Date(s.date).toISOString().split('T')[0] === this.filterDate : true) &&
       (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true) &&
-      (this.filterRoute ? this.getRoutesForStock(s).includes(this.filterRoute) : true)
+      (this.filterRoute ? this.getRoutesForStock(s).includes(this.filterRoute) : true) &&
+      (this.filterStatus ? String(s.shipmentStatus || '').trim() === this.filterStatus : true)
     );
   }
 
@@ -1046,17 +1064,21 @@ getBasketOptions(): Array<{ key: string; text: string }> {
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = this.branchService.currentBranch || localStorage.getItem('branch') || 'All Branches';
+    this.branchId = localStorage.getItem('branchId') || 'all';
 
     this.branchSub = this.branchService.branch$.subscribe(branch => {
       this.branch = branch;
+      this.branchId = localStorage.getItem('branchId') || 'all';
       this.loadStocks();
     });
 
     // react to branch changes (same tab)
     this.branchCheck = setInterval(() => {
       const current = localStorage.getItem('branch') || 'All Branches';
-      if (current !== this.branch) {
+      const currentId = localStorage.getItem('branchId') || 'all';
+      if (current !== this.branch || currentId !== this.branchId) {
         this.branch = current;
+        this.branchId = currentId;
         this.loadStocks();
       }
     }, 1000);
@@ -1089,7 +1111,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
     });
 
     // Products list
-    this.http.get<any[]>(`http://localhost:3000/api/products/productlist?emailId=${this.email}`)
+    this.http.get<any[]>(`http://localhost:3000/api/products/productlist?branchId=${encodeURIComponent(this.branchId)}&branch=${encodeURIComponent(this.branch)}`)
     .subscribe({
       next: data => this.productList = data,
       error: err => console.error('Error fetching product list', err),
@@ -1107,9 +1129,14 @@ getBasketOptions(): Array<{ key: string; text: string }> {
   }
 
   private onStorageChange = (e: StorageEvent) => {
-    if (e.key === 'branch' && e.newValue && e.newValue !== this.branch) {
-      this.branch = e.newValue;
-      this.loadStocks();
+    if (e.key === 'branch' || e.key === 'branchId') {
+      const current = localStorage.getItem('branch') || 'All Branches';
+      const currentId = localStorage.getItem('branchId') || 'all';
+      if (current !== this.branch || currentId !== this.branchId) {
+        this.branch = current;
+        this.branchId = currentId;
+        this.loadStocks();
+      }
     }
   };
 
@@ -1134,7 +1161,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
   
 
 openManifestationPopup() {
-  if (this.branch === 'All Branches') {
+  if (this.branchId === 'all' || !this.branchId) {
     alert('Please select a specific branch before manifesting consignments.');
     return;
   }
@@ -1188,25 +1215,28 @@ closeManifestationPopup() {
   this.showManifestationPopup = false;
 }
 
-finalizeManifestation() {
-  if (this.selectedForManifestation.length === 0) {
-    alert('No consignments selected.');
-    return;
-  }
+  finalizeManifestation() {
+    if (this.selectedForManifestation.length === 0) {
+      alert('No consignments selected.');
+      return;
+    }
 
-  const updates = (this.selectedForManifestation || []).map((consignment) => {
-    const updatedEwaybills = (consignment.ewaybills || []).map((ewb: any) => ({
-      ...ewb
-    }));
+    const updates = (this.selectedForManifestation || []).map((consignment) => {
+      const updatedEwaybills = (consignment.ewaybills || []).map((ewb: any) => ({
+        ...ewb
+      }));
+      const status = String(consignment?.shipmentStatus || '').trim();
+      const isManifestation = status === 'Manifestation';
 
-    const payload = {
-      ...consignment,
-      shipmentStatus: 'Delivered',
-      ewaybills: updatedEwaybills
-    };
+      const payload = {
+        ...consignment,
+        shipmentStatus: isManifestation ? 'DPending' : 'Delivered',
+        currentBranchId: consignment?.currentBranchId || consignment?.currentBranch,
+        ewaybills: updatedEwaybills
+      };
 
-    return this.http.put(
-      `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`,
+      return this.http.put(
+        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`,
       payload
     );
   });
@@ -1308,6 +1338,10 @@ printReceipts() {
 }
 
 }
+
+
+
+
 
 
 

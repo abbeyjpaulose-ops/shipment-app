@@ -25,8 +25,9 @@ export class HomeComponent implements OnInit {
   showProfile = false;
 
   // Branch data
-  branchOptions: string[] = [];
-  selectedBranch: string = localStorage.getItem('branch') || '';
+  branchOptions: Array<{ id: string; name: string }> = [];
+  selectedBranchId: string = localStorage.getItem('branchId') || '';
+  selectedBranchName: string = localStorage.getItem('branch') || '';
   showLogoutModal = false;
 
   constructor(private http: HttpClient, private branchService: BranchService) {}
@@ -35,28 +36,40 @@ export class HomeComponent implements OnInit {
     if (this.isAdmin && this.username) {
       this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${this.username}`)
         .subscribe(data => {
-          const names = (data || []).map((b: any) => b.branchName).filter(Boolean);
-          this.branchOptions = names;
+          const options = (data || [])
+            .map((b: any) => ({ id: String(b?._id || ''), name: String(b?.branchName || '') }))
+            .filter((b: any) => b.name);
+          this.branchOptions = options;
+          this.syncSelectedBranch();
         });
-      if (!this.selectedBranch) {
-        this.selectedBranch = 'All Branches';
-        localStorage.setItem('branch', this.selectedBranch);
+      if (!this.selectedBranchName) {
+        this.selectedBranchName = 'All Branches';
+        this.selectedBranchId = 'all';
+        localStorage.setItem('branch', this.selectedBranchName);
+        localStorage.setItem('branchId', this.selectedBranchId);
       }
-      this.branchService.setBranch(this.selectedBranch);
+      this.branchService.setBranch(this.selectedBranchName);
       return;
     }
 
     // Non-admin: use branches assigned in Profile (stored at login).
     try {
       const stored = JSON.parse(localStorage.getItem('branches') || '[]');
-      if (Array.isArray(stored)) this.branchOptions = stored;
+      if (Array.isArray(stored)) {
+        this.branchOptions = stored.map((name: string) => ({
+          id: String(name || ''),
+          name: String(name || '')
+        }));
+      }
     } catch {
       this.branchOptions = [];
     }
 
-    if (!this.selectedBranch && this.branchOptions.length) {
-      this.selectedBranch = this.branchOptions[0];
-      localStorage.setItem('branch', this.selectedBranch);
+    if (!this.selectedBranchName && this.branchOptions.length) {
+      this.selectedBranchId = this.branchOptions[0].id;
+      this.selectedBranchName = this.branchOptions[0].name;
+      localStorage.setItem('branch', this.selectedBranchName);
+      localStorage.setItem('branchId', this.selectedBranchId);
     }
   }
 
@@ -67,11 +80,36 @@ export class HomeComponent implements OnInit {
     if (menu === 'profile') this.showProfile = !this.showProfile;
   }
 
+  private syncSelectedBranch() {
+    if (!this.branchOptions.length) return;
+    if (this.selectedBranchId) {
+      const match = this.branchOptions.find((b) => b.id === this.selectedBranchId);
+      if (match) {
+        this.selectedBranchName = match.name;
+        return;
+      }
+    }
+    if (this.selectedBranchName) {
+      const match = this.branchOptions.find((b) => b.name === this.selectedBranchName);
+      if (match) {
+        this.selectedBranchId = match.id;
+        return;
+      }
+    }
+    this.selectedBranchId = this.branchOptions[0].id;
+    this.selectedBranchName = this.branchOptions[0].name;
+  }
+
   onBranchChange(event: any) {
-    const branch = event.target.value;
-    this.selectedBranch = branch;
-    localStorage.setItem('branch', branch);
-    this.branchService.setBranch(branch);
+    const branchId = String(event.target.value || '');
+    const isAll = branchId === 'all';
+    const match = this.branchOptions.find((b) => b.id === branchId);
+    const branchName = isAll ? 'All Branches' : (match?.name || branchId);
+    this.selectedBranchId = branchId;
+    this.selectedBranchName = branchName;
+    localStorage.setItem('branch', branchName);
+    localStorage.setItem('branchId', branchId);
+    this.branchService.setBranch(branchName);
     //reload for the view shipments to reflect branch change
     const currentUrl = window.location.href;
     if (currentUrl.includes("/shipments")) {
