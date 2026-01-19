@@ -1142,12 +1142,16 @@ onEditingPaymentModeChange() {
 private buildRouteString(): string {
   if (!this.shipmentRoute.length) return '';
 
+  if (this.manifestationStatus === 'Will be Picked-Up') {
+    return '$$Will be Picked-Up';
+  }
+
   const hasBaskets = (this.routeBaskets || []).length > 0;
   const prefix = hasBaskets
-    ? `$$${this.buildBasketDescriptor()}$$ `
-    : '$$All$$ ';
+    ? `$$${this.buildBasketDescriptor()}$$`
+    : '$$';
 
-  return prefix + this.shipmentRoute
+  const route = prefix + this.shipmentRoute
     .map(p => {
       const vehicle = String(p.vehicleNo || '').trim();
       return vehicle
@@ -1155,6 +1159,12 @@ private buildRouteString(): string {
         : `${p.name} (${p.type})`;
     })
     .join(' -> ');
+
+  if (this.manifestationStatus === 'Out for Delivery') {
+    return `${route}|Out for Delivery`;
+  }
+
+  return route;
 }
 
 private buildBasketDescriptor(): string {
@@ -1421,16 +1431,26 @@ finalizeManifestation() {
 
   const updates = (this.selectedForManifestation || []).map((consignment) => {
     const updatedEwaybills = (consignment.ewaybills || []).map((ewb: any) => (
-      routeString ? { ...ewb, routes: routeString } : { ...ewb }
+      routeString
+        ? (() => {
+            const existingRoutes = String(ewb?.routes || '').trim();
+            const nextRoutes = String(routeString || '').trim();
+            if (!existingRoutes) return { ...ewb, routes: nextRoutes };
+            const normalizedNext = nextRoutes.replace(/^\$\$\s*/, '');
+            return { ...ewb, routes: `${existingRoutes}$$${normalizedNext}` };
+          })()
+        : { ...ewb }
     ));
 
     const nextPointName = String(this.selectedNextDeliveryPoint || '').trim();
     const nextPointId = nextPointName ? this.getNextDeliveryPointId(nextPointName) : '';
-    const nextPoint = nextPointName ? `$$${nextPointName}` : '';
+    const nextPoint = nextPointId ? `$$${nextPointId}` : '';
     const currentStatus = String(consignment?.shipmentStatus || '').trim();
     let nextStatus = this.manifestationStatus || 'Manifestation';
     if (currentStatus === 'DPending') {
-      if (nextStatus === 'Out for Delivery') {
+      if (nextStatus === 'Manifestation') {
+        nextStatus = 'DManifestation';
+      } else if (nextStatus === 'Out for Delivery') {
         nextStatus = 'D-Out for Delivery';
       } else if (nextStatus === 'Will be Picked-Up') {
         nextStatus = 'D-Will be Picked-Up';
@@ -1440,7 +1460,6 @@ finalizeManifestation() {
       shipmentId: consignment?._id || '',
       shipmentStatus: nextStatus,
       shipmentStatusDetails: `${consignment.shipmentStatusDetails || ''}${nextPoint}`,
-      currentBranchId: nextPointId || consignment.currentBranchId || consignment.currentBranch,
       ewaybills: updatedEwaybills
     };
     const shipmentId = consignment?._id ? encodeURIComponent(consignment._id) : '';

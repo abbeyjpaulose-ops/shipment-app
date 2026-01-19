@@ -280,8 +280,32 @@ calculateFinalAmount() {
 
   private isDeliveryStatus(status: string): boolean {
     return status === 'DPending' ||
+      status === 'DManifestation' ||
       status === 'D-Out for Delivery' ||
       status === 'D-Will be Picked-Up';
+  }
+
+  private isDeliveryStatusForOthers(status: string): boolean {
+    return status === 'DManifestation' ||
+      status === 'D-Out for Delivery' ||
+      status === 'D-Will be Picked-Up';
+  }
+
+  private isCompanyMatch(stock: any): boolean {
+    const gstinId = String(localStorage.getItem('GSTIN_ID') || '').trim();
+    if (!gstinId) return true;
+    const stockGstin = String(stock?.GSTIN_ID ?? stock?.gstinId ?? '').trim();
+    if (!stockGstin) return false;
+    return stockGstin === gstinId;
+  }
+
+  private getLastStatusDetailBranchId(statusDetails: string): string {
+    if (!statusDetails) return '';
+    const parts = String(statusDetails)
+      .split('$$')
+      .map((part) => String(part || '').trim())
+      .filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : '';
   }
 
   private getBaseStocks(allStocks: any[]): any[] {
@@ -299,7 +323,8 @@ calculateFinalAmount() {
           const status = String(stock.shipmentStatus || '').trim();
           const currentBranchId = this.normalizeId(stock.currentBranchId || stock.currentBranch);
           const originBranchId = this.normalizeId(stock.branchId);
-          return this.isDeliveryStatus(status) &&
+          return this.isDeliveryStatusForOthers(status) &&
+            this.isCompanyMatch(stock) &&
             currentBranchId &&
             originBranchId &&
             originBranchId !== currentBranchId;
@@ -311,7 +336,8 @@ calculateFinalAmount() {
         const originBranchId = this.normalizeId(stock.branchId);
         const currentUiBranchId = this.normalizeId(branchId);
         const matchesCurrent = this.isCurrentBranchMatch(currentBranchId, currentUiBranchId);
-        return this.isDeliveryStatus(status) &&
+        return this.isDeliveryStatusForOthers(status) &&
+          this.isCompanyMatch(stock) &&
           currentBranchId &&
           originBranchId &&
           currentUiBranchId &&
@@ -1333,12 +1359,13 @@ closeManifestationPopup() {
         ...ewb
       }));
       const status = String(consignment?.shipmentStatus || '').trim();
-      const isManifestation = status === 'Manifestation';
+      const isManifestation = status === 'Manifestation' || status === 'DManifestation';
+      const statusDetailsBranchId = this.getLastStatusDetailBranchId(consignment?.shipmentStatusDetails || '');
 
       const payload = {
         shipmentId: consignment?._id || '',
         shipmentStatus: isManifestation ? 'DPending' : 'Delivered',
-        currentBranchId: consignment?.currentBranchId || consignment?.currentBranch,
+        currentBranchId: statusDetailsBranchId || consignment?.currentBranchId || consignment?.currentBranch,
         ewaybills: updatedEwaybills
       };
       const shipmentId = consignment?._id ? encodeURIComponent(consignment._id) : '';

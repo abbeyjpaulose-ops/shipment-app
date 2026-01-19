@@ -649,12 +649,13 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
     const branch = localStorage.getItem('branch') || '';
     const branchId = localStorage.getItem('branchId') || 'all';
+    const statusDetailsBranchId = branchId && branchId !== 'all' ? `$$${branchId}` : '';
     const shipmentData: any = {
       username: localStorage.getItem('username'),
       branch,
       currentBranchId: branchId,
       shipmentStatus: this.shipmentStatus,
-      shipmentStatusDetails: branch,
+      shipmentStatusDetails: statusDetailsBranchId,
       consignmentNumber: this.consignmentNumber,
       date: this.date,
       paymentMode: this.paymentMode,

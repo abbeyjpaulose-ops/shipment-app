@@ -151,6 +151,19 @@ export class ViewShipmentsComponent implements OnInit {
     return total;
   }
 
+  getRoutesDisplay(shipment: any): string {
+    const routes = this.getRoutesForShipment(shipment);
+    return routes.length ? routes.join(', ') : '-';
+  }
+
+  private getRoutesForShipment(shipment: any): string[] {
+    const routes = (shipment?.ewaybills || [])
+      .map((ewb: any) => String(ewb?.routes || '').trim())
+      .map((route: string) => route.replace(/\$\$/g, '').trim())
+      .filter((route: string) => route);
+    return Array.from(new Set(routes));
+  }
+
   applyFilters(): void {
     this.filteredShipments = this.shipments.filter(s => {
       const matchesSearch = this.searchText
