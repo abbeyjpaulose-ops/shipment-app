@@ -384,8 +384,8 @@
               <button class="icon-btn" (click)="deleteInvoice(e, i)">バ</button>
             </div>
             <div class="grid-3 compact">
-              <input placeholder="Customer INV No" [(ngModel)]="invoice.number">
-              <input type="number" placeholder="Value" [(ngModel)]="invoice.value">
+            <input placeholder="Customer INV No" [(ngModel)]="invoice.number">
+              <input type="number" placeholder="Value" [(ngModel)]="invoice.value" (ngModelChange)="calculateFinalAmount()">
             </div>
 
             <div class="subsection">
@@ -400,11 +400,11 @@
                       {{ prod.hsnNum }} - {{ prod.productName }}
                     </option>
                   </select>
-                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount">
+                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount" (ngModelChange)="calculateFinalAmount()">
                   <button class="icon-btn" (click)="deleteProduct(e, i, p)">バ</button>
                 </div>
                 <div class="rate-inline">
-                  <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer">
+                  <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer" (ngModelChange)="calculateFinalAmount()">
                   <span *ngIf="getSuggestedRate(product) !== null" class="suggested-rate">
                     Suggested: {{ getSuggestedRate(product) }}
                   </span>
@@ -419,7 +419,7 @@
                 <select [(ngModel)]="pkg.type">
                   <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
                 </select>
-                <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount">
+                <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount" (ngModelChange)="calculateFinalAmount()">
                 <button class="icon-btn" (click)="deletePackage(e, i, j)">バ</button>
               </div>
               <button class="tiny-btn" (click)="addPackage(e, i)">+ Package</button>
@@ -462,11 +462,11 @@
         </div>
 
         <div class="charges-grid">
-          <label>ODC <input type="number" [(ngModel)]="charges.odc"></label>
-          <label>Unloading <input type="number" [(ngModel)]="charges.unloading"></label>
-          <label>Docket <input type="number" [(ngModel)]="charges.docket"></label>
-          <label>Other <input type="number" [(ngModel)]="charges.other"></label>
-          <label>CCC <input type="number" [(ngModel)]="charges.ccc"></label>
+          <label>ODC <input type="number" [(ngModel)]="charges.odc" (ngModelChange)="calculateFinalAmount()"></label>
+          <label>Unloading <input type="number" [(ngModel)]="charges.unloading" (ngModelChange)="calculateFinalAmount()"></label>
+          <label>Docket <input type="number" [(ngModel)]="charges.docket" (ngModelChange)="calculateFinalAmount()"></label>
+          <label>Other <input type="number" [(ngModel)]="charges.other" (ngModelChange)="calculateFinalAmount()"></label>
+          <label>CCC <input type="number" [(ngModel)]="charges.ccc" (ngModelChange)="calculateFinalAmount()"></label>
           <label>
             <div class="discount-label">
               <span>Discount (Consignor)</span>
@@ -483,6 +483,7 @@
                 (change)="onConsignorDiscountChange(charges.consignorDiscount)">
             </div>
           </label>
+          <label>Initial Paid <input type="number" [(ngModel)]="initialPaid"></label>
           <label>Final Amount <input type="number" [(ngModel)]="finalAmount"></label>
         </div>
       </div>
@@ -498,7 +499,6 @@
     </div>
     <div class="action-buttons">
       <button class="ghost" (click)="resetForm()">Reset</button>
-      <button class="ghost" (click)="calculateFinalAmount()">Calculate</button>
       <button class="ghost" (click)="saveShipment()" [disabled]="isSaving || !hasValidProduct()">
         {{ isSaving ? 'Saving...' : 'Save' }}
       </button>

@@ -190,6 +190,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   applyConsignorDiscount = true;
   maxConsignorDiscount = 0;
   finalAmount: number = 0;
+  initialPaid: number = 0;
   showFinalAmountModal: boolean = false;
 
   shipmentStatus: string = 'Pending';
@@ -324,6 +325,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       charges: this.charges,
       applyConsignorDiscount: this.applyConsignorDiscount,
       finalAmount: this.finalAmount,
+      initialPaid: this.initialPaid,
       selectedConsignorId: this.selectedConsignorId,
       consignmentNumber: this.consignmentNumber,
       date: this.date
@@ -386,6 +388,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         charges: draft.charges ?? this.charges,
         applyConsignorDiscount: draft.applyConsignorDiscount ?? this.applyConsignorDiscount,
         finalAmount: draft.finalAmount ?? this.finalAmount,
+        initialPaid: draft.initialPaid ?? this.initialPaid,
         selectedConsignorId: draft.selectedConsignorId ?? null,
         consignmentNumber: draft.consignmentNumber ?? this.consignmentNumber,
         date: draft.date ?? this.date
@@ -466,21 +469,29 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   // E-WAYBILL HELPERS
   addEwaybill() {
     this.ewaybills.push({ number: '', date: this.date, invoices: [] });
+    this.calculateFinalAmount();
   }
-  deleteEwaybill(index: number) { this.ewaybills.splice(index, 1); }
+  deleteEwaybill(index: number) {
+    this.ewaybills.splice(index, 1);
+    this.calculateFinalAmount();
+  }
 
   addInvoice(ewaybillIndex: number) {
     this.ewaybills[ewaybillIndex].invoices.push({ number: '', value: 0, packages: [], products: [] });
+    this.calculateFinalAmount();
   }
   deleteInvoice(ewaybillIndex: number, invoiceIndex: number) {
     this.ewaybills[ewaybillIndex].invoices.splice(invoiceIndex, 1);
+    this.calculateFinalAmount();
   }
 
   addPackage(ewaybillIndex: number, invoiceIndex: number) {
     this.ewaybills[ewaybillIndex].invoices[invoiceIndex].packages.push({ type: '', amount: 0 });
+    this.calculateFinalAmount();
   }
   deletePackage(ewaybillIndex: number, invoiceIndex: number, packageIndex: number) {
     this.ewaybills[ewaybillIndex].invoices[invoiceIndex].packages.splice(packageIndex, 1);
+    this.calculateFinalAmount();
   }
 
   addProduct(ewaybillIndex: number, invoiceIndex: number) {
@@ -492,9 +503,11 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       intransitstock: 0,
       deliveredstock: 0
     });
+    this.calculateFinalAmount();
   }
   deleteProduct(ewaybillIndex: number, invoiceIndex: number, productIndex: number) {
     this.ewaybills[ewaybillIndex].invoices[invoiceIndex].products.splice(productIndex, 1);
+    this.calculateFinalAmount();
   }
 
   // CALCULATIONS
@@ -589,6 +602,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.applyConsignorDiscount = true;
     this.maxConsignorDiscount = 0;
     this.finalAmount = 0;
+    this.initialPaid = 0;
     this.suggestedRates = {};
     this.saveDraft(this.branch);
     this.updatePickupFromBranch();
@@ -695,7 +709,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       deliveryLocationId: this.deliveryLocationId,
       ewaybills: this.ewaybills,
       charges: this.charges,
-      finalAmount: this.finalAmount
+      finalAmount: this.finalAmount,
+      initialPaid: this.initialPaid
     };
 
     if (this.consignorTab === 'guest') shipmentData.consignorGST = 'GUEST';
@@ -1774,6 +1789,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       Number(product.ratePer) !== 0;
     if (!hasValue) {
       product.ratePer = suggested;
+      this.calculateFinalAmount();
     }
   }
 

@@ -10,6 +10,7 @@ import GeneratedInvoice from '../models/NewShipment/NewShipmentGeneratedInvoice.
 import Client from '../models/Client.js';
 import Guest from '../models/Guest.js';
 import User from '../models/User.js';
+import Hub from '../models/Hub.js';
 import Payment from '../models/Payment/Payment.js';
 import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
 import PaymentTransaction from '../models/Payment/PaymentTransaction.js';
@@ -271,6 +272,12 @@ router.post('/add', requireAuth, async (req, res) => {
     if (!username) return res.status(400).json({ message: 'Invalid username' });
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
+    if (!shipmentData.billingClientId &&
+        shipmentData.billingType === 'consignor' &&
+        shipmentData.consignorTab === 'consignor') {
+      shipmentData.billingClientId = shipmentData.consignorId;
+    }
+
     const currentBranchId =
       shipmentData.currentBranchId ||
       shipmentData.originBranchId ||
@@ -282,6 +289,62 @@ router.post('/add', requireAuth, async (req, res) => {
       GSTIN_ID: gstinId,
       username
     });
+    const paymentEntityId = shipment.billingClientId;
+    if (paymentEntityId) {
+      const paymentGstinId = Number(shipment.GSTIN_ID);
+      if (!Number.isFinite(paymentGstinId)) {
+        console.error('Invalid GSTIN_ID on shipment for payment creation', {
+          shipmentId: String(shipment._id || ''),
+          GSTIN_ID: shipment.GSTIN_ID
+        });
+      } else {
+        let entityType = 'client';
+        const [client, hub] = await Promise.all([
+          Client.findOne({ _id: paymentEntityId, GSTIN_ID: paymentGstinId }).select('_id').lean(),
+          Hub.findOne({ _id: paymentEntityId, GSTIN_ID: paymentGstinId }).select('_id').lean()
+        ]);
+        if (!client && hub) {
+          entityType = 'hub';
+        }
+        const amountDue = Number(shipment.finalAmount) || 0;
+        const amountPaid = Number(shipment.initialPaid) || 0;
+        const balance = amountDue - amountPaid;
+        const isPaid = amountDue > 0 && balance <= 0;
+        const referenceNo = `${String(shipment.branchId)}$$${String(shipment._id)}`;
+        const paymentPayload = {
+          entityType,
+          entityId: String(paymentEntityId),
+          referenceNo,
+          amountDue,
+          amountPaid,
+          balance,
+          currency: 'rupees',
+          status: isPaid ? 'Paid' : 'Pending',
+          paymentDate: isPaid ? new Date() : null,
+          paymentMethod: 'recievable',
+          notes: '',
+          dueDate: null
+        };
+        try {
+          const paymentResult = await Payment.updateOne(
+            { entityType, entityId: String(paymentEntityId), referenceNo },
+            {
+              $setOnInsert: { ...paymentPayload, GSTIN_ID: paymentGstinId }
+            },
+            { upsert: true }
+          );
+          if (!paymentResult?.upsertedId) {
+            console.warn('Payment record already exists or was not inserted', {
+              referenceNo,
+              entityId: String(paymentEntityId),
+              gstinId
+            });
+          }
+        } catch (err) {
+          console.error('Failed to create payment record', { referenceNo, gstinId: paymentGstinId, err });
+        }
+      }
+    }
     await replaceShipmentLines(shipment._id, ewaybills || [], { defaultInstockToAmount: true });
     if (wantsSummary) {
       const branchNameById = await buildBranchNameMap([shipment.branchId]);

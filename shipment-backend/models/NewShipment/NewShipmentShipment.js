@@ -48,7 +48,8 @@ const ShipmentSchema = new mongoose.Schema(
       ccc: { type: Number, default: 0 },
       consignorDiscount: { type: Number, default: 0 }
     },
-    finalAmount: { type: Number, default: 0 }
+    finalAmount: { type: Number, default: 0 },
+    initialPaid: { type: Number, default: 0 }
   },
   { timestamps: true }
 );
