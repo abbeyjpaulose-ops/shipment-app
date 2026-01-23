@@ -501,6 +501,49 @@
   padding: 4px 0;
 }
 
+.hub-charge-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+
+.hub-charge-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
+.hub-pickup-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.hub-charge-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hub-charge-row input {
+  width: 80px;
+  padding: 4px;
+  background-color: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  text-align: right;
+}
+
+.hub-charge-row .hint {
+  color: #9ca3af;
+  font-size: 12px;
+}
+
 .manifest-input {
   width: 60px;
   padding: 4px;

@@ -434,6 +434,28 @@
 
       <div *ngFor="let consignment of selectedForManifestation" class="consignment-block">
         <h4>Consignment: {{ consignment.consignmentNumber }}</h4>
+        <div *ngIf="isSelectedNextDeliveryPointHub()" class="hub-charge-wrapper">
+          <label class="hub-pickup-toggle">
+            <input
+              type="checkbox"
+              [(ngModel)]="consignment.hubWillPickedUp"
+              (change)="onHubPickedUpToggle(consignment)"
+            />
+            <span>Will picked-up from the location</span>
+          </label>
+          <div class="hub-charge-row">
+            <label>
+              Hub charge
+              <input
+                type="number"
+                min="0"
+                [(ngModel)]="consignment.hubPerRevAmount"
+                [disabled]="consignment.hubWillPickedUp"
+              />
+            </label>
+            <span class="hint">Suggested: {{ getHubChargeSuggestion(consignment) }}</span>
+          </div>
+        </div>
 
         <!-- Eway Bill Section -->
         <div class="ewaybill-section">
@@ -524,13 +546,16 @@
   </ng-template>
   <label *ngIf="manifestationStatus === 'Manifestation'">
     Next delivery point
-    <select [(ngModel)]="selectedNextDeliveryPoint">
+    <select [(ngModel)]="selectedNextDeliveryPoint" (change)="onNextDeliveryPointChange()">
       <option value="">Select next point</option>
       <option *ngFor="let point of availableRoutePoints" [value]="point.name">
         {{ point.name }} ({{ point.type }})
       </option>
     </select>
   </label>
+  <div *ngIf="manifestationStatus === 'Manifestation' && isSelectedNextDeliveryPointHub()" class="hub-charge-total">
+    Hub charge total: {{ getHubChargeTotal() }}
+  </div>
 </div>
         <ul class="route-list">
           <li *ngFor="let point of shipmentRoute; let i = index">

@@ -23,25 +23,23 @@
           <input [(ngModel)]="newPartner.pinCode" placeholder="Pin Code">
         </div>
 
-        <div class="form-row">
-          <label>Rate Type
-            <select [(ngModel)]="newPartner.rateType" required>
-              <option value="km">Rate / Km</option>
-              <option value="day">Rate / Day</option>
-            </select>
-          </label>
-          <input type="number" [(ngModel)]="newPartner.rateValue" placeholder="Rate Value*" required>
+        <div class="vehicle-tag" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
+          {{ v.number }} | {{ v.phone }} | {{ v.rateValue || 0 }} / {{ v.rateType === 'km' ? 'Km' : 'Day' }}
+          <button type="button" (click)="startEditNewVehicle(i)">Edit</button>
+          <button type="button" (click)="removeVehicle(i)">Delete</button>
         </div>
 
         <div class="vehicle-entry">
           <input [(ngModel)]="newVehicle.number" placeholder="Vehicle Number">
           <input [(ngModel)]="newVehicle.phone" placeholder="Driver Phone">
-          <button type="button" (click)="addVehicle()">+ Vehicle</button>
-        </div>
-
-        <div class="vehicle-tag" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
-          {{ v.number }} | {{ v.phone }}
-          <span class="delete-tag" (click)="removeVehicle(i)">A-</span>
+          <select [(ngModel)]="newVehicle.rateType" required>
+            <option value="km">Rate / Km</option>
+            <option value="day">Rate / Day</option>
+          </select>
+          <input type="number" [(ngModel)]="newVehicle.rateValue" placeholder="Rate Value*" required>
+          <button type="button" (click)="addVehicle()">
+            {{ editingNewVehicleIndex !== null ? 'Update Vehicle' : '+ Vehicle' }}
+          </button>
         </div>
 
         <button class="btn-add" type="button" (click)="addPartner()">+ Add Partner</button>
@@ -69,25 +67,23 @@
           <input [(ngModel)]="editing.pinCode" placeholder="Pin Code">
         </div>
 
-        <div class="form-row">
-          <label>Rate Type
-            <select [(ngModel)]="editing.rateType" required>
-              <option value="km">Rate / Km</option>
-              <option value="day">Rate / Day</option>
-            </select>
-          </label>
-          <input type="number" [(ngModel)]="editing.rateValue" placeholder="Rate Value*" required>
+        <div class="vehicle-tag" *ngFor="let v of editing.vehicleNumbers; let i=index">
+          {{ v.number }} | {{ v.phone }} | {{ v.rateValue || 0 }} / {{ v.rateType === 'km' ? 'Km' : 'Day' }}
+          <button type="button" (click)="startEditExistingVehicle(i)">Edit</button>
+          <button type="button" (click)="removeEditingVehicle(i)">Delete</button>
         </div>
 
         <div class="vehicle-entry">
           <input [(ngModel)]="editVehicleField.number" placeholder="Vehicle Number">
           <input [(ngModel)]="editVehicleField.phone" placeholder="Driver Phone">
-          <button type="button" (click)="addEditingVehicle()">+ Vehicle</button>
-        </div>
-
-        <div class="vehicle-tag" *ngFor="let v of editing.vehicleNumbers; let i=index">
-          {{ v.number }} | {{ v.phone }}
-          <span class="delete-tag" (click)="removeEditingVehicle(i)">A-</span>
+          <select [(ngModel)]="editVehicleField.rateType" required>
+            <option value="km">Rate / Km</option>
+            <option value="day">Rate / Day</option>
+          </select>
+          <input type="number" [(ngModel)]="editVehicleField.rateValue" placeholder="Rate Value*" required>
+          <button type="button" (click)="addEditingVehicle()">
+            {{ editingExistingVehicleIndex !== null ? 'Update Vehicle' : '+ Vehicle' }}
+          </button>
         </div>
 
         <div class="terminal-buttons">
@@ -105,8 +101,10 @@
         <th>GSTIN</th>
         <th>Address</th>
         <th>Vehicles</th>
+        <th>Vehicle Status</th>
         <th>Rate</th>
         <th>Status</th>
+        <th>Vehicle daily cost</th>
         <th>Actions</th>
       </tr>
 
@@ -130,9 +128,24 @@
         </td>
 
         <td>
-          <span>
-            {{ p.rateValue }} / {{ p.rateType === 'km' ? 'Km' : 'Day' }}
-          </span>
+          <div class="tag" *ngFor="let v of p.vehicleNumbers">
+            <ng-container *ngIf="(v.vehicleStatus || 'online') === 'online'; else statusSelect">
+              {{ v.vehicleStatus || 'online' }}
+            </ng-container>
+            <ng-template #statusSelect>
+              <select [(ngModel)]="v.vehicleStatus" (change)="updateVehicleStatus(p, v)">
+                <option value="scheduled">scheduled</option>
+                <option value="delivering">delivering</option>
+                <option value="completed">completed</option>
+              </select>
+            </ng-template>
+          </div>
+        </td>
+
+        <td>
+          <div class="tag" *ngFor="let v of p.vehicleNumbers">
+            {{ v.rateValue || 0 }} / {{ v.rateType === 'km' ? 'Km' : 'Day' }}
+          </div>
         </td>
 
         <td>
@@ -145,9 +158,69 @@
         </td>
 
         <td>
+          <div class="tag" *ngFor="let v of p.vehicleNumbers">
+            <input
+              type="number"
+              min="0"
+              [(ngModel)]="v.vehicleDailyCost"
+              [disabled]="true"
+              placeholder="Daily cost">
+          </div>
+        </td>
+
+        <td>
           <button (click)="editPartner(p)">Edit</button>
         </td>
       </tr>
     </table>
+  </div>
+</div>
+
+<div class="modal" *ngIf="showCompletionConfirm">
+  <div class="modal-content">
+    <span class="close" (click)="cancelCompletion()">&times;</span>
+    <h3>Are you sure the below consignments are delivered?</h3>
+    <ul *ngIf="completionConsignments.length; else noConsignments">
+      <li *ngFor="let item of completionConsignments; let i = index">
+        {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
+        <button type="button" (click)="removeCompletionConsignment(i)">-</button>
+      </li>
+    </ul>
+    <ng-template #noConsignments>
+      <p>No consignments found.</p>
+    </ng-template>
+    <div class="terminal-buttons">
+      <button type="button" (click)="confirmCompletion()">OK</button>
+      <button type="button" (click)="cancelCompletion()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" *ngIf="showDeliveringConfirm">
+  <div class="modal-content">
+    <span class="close" (click)="cancelDelivering()">&times;</span>
+    <h3>Are you sure all the consignments are in the vehicle?</h3>
+    <label>
+      Vehicle daily cost
+      <input
+        type="number"
+        min="0"
+        [(ngModel)]="deliveringDailyCost"
+        (ngModelChange)="deliveringCostMissing = !(deliveringDailyCost && deliveringDailyCost > 0)">
+    </label>
+    <p *ngIf="deliveringCostMissing">Please fill Vehicle daily cost before setting status to delivering.</p>
+    <ul *ngIf="deliveringConsignments.length; else noDeliveringConsignments">
+      <li *ngFor="let item of deliveringConsignments; let i = index">
+        {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
+        <button type="button" (click)="removeDeliveringConsignment(i)">-</button>
+      </li>
+    </ul>
+    <ng-template #noDeliveringConsignments>
+      <p>No consignments found.</p>
+    </ng-template>
+    <div class="terminal-buttons">
+      <button type="button" (click)="confirmDelivering()" [disabled]="deliveringCostMissing">OK</button>
+      <button type="button" (click)="cancelDelivering()">Cancel</button>
+    </div>
   </div>
 </div>

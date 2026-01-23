@@ -20,6 +20,17 @@ import { syncPaymentsFromGeneratedInvoices } from '../services/paymentSync.js';
 
 const router = express.Router();
 
+function normalizeBranchIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return ids.map((id) => String(id || '')).filter(Boolean);
+}
+
+function getAllowedBranchIds(req) {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role === 'admin') return null;
+  return normalizeBranchIds(req.user?.branchIds);
+}
+
 function formatLocation(loc) {
   if (!loc) return '';
   const address = loc.address || loc.location || '';
@@ -55,6 +66,87 @@ function normalizeInvoiceStatus(value) {
   if (normalized === 'paid') return 'Paid';
   if (normalized === 'active' || normalized === 'invoiced') return 'Active';
   return '';
+}
+
+function extractVehicleNumbersFromRoutes(routes) {
+  const vehicles = new Set();
+  const raw = String(routes || '');
+  if (!raw.trim()) return [];
+  const segments = raw.split('$$').map((part) => part.trim()).filter(Boolean);
+  segments.forEach((segment) => {
+    const parts = segment.split(' -> ').map((p) => p.trim()).filter(Boolean);
+    parts.forEach((part) => {
+      if (!part.includes(')')) return;
+      const tokens = part.split('|').map((t) => t.trim()).filter(Boolean);
+      if (tokens.length < 2) return;
+      let vehicle = tokens[tokens.length - 1];
+      if (vehicle.toLowerCase() === 'out for delivery' && tokens.length >= 2) {
+        vehicle = tokens[tokens.length - 2];
+      }
+      if (!vehicle || vehicle.toLowerCase() === 'out for delivery') return;
+      vehicles.add(vehicle);
+    });
+  });
+  return Array.from(vehicles);
+}
+
+async function autoCompleteVehiclesIfNoActive(gstinId, routes) {
+  const vehicleNumbers = extractVehicleNumbersFromRoutes(routes);
+  if (!vehicleNumbers.length) return;
+  const activeStatuses = [
+    'Pending',
+    'DPending',
+    'Manifestation',
+    'DManifestation',
+    'Out for Delivery',
+    'D-Out for Delivery'
+  ];
+  const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  for (const vehicleNo of vehicleNumbers) {
+    const vehicleRegex = new RegExp(`\\|\\s*${escapeRegex(vehicleNo)}\\b`, 'i');
+    const ewaybills = await Ewaybill.find({ routes: { $regex: vehicleRegex } })
+      .select('shipmentId')
+      .lean();
+    const shipmentIds = Array.from(
+      new Set((ewaybills || []).map((e) => String(e?.shipmentId || '')).filter(Boolean))
+    );
+    if (!shipmentIds.length) continue;
+    const hasActive = await Shipment.exists({
+      GSTIN_ID: gstinId,
+      _id: { $in: shipmentIds },
+      shipmentStatus: { $in: activeStatuses }
+    });
+    if (hasActive) continue;
+    await Promise.all([
+      Branch.updateMany(
+        { GSTIN_ID: gstinId, 'vehicles.vehicleNo': vehicleNo },
+        { $set: { 'vehicles.$[v].vehicleStatus': 'online' } },
+        { arrayFilters: [{ 'v.vehicleNo': vehicleNo }] }
+      ),
+      Hub.updateMany(
+        { GSTIN_ID: gstinId, 'deliveryAddresses.vehicles.vehicleNo': vehicleNo },
+        { $set: { 'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': 'online' } },
+        { arrayFilters: [{ 'v.vehicleNo': vehicleNo }] }
+      )
+    ]);
+  }
+}
+
+async function updateInternalVehiclesToScheduled(gstinId, routes) {
+  const vehicleNumbers = extractVehicleNumbersFromRoutes(routes);
+  if (!vehicleNumbers.length) return;
+  await Promise.all([
+    Branch.updateMany(
+      { GSTIN_ID: gstinId, 'vehicles.vehicleNo': { $in: vehicleNumbers } },
+      { $set: { 'vehicles.$[v].vehicleStatus': 'scheduled' } },
+      { arrayFilters: [{ 'v.vehicleNo': { $in: vehicleNumbers } }] }
+    ),
+    Hub.updateMany(
+      { GSTIN_ID: gstinId, 'deliveryAddresses.vehicles.vehicleNo': { $in: vehicleNumbers } },
+      { $set: { 'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': 'scheduled' } },
+      { arrayFilters: [{ 'v.vehicleNo': { $in: vehicleNumbers } }] }
+    )
+  ]);
 }
 
 async function buildBranchNameMap(branchIds = []) {
@@ -376,6 +468,10 @@ router.get('/nextConsignment', requireAuth, async (req, res) => {
   }
   if (branchId === 'all') {
     return res.status(400).json({ message: 'Please select a specific branch to fetch consignment number' });
+  }
+  const allowedBranchIds = getAllowedBranchIds(req);
+  if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
+    return res.status(403).json({ message: 'Branch access denied' });
   }
 
   try {
@@ -851,10 +947,22 @@ router.get('/', requireAuth, async (req, res) => {
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     let shipments;
+    const allowedBranchIds = getAllowedBranchIds(req);
     if (branchId && branchId !== 'all') {
+      if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
       shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId }).sort({ createdAt: -1 });
     } else if (branchId === 'all') {
-      shipments = await Shipment.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
+      if (allowedBranchIds) {
+        if (!allowedBranchIds.length) {
+          return res.json([]);
+        }
+        shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId: { $in: allowedBranchIds } })
+          .sort({ createdAt: -1 });
+      } else {
+        shipments = await Shipment.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
+      }
     }
 
     if (wantsSummary) {
@@ -880,6 +988,8 @@ router.get('/', requireAuth, async (req, res) => {
 router.put('/:consignmentNumber', requireAuth, async (req, res) => {
   try {
     const { ewaybills, ...shipmentData } = req.body;
+    const hubIdRaw = req.body?.hubId;
+    const hubChargeRaw = req.body?.hubCharge;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const shipmentId = String(req.query.shipmentId || req.body?.shipmentId || '').trim();
@@ -903,6 +1013,110 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     if (ewaybills) {
       await replaceShipmentLines(shipment._id, ewaybills, { defaultInstockToAmount: false });
     }
+
+    const status = String(shipmentData.shipmentStatus || '').trim();
+    if (['Manifestation', 'Out for Delivery', 'DManifestation', 'D-Out for Delivery'].includes(status)) {
+      const routesSource = Array.isArray(ewaybills) && ewaybills.length
+        ? ewaybills.map((ewb) => String(ewb?.routes || '')).join('$$')
+        : '';
+      if (routesSource) {
+        await updateInternalVehiclesToScheduled(gstinId, routesSource);
+      } else {
+        const stored = await Ewaybill.find({ shipmentId: shipment._id })
+          .select('routes')
+          .lean();
+        const combinedRoutes = (stored || []).map((ewb) => String(ewb?.routes || '')).join('$$');
+        if (combinedRoutes) {
+          await updateInternalVehiclesToScheduled(gstinId, combinedRoutes);
+        }
+      }
+    }
+
+    if (['Pending', 'DPending', 'Delivered'].includes(status)) {
+      const routesSource = Array.isArray(ewaybills) && ewaybills.length
+        ? ewaybills.map((ewb) => String(ewb?.routes || '')).join('$$')
+        : '';
+      if (routesSource) {
+        await autoCompleteVehiclesIfNoActive(gstinId, routesSource);
+      } else {
+        const stored = await Ewaybill.find({ shipmentId: shipment._id })
+          .select('routes')
+          .lean();
+        const combinedRoutes = (stored || []).map((ewb) => String(ewb?.routes || '')).join('$$');
+        if (combinedRoutes) {
+          await autoCompleteVehiclesIfNoActive(gstinId, combinedRoutes);
+        }
+      }
+    }
+
+    const hubId = String(hubIdRaw || '').trim();
+    const hubCharge = Math.max(Number(hubChargeRaw) || 0, 0);
+    if (hubId) {
+      const hubExists = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id').lean();
+      if (hubExists) {
+        const referenceNo = `${String(shipment._id)}$$hubcharge`;
+        const existingPayment = await Payment.findOne({
+          GSTIN_ID: gstinId,
+          entityType: 'hub',
+          entityId: hubId,
+          referenceNo
+        }).lean();
+        const previousDue = Number(existingPayment?.amountDue || 0);
+        const amountPaid = Number(existingPayment?.amountPaid || 0);
+        const balance = Math.max(hubCharge - amountPaid, 0);
+        const status = balance <= 0 ? 'Paid' : 'Pending';
+
+        await Payment.updateOne(
+          { GSTIN_ID: gstinId, entityType: 'hub', entityId: hubId, referenceNo },
+          {
+            $set: {
+              amountDue: hubCharge,
+              amountPaid,
+              balance,
+              currency: 'rupees',
+              status,
+              paymentMethod: 'payable',
+              paymentDate: balance <= 0 ? new Date() : null
+            },
+            $setOnInsert: {
+              GSTIN_ID: gstinId,
+              entityType: 'hub',
+              entityId: hubId,
+              referenceNo,
+              notes: `Hub charge for consignment ${String(shipment.consignmentNumber || '')}`.trim()
+            }
+          },
+          { upsert: true }
+        );
+
+        let summary = await PaymentEntitySummary.findOne({
+          GSTIN_ID: gstinId,
+          entityType: 'hub',
+          entityId: hubId
+        });
+        if (!summary) {
+          summary = await PaymentEntitySummary.create({
+            GSTIN_ID: gstinId,
+            entityType: 'hub',
+            entityId: hubId,
+            totalDue: hubCharge,
+            totalPaid: amountPaid,
+            totalBalance: balance,
+            status
+          });
+        } else {
+          const deltaDue = hubCharge - previousDue;
+          const totalDue = Math.max(Number(summary.totalDue || 0) + deltaDue, 0);
+          const totalPaid = Number(summary.totalPaid || 0);
+          const totalBalance = Math.max(totalDue - totalPaid, 0);
+          summary.totalDue = totalDue;
+          summary.totalBalance = totalBalance;
+          summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
+          await summary.save();
+        }
+      }
+    }
+
     const view = (await buildShipmentViews([shipment]))[0];
     res.json(view);
   } catch (err) {
@@ -950,6 +1164,57 @@ router.get('/getConsignment', requireAuth, async (req, res) => {
     res.json(views);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Fetch consignments assigned to a vehicle number (auth required)
+router.get('/vehicle-consignments', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    const vehicleNumber = String(req.query.vehicleNumber || '').trim();
+    const statusFilter = String(req.query.statusFilter || 'manifestation').trim().toLowerCase();
+    if (!vehicleNumber) {
+      return res.status(400).json({ message: 'Vehicle number is required.' });
+    }
+
+    const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const vehicleRegex = new RegExp(`\\|\\s*${escapeRegex(vehicleNumber)}\\b`, 'i');
+
+    const ewaybills = await Ewaybill.find({ routes: { $regex: vehicleRegex } })
+      .select('shipmentId')
+      .lean();
+    const shipmentIds = Array.from(
+      new Set((ewaybills || []).map((e) => String(e?.shipmentId || '')).filter(Boolean))
+    );
+    if (!shipmentIds.length) {
+      return res.json({ consignments: [] });
+    }
+
+    let statusCriteria = {};
+    if (statusFilter === 'manifestation') {
+      statusCriteria = { shipmentStatus: { $in: ['Manifestation', 'DManifestation'] } };
+    } else if (statusFilter === 'assigned') {
+      statusCriteria = {
+        shipmentStatus: { $in: ['Manifestation', 'DManifestation', 'Out for Delivery', 'D-Out for Delivery'] }
+      };
+    }
+    const shipments = await Shipment.find({
+      GSTIN_ID: gstinId,
+      _id: { $in: shipmentIds },
+      ...statusCriteria
+    }).select('_id consignmentNumber shipmentStatus shipmentStatusDetails').lean();
+
+    const consignments = (shipments || []).map((s) => ({
+      id: String(s._id),
+      consignmentNumber: s.consignmentNumber,
+      shipmentStatus: s.shipmentStatus,
+      shipmentStatusDetails: s.shipmentStatusDetails
+    }));
+
+    res.json({ consignments });
+  } catch (err) {
+    res.status(500).json({ message: err?.message || 'Failed to fetch consignments.' });
   }
 });
 

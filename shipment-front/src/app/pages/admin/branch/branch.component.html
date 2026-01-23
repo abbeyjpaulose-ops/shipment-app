@@ -10,7 +10,7 @@
       <span class="close" (click)="closeAddBranchPopup()">&times;</span>
       <h3>Add Branch</h3>
       <div class="add-branch-form">
-        <input [(ngModel)]="newBranch.branchName" placeholder="Branch Name" required>
+        <input [(ngModel)]="newBranch.branchName" (ngModelChange)="handleHeadingBranchChange()" placeholder="Branch Name" required>
         <input [(ngModel)]="newBranch.address" placeholder="Address" required>
         <input [(ngModel)]="newBranch.city" placeholder="City">
         <input [(ngModel)]="newBranch.state" placeholder="State">
@@ -24,6 +24,11 @@
           <div *ngFor="let v of newBranch.vehicles; let i=index" class="vehicle-row">
             <input placeholder="Vehicle No." [(ngModel)]="v.vehicleNo">
             <input placeholder="Driver Phone" [(ngModel)]="v.driverPhone">
+            <span>{{ v.vehicleStatus || 'online' }}</span>
+            <select [(ngModel)]="v.currentBranch">
+              <option *ngIf="!newBranch.branchName" [ngValue]="''" disabled>Select Current Branch</option>
+              <option *ngFor="let option of getAddBranchOptions()" [ngValue]="option">{{ option }}</option>
+            </select>
             <button *ngIf="newBranch.vehicles.length > 1"
                     class="remove-btn"
                     (click)="removeVehicle(i)">dY-`ƒ?1,?</button>
@@ -55,6 +60,15 @@
           <div *ngFor="let v of editingBranch.vehicles; let i=index" class="vehicle-row">
             <input [(ngModel)]="v.vehicleNo" placeholder="Vehicle No.">
             <input [(ngModel)]="v.driverPhone" placeholder="Driver Phone">
+            <button type="button" (click)="toggleEditVehicleStatus(v)">
+              {{ (v.vehicleStatus || 'online') === 'offline' ? 'offline' : 'online' }}
+            </button>
+            <div class="current-branch-inline">
+              <label>Current Branch</label>
+              <select [(ngModel)]="v.currentBranch">
+              <option *ngFor="let option of getEditBranchOptions(v.currentBranch)" [ngValue]="option">{{ option }}</option>
+              </select>
+            </div>
             <button *ngIf="editingBranch.vehicles.length > 1"
                     class="remove-btn"
                     (click)="removeVehicleEdit(i)">dY-`ƒ?1,?</button>
@@ -73,9 +87,6 @@
       <tr>
         <th>Branch Name</th>
         <th>Address</th>
-        <th>City</th>
-        <th>State</th>
-        <th>Pin</th>
         <th>Phone</th>
         <th>Vehicles & Drivers</th>
         <th>Status</th>
@@ -88,16 +99,7 @@
         <td>{{ b.branchName }}</td>
 
         <!-- Address -->
-        <td>{{ b.address }}</td>
-
-        <!-- City -->
-        <td>{{ b.city }}</td>
-
-        <!-- State -->
-        <td>{{ b.state }}</td>
-
-        <!-- Pin Code -->
-        <td>{{ b.pinCode }}</td>
+        <td>{{ getBranchAddress(b) }}</td>
 
         <!-- Phone -->
         <td>{{ b.phoneNum }}</td>

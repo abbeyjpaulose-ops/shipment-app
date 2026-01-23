@@ -6,6 +6,17 @@ import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function normalizeBranchIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return ids.map((id) => String(id || '')).filter(Boolean);
+}
+
+function getAllowedBranchIds(req) {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role === 'admin') return null;
+  return normalizeBranchIds(req.user?.branchIds);
+}
+
 async function withBranchNames(records = []) {
   const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
   const branchIds = Array.from(
@@ -67,7 +78,16 @@ router.get('/', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const branchId = String(req.query.branchId || '').trim();
     const branchFilters = [];
-    if (branchId && branchId !== 'all') branchFilters.push({ branchId });
+    const allowedBranchIds = getAllowedBranchIds(req);
+    if (branchId && branchId !== 'all') {
+      if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
+      branchFilters.push({ branchId });
+    } else if (branchId === 'all' && allowedBranchIds) {
+      if (!allowedBranchIds.length) return res.json([]);
+      branchFilters.push({ branchId: { $in: allowedBranchIds } });
+    }
     const products = await Product.find({
       GSTIN_ID: gstinId,
       ...(branchFilters.length ? { $or: branchFilters } : {})
@@ -134,7 +154,16 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const branchId = String(req.query.branchId || '').trim();
     const branchFilters = [];
-    if (branchId && branchId !== 'all') branchFilters.push({ branchId });
+    const allowedBranchIds = getAllowedBranchIds(req);
+    if (branchId && branchId !== 'all') {
+      if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
+      branchFilters.push({ branchId });
+    } else if (branchId === 'all' && allowedBranchIds) {
+      if (!allowedBranchIds.length) return res.json([]);
+      branchFilters.push({ branchId: { $in: allowedBranchIds } });
+    }
     const products = await Product.find({
       GSTIN_ID: gstinId,
       ...(branchFilters.length ? { $or: branchFilters } : {})
@@ -153,7 +182,16 @@ router.get('/productlist', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const branchId = String(req.query.branchId || '').trim();
     const branchFilters = [];
-    if (branchId && branchId !== 'all') branchFilters.push({ branchId });
+    const allowedBranchIds = getAllowedBranchIds(req);
+    if (branchId && branchId !== 'all') {
+      if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
+      branchFilters.push({ branchId });
+    } else if (branchId === 'all' && allowedBranchIds) {
+      if (!allowedBranchIds.length) return res.json([]);
+      branchFilters.push({ branchId: { $in: allowedBranchIds } });
+    }
     const products = await Product.find({
       GSTIN_ID: gstinId,
       status: 'active',

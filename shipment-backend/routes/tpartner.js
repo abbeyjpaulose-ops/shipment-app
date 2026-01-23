@@ -5,6 +5,17 @@ import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function normalizeBranchIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return ids.map((id) => String(id || '')).filter(Boolean);
+}
+
+function getAllowedBranchIds(req) {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role === 'admin') return null;
+  return normalizeBranchIds(req.user?.branchIds);
+}
+
 async function withBranchNames(records = []) {
   const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
   const branchIds = Array.from(
@@ -70,7 +81,17 @@ router.get('/', requireAuth, async (req, res) => {
     const branchId = String(req.query.branchId || '').trim();
     const query = { GSTIN_ID: gstinId };
     if (branchId && branchId !== 'all') {
+      const allowedBranchIds = getAllowedBranchIds(req);
+      if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
       query.branchId = branchId;
+    } else if (branchId === 'all') {
+      const allowedBranchIds = getAllowedBranchIds(req);
+      if (allowedBranchIds) {
+        if (!allowedBranchIds.length) return res.json([]);
+        query.branchId = { $in: allowedBranchIds };
+      }
     }
     const partners = await TransportPartner.find(query).sort({ createdAt: -1 }).lean();
     const withNames = await withBranchNames(partners);
@@ -128,6 +149,43 @@ router.patch('/:id/status', requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// Update vehicle status (admin only)
+router.patch('/:id/vehicle-status', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const vehicleNumber = String(req.body?.vehicleNumber || '').trim();
+    const vehicleStatus = String(req.body?.vehicleStatus || '').trim();
+    const vehicleDailyCost = req.body?.vehicleDailyCost;
+    if (!vehicleNumber) return res.status(400).json({ message: 'Vehicle number is required' });
+    if (!vehicleStatus) return res.status(400).json({ message: 'Vehicle status is required' });
+
+    const vehicleCostValue = vehicleDailyCost !== undefined && vehicleDailyCost !== null
+      ? Number(vehicleDailyCost)
+      : null;
+    const update = await TransportPartner.updateOne(
+      { _id: req.params.id, GSTIN_ID: gstinId },
+      {
+        $set: {
+          'vehicleNumbers.$[v].vehicleStatus': vehicleStatus,
+          ...(vehicleCostValue !== null && !Number.isNaN(vehicleCostValue)
+            ? { 'vehicleNumbers.$[v].vehicleDailyCost': vehicleCostValue }
+            : {})
+        }
+      },
+      { arrayFilters: [{ 'v.number': vehicleNumber }] }
+    );
+
+    if (!update?.matchedCount) {
+      return res.status(404).json({ message: 'Transport partner not found' });
+    }
+    res.json({ success: true, update });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+});
+
 // Backwards-compatible endpoint used by the frontend; now auth-scoped.
 router.get('/by-user/:username', requireAuth, async (req, res) => {
   try {
@@ -136,7 +194,17 @@ router.get('/by-user/:username', requireAuth, async (req, res) => {
     const branchId = String(req.query.branchId || '').trim();
     const query = { GSTIN_ID: gstinId };
     if (branchId && branchId !== 'all') {
+      const allowedBranchIds = getAllowedBranchIds(req);
+      if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
       query.branchId = branchId;
+    } else if (branchId === 'all') {
+      const allowedBranchIds = getAllowedBranchIds(req);
+      if (allowedBranchIds) {
+        if (!allowedBranchIds.length) return res.json([]);
+        query.branchId = { $in: allowedBranchIds };
+      }
     }
     const partners = await TransportPartner.find(query).sort({ createdAt: -1 }).lean();
     const withNames = await withBranchNames(partners);
@@ -154,7 +222,17 @@ router.get('/tpartnerslist', requireAuth, async (req, res) => {
     const branchId = String(req.query.branchId || '').trim();
     const query = { GSTIN_ID: gstinId, status: 'active' };
     if (branchId && branchId !== 'all') {
+      const allowedBranchIds = getAllowedBranchIds(req);
+      if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
       query.branchId = branchId;
+    } else if (branchId === 'all') {
+      const allowedBranchIds = getAllowedBranchIds(req);
+      if (allowedBranchIds) {
+        if (!allowedBranchIds.length) return res.json([]);
+        query.branchId = { $in: allowedBranchIds };
+      }
     }
     const partners = await TransportPartner.find(query)
       .select('partnerName address phoneNum vehicleNumbers branchId')

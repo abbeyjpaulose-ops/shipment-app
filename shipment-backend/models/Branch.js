@@ -4,7 +4,9 @@ import mongoose from 'mongoose';
 const VehicleSchema = new mongoose.Schema(
   {
     vehicleNo: { type: String, required: true, trim: true },
-    driverPhone: { type: String, required: true, trim: true }
+    driverPhone: { type: String, required: true, trim: true },
+    vehicleStatus: { type: String, trim: true, default: 'online' },
+    currentBranch: { type: String, trim: true }
   },
   { _id: false }
 );

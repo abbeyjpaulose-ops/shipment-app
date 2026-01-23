@@ -12,8 +12,10 @@ import { FormsModule } from '@angular/forms';
 })
 export class BranchComponent implements OnInit {
   branches: any[] = [];
+  hubs: any[] = [];
   showAddBranchPopup = false;
   showEditBranchPopup = false;
+  private lastHeadingBranchName = '';
 
   newBranch: any = {
     branchName: '',
@@ -22,7 +24,7 @@ export class BranchComponent implements OnInit {
     state: '',
     pinCode: '',
     phoneNum: '',
-    vehicles: [{ vehicleNo: '', driverPhone: '' }],
+    vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' }],
     status: 'active'
   };
 
@@ -33,6 +35,7 @@ export class BranchComponent implements OnInit {
   ngOnInit() {
     localStorage.setItem('branch', 'All Branches');
     this.loadBranches();
+    this.loadHubs();
   }
 
   // Load Branches
@@ -42,6 +45,15 @@ export class BranchComponent implements OnInit {
         this.branches = data;
       },
       error: (err) => console.error('Error loading branches:', err)
+    });
+  }
+
+  loadHubs() {
+    this.http.get<any[]>(`http://localhost:3000/api/hubs`).subscribe({
+      next: (data) => {
+        this.hubs = data;
+      },
+      error: (err) => console.error('Error loading hubs:', err)
     });
   }
 
@@ -60,7 +72,13 @@ export class BranchComponent implements OnInit {
 
   // Add Vehicle in Add Form
   addVehicle() {
-    this.newBranch.vehicles.push({ vehicleNo: '', driverPhone: '' });
+    const headingBranch = String(this.newBranch.branchName || '').trim();
+    this.newBranch.vehicles.push({
+      vehicleNo: '',
+      driverPhone: '',
+      vehicleStatus: 'online',
+      currentBranch: headingBranch
+    });
   }
 
   // Remove Vehicle in Add Form
@@ -70,12 +88,33 @@ export class BranchComponent implements OnInit {
 
   // Add Vehicle while Editing
   addVehicleEdit() {
-    this.editingBranch.vehicles.push({ vehicleNo: '', driverPhone: '' });
+    this.editingBranch.vehicles.push({ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' });
   }
 
   // Remove Vehicle while Editing
   removeVehicleEdit(index: number) {
     this.editingBranch.vehicles.splice(index, 1);
+  }
+
+  toggleEditVehicleStatus(vehicle: any) {
+    if (!this.editingBranch?._id || !vehicle) return;
+    const vehicleNo = String(vehicle?.vehicleNo || '').trim();
+    if (!vehicleNo) return;
+    const current = String(vehicle?.vehicleStatus || 'online').trim().toLowerCase();
+    const nextStatus = current === 'offline' ? 'online' : 'offline';
+    this.http.patch(`http://localhost:3000/api/branches/${this.editingBranch._id}/vehicle-status`, {
+      vehicleNo,
+      vehicleStatus: nextStatus
+    }).subscribe({
+      next: () => {
+        vehicle.vehicleStatus = nextStatus;
+        this.loadBranches();
+      },
+      error: (err) => {
+        console.error('Error updating vehicle status:', err);
+        alert('Failed to update vehicle status.');
+      }
+    });
   }
 
   // Add Branch
@@ -127,6 +166,85 @@ export class BranchComponent implements OnInit {
       });
   }
 
+  handleHeadingBranchChange(): void {
+    const current = String(this.newBranch.branchName || '').trim();
+    const previous = String(this.lastHeadingBranchName || '').trim();
+    if (!Array.isArray(this.newBranch.vehicles)) {
+      this.lastHeadingBranchName = current;
+      return;
+    }
+    this.newBranch.vehicles.forEach((v: any) => {
+      const currentBranch = String(v?.currentBranch || '').trim();
+      const matchesPrevious =
+        previous && currentBranch.toLowerCase() === previous.toLowerCase();
+      if (!currentBranch || matchesPrevious) {
+        v.currentBranch = current;
+      }
+    });
+    this.lastHeadingBranchName = current;
+  }
+
+  getAddBranchOptions(): string[] {
+    const options: string[] = [];
+    const heading = String(this.newBranch.branchName || '').trim();
+    if (heading) {
+      options.push(heading);
+    }
+    (this.branches || []).forEach((branch: any) => {
+      const name = String(branch?.branchName || '').trim();
+      if (!name) return;
+      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        options.push(name);
+      }
+    });
+    return options;
+  }
+
+  getEditBranchOptions(currentValue: any): string[] {
+    const options: string[] = [];
+    const current = String(currentValue || '').trim();
+    if (current) {
+      options.push(current);
+    }
+    const heading = String(this.editingBranch?.branchName || '').trim();
+    if (heading) {
+      const exists = options.some((option) => option.toLowerCase() === heading.toLowerCase());
+      if (!exists) {
+        options.push(heading);
+      }
+    }
+    const editingBranchId = this.normalizeId(this.editingBranch?._id);
+    (this.hubs || []).forEach((hub: any) => {
+      if (!editingBranchId) return;
+      const hubBranchId = this.normalizeId(hub?.branchId);
+      if (!hubBranchId || hubBranchId !== editingBranchId) return;
+      const name = String(hub?.hubName || '').trim();
+      if (!name) return;
+      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        options.push(name);
+      }
+    });
+    (this.branches || []).forEach((branch: any) => {
+      const name = String(branch?.branchName || '').trim();
+      if (!name) return;
+      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        options.push(name);
+      }
+    });
+    return options;
+  }
+
+  private normalizeId(value: any): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value?._id) return String(value._id);
+    if (value?.$oid) return String(value.$oid);
+    return String(value);
+  }
+
   // Reset Form
   resetNewBranch() {
     this.newBranch = {
@@ -136,9 +254,10 @@ export class BranchComponent implements OnInit {
       state: '',
       pinCode: '',
       phoneNum: '',
-      vehicles: [{ vehicleNo: '', driverPhone: '' }],
+      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' }],
       status: 'active'
     };
+    this.lastHeadingBranchName = '';
   }
 
   // Edit Branch Mode
@@ -167,5 +286,16 @@ export class BranchComponent implements OnInit {
     this.http.patch(`http://localhost:3000/api/branches/${branch._id}/status`, {}).subscribe(() => {
       this.loadBranches();
     });
+  }
+
+  getBranchAddress(branch: any): string {
+    const parts = [branch?.address, branch?.city, branch?.state, branch?.pinCode].filter(Boolean);
+    if (parts.length) {
+      return parts.join(', ');
+    }
+    const firstAddress = Array.isArray(branch?.addresses) ? branch.addresses[0] : null;
+    const fallback = [firstAddress?.address, firstAddress?.city, firstAddress?.state, firstAddress?.pinCode]
+      .filter(Boolean);
+    return fallback.join(', ');
   }
 }

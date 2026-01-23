@@ -6,6 +6,14 @@ import Branch from '../models/Branch.js';
 
 const router = express.Router();
 
+const normalizeBranchIds = (ids) =>
+  Array.isArray(ids) ? ids.map((id) => String(id || '')).filter(Boolean) : [];
+const getAllowedBranchIds = (req) => {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role === 'admin') return null;
+  return normalizeBranchIds(req.user?.branchIds);
+};
+
 const normalizeId = (value) => String(value || '').trim();
 const keyFor = (hsnNum, productName) =>
   `${String(hsnNum || '').toUpperCase()}::${String(productName || '').toUpperCase()}`;
@@ -47,6 +55,10 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     const branchId = normalizeId(req.query.branchId);
     if (!branchId || branchId === 'all') {
       return res.status(400).json({ message: 'branchId is required and must not be "all"' });
+    }
+    const allowedBranchIds = getAllowedBranchIds(req);
+    if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+      return res.status(403).json({ message: 'Branch access denied' });
     }
 
     const clientId = req.query.clientId;

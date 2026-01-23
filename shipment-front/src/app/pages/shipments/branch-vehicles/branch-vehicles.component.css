@@ -1,0 +1,81 @@
+.branch-vehicles-container {
+  padding: 20px;
+}
+
+.branch-subtitle {
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.vehicles-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+
+.vehicles-table-wrapper th,
+.vehicles-table-wrapper td {
+  border: 1px solid #e5e7eb;
+  padding: 8px;
+  text-align: left;
+}
+
+.vehicles-table-wrapper th {
+  background: #f8fafc;
+}
+
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  width: 480px;
+  max-width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  position: relative;
+}
+
+.close {
+  position: absolute;
+  right: 15px;
+  top: 10px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+.terminal-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.terminal-buttons button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.terminal-buttons button:first-child {
+  background-color: #007acc;
+  color: #fff;
+}
+
+.terminal-buttons button:last-child {
+  background-color: #555;
+  color: #fff;
+}

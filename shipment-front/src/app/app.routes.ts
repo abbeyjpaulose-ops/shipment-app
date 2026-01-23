@@ -22,6 +22,7 @@ import { StocksComponent } from './pages/shipments/stocks/stocks.component';
 import { ManifestComponent } from './pages/shipments/manifest/manifest.component';
 import { InvoiceComponent } from './pages/shipments/invoice/invoice.component';
 import { ReportsComponent } from './pages/shipments/reports/reports.component';
+import { BranchVehiclesComponent } from './pages/shipments/branch-vehicles/branch-vehicles.component';
 import { ConfigurationComponent } from './pages/settings/configuration/configuration.component';
 import { LocationsComponent } from './pages/settings/locations/locations.component';
 import { LogsComponent } from './pages/settings/logs/logs.component';
@@ -54,6 +55,7 @@ export const routes: Routes = [
       { path: 'Delivered', component:  InvoiceComponent},
       { path: 'Manifest', component:  ManifestComponent},
       { path: 'Stocks', component:  StocksComponent},
+      { path: 'BranchVehicles', component:  BranchVehiclesComponent},
       { path: 'RoleSettings', component:  RoleSettingsComponent},
       { path: 'Payments', component:  UsersComponent},
       { path: 'Locations', component:  LocationsComponent},

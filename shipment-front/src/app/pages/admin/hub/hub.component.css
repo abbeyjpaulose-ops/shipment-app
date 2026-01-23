@@ -62,3 +62,9 @@ th, td {
   font-size: 24px;
   cursor: pointer;
 }
+
+.current-branch-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

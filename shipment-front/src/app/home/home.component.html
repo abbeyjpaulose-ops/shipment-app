@@ -9,7 +9,7 @@
         (change)="onBranchChange($event)"
         [disabled]="!isAdmin && branchOptions.length <= 1"
       > 
-        <option *ngIf="isAdmin" value="all">All Branches</option>
+        <option value="all">All Branches</option>
         <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.name }}</option>
       </select>
  
@@ -27,6 +27,7 @@
         <li><a routerLink="shipments">View Shipments</a></li>
         <li><a routerLink="Stocks">Stocks</a></li>
         <li><a routerLink="Manifest">Manifest</a></li>
+        <li><a routerLink="BranchVehicles">Branch Vehicles</a></li>
         <li><a routerLink="Delivered">Delivered/Pre-Invoice</a></li>
         <li><a routerLink="Invoiced">Invoiced</a></li>
       </ul>
@@ -44,7 +45,7 @@
           <li><a routerLink="Hubs">Hubs</a></li>
           <li><a routerLink="Tpartners">Transport Partners</a></li>
           <li><a routerLink="Payments">Payments</a></li>
-          <li><a routerLink="Categories">Categories</a></li>
+          <li><a routerLink="Categories">Running cost</a></li>
           <li><a routerLink="Pkgs">Packages</a></li>
           <li><a routerLink="Products">Products</a></li>
           <li><a routerLink="RoleSettings">Roles Settings</a></li>

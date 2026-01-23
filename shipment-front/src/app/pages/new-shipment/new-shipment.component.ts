@@ -115,7 +115,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   pickupSource = 'branch';
 
   // Delivery
-  deliveryType: 'branch' | 'hub' | 'consignee' | 'different' = 'branch';
+  deliveryType: 'branch' | 'hub' | 'consignee' | 'different' = 'different';
   deliveryTypeName: string = '';
   deliveryName = '';
   deliveryAddress = '';
@@ -557,9 +557,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.pickupLocationId = null;
     this.pickupPreviousSender = '';
     this.pickupSource = 'branch';
-    this.deliveryType = 'branch';
+    this.deliveryType = 'different';
     this.deliveryTypeName = '';
-    this.deliveryBranch = this.branch;
+    this.deliveryBranch = '';
+    this.deliveryHub = '';
     this.deliveryName = '';
     this.deliveryAddress = '';
     this.deliveryPhone = '';
@@ -1352,6 +1353,35 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.billingAddress = '';
   }
 
+  onDeliverySelfPickupToggle(event: any) {
+    const enabled = Boolean(event?.target?.checked);
+    if (enabled) {
+      this.deliveryType = 'branch';
+      this.deliveryTypeName = 'Customer Self Pickup';
+      this.deliveryBranch = this.branch || '';
+      this.deliveryHub = '';
+      this.deliveryPreviousReceiver = '';
+      this.deliveryLocationIndex = '';
+      this.deliveryLocationId = null;
+      this.deliveryID = null;
+      this.updateDeliveryFromBranch();
+      return;
+    }
+    this.deliveryType = 'different';
+    this.deliveryTypeName = 'Out for delivery too';
+    this.deliveryBranch = '';
+    this.deliveryHub = '';
+    this.deliveryPreviousReceiver = '';
+    this.deliveryLocationIndex = '';
+    this.deliveryLocationId = null;
+    this.deliveryID = null;
+    this.deliveryName = '';
+    this.deliveryAddress = '';
+    this.deliveryPhone = '';
+    this.deliveryPincode = '';
+    this.onRouteChange();
+  }
+
   setDeliveryType(type: 'branch' | 'hub' | 'consignee' | 'different') {
     this.deliveryType = type;
     if (type === 'branch') {
@@ -1982,6 +2012,19 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
           this.branches = branches || [];
           this.rebuildRateAddressOptions();
           this.branchDetails = this.branches.find(b => b.branchName === this.branch) || null;
+          const storedBranchId = localStorage.getItem('branchId') || 'all';
+          const resolvedBranchId = this.branchDetails?._id ? String(this.branchDetails._id) : '';
+          if (
+            this.branch &&
+            this.branch !== 'All Branches' &&
+            resolvedBranchId &&
+            (storedBranchId === 'all' || !storedBranchId)
+          ) {
+            localStorage.setItem('branchId', resolvedBranchId);
+            this.newClient.branchId = resolvedBranchId;
+            this.getCurrentConsignmentNumber();
+            this.loadLists();
+          }
           this.updatePickupFromBranch();
           if (this.deliveryType === 'branch') {
             this.updateDeliveryFromBranch();

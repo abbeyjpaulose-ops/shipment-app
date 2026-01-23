@@ -7,6 +7,17 @@ import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
 
+function normalizeBranchIds(ids) {
+  if (!Array.isArray(ids)) return [];
+  return ids.map((id) => String(id || '')).filter(Boolean);
+}
+
+function getAllowedBranchIds(req) {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role === 'admin') return null;
+  return normalizeBranchIds(req.user?.branchIds);
+}
+
 function normalizeClientPayload(payload = {}) {
   const normalized = { ...payload };
   const deliveryLocations = Array.isArray(normalized.deliveryLocations)
@@ -106,8 +117,17 @@ router.get('/', requireAuth, async (req, res) => {
 
     const { branchId } = req.query;
     const query = { GSTIN_ID: gstinId };
+    const allowedBranchIds = getAllowedBranchIds(req);
     if (branchId && branchId !== 'all') {
+      if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
       query.branchId = branchId;
+    } else if (branchId === 'all' && allowedBranchIds) {
+      if (!allowedBranchIds.length) {
+        return res.json([]);
+      }
+      query.branchId = { $in: allowedBranchIds };
     }
 
     const clients = await Client.find(query).sort({ createdAt: -1 }).lean();
@@ -314,8 +334,17 @@ router.get('/clientslist', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const { branchId } = req.query;
     const query = { GSTIN_ID: gstinId, status: 'active' };
+    const allowedBranchIds = getAllowedBranchIds(req);
     if (branchId && branchId !== 'all') {
+      if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
       query.branchId = branchId;
+    } else if (branchId === 'all' && allowedBranchIds) {
+      if (!allowedBranchIds.length) {
+        return res.json([]);
+      }
+      query.branchId = { $in: allowedBranchIds };
     }
     const clients = await Client.find(query)
       .select('clientName GSTIN phoneNum branchId creditType perDis deliveryLocations')

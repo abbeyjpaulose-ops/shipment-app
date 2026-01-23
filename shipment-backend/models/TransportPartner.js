@@ -15,13 +15,15 @@ const TransportPartnerSchema = new mongoose.Schema(
 
     vehicleNumbers: [
       {
+        _id: { type: mongoose.Schema.Types.ObjectId, auto: true },
         number: { type: String, required: true, trim: true },
-        phone: { type: String, required: true, trim: true }
+        phone: { type: String, required: true, trim: true },
+        vehicleStatus: { type: String, trim: true, default: 'online' },
+        rateType: { type: String, enum: ['km', 'day'], required: true },
+        rateValue: { type: Number, required: true },
+        vehicleDailyCost: { type: Number }
       }
     ],
-
-    rateType: { type: String, enum: ['km', 'day'], required: true },
-    rateValue: { type: Number, required: true },
 
     status: { type: String, enum: ['active', 'inactive'], default: 'active' },
 

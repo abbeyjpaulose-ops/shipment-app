@@ -26,8 +26,9 @@ export class LoginComponent {
         const email = res.email;
         const role = res.role;
         const token = res.token;
-        const branch = res.branch;
         const branches = res.branches;
+        const branchIds = res.branchIds;
+        const branchNames = res.branchNames;
         const gstin = res.GSTIN;
         const gstinId = res.GSTIN_ID;
         localStorage.setItem('username', username);
@@ -36,13 +37,16 @@ export class LoginComponent {
         if (token) localStorage.setItem('token', token);
         if (gstin) localStorage.setItem('GSTIN', gstin);
         if (gstinId !== undefined && gstinId !== null) localStorage.setItem('GSTIN_ID', String(gstinId));
-        if (Array.isArray(branches)) localStorage.setItem('branches', JSON.stringify(branches));
-        const isAdmin = String(role || '').toLowerCase() === 'admin';
-        if (branch) {
-          localStorage.setItem('branch', branch);
-        } else {
-          localStorage.setItem('branch', isAdmin ? 'All Branches' : '');
+        if (Array.isArray(branchNames)) {
+          localStorage.setItem('branches', JSON.stringify(branchNames));
+        } else if (Array.isArray(branches)) {
+          localStorage.setItem('branches', JSON.stringify(branches));
         }
+        if (Array.isArray(branchIds)) {
+          localStorage.setItem('branchIds', JSON.stringify(branchIds));
+        }
+        localStorage.setItem('branch', 'All Branches');
+        localStorage.setItem('branchId', 'all');
 
         console.log('✅ Login successful for user:', localStorage.getItem('companyType'));        
 

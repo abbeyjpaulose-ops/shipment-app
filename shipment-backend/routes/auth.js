@@ -67,7 +67,8 @@ router.post('/login', async (req, res) => {
         username: account.username,
         role: account.role,
         email: account.email,
-        accountType
+        accountType,
+        branchIds
       },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '1h' }

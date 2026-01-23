@@ -1,0 +1,81 @@
+<div class="branch-vehicles-container">
+  <h2>Branch Vehicles</h2>
+  <p class="branch-subtitle">{{ branchId === 'all' ? 'All Branches' : branchName }}</p>
+
+  <div class="vehicles-table-wrapper">
+    <table>
+      <tr>
+        <th>Branch</th>
+        <th>Vehicles num</th>
+        <th>Phone</th>
+        <th>Vehicle Status</th>
+        <th>Current Branch</th>
+        <th>Actions</th>
+      </tr>
+      <tr *ngFor="let v of vehicles">
+        <td>{{ v.branchName }}</td>
+        <td>{{ v.vehicleNo }}</td>
+        <td>{{ v.driverPhone }}</td>
+        <td>
+          <ng-container *ngIf="v.vehicleStatus !== 'online' && v.vehicleStatus !== 'offline'; else statusLabel">
+            <select [(ngModel)]="v.vehicleStatus" (change)="onVehicleStatusChange(v)">
+              <option value="scheduled">Scheduled</option>
+              <option value="delivering">Delivering</option>
+              <option value="completed">Completed</option>
+            </select>
+          </ng-container>
+          <ng-template #statusLabel>
+            {{ formatVehicleStatus(v.vehicleStatus) }}
+          </ng-template>
+        </td>
+        <td>{{ getCurrentBranchLabel(v.currentBranch) }}</td>
+        <td>
+          <a [routerLink]="['/home/Branches']">Edit</a>
+        </td>
+      </tr>
+      <tr *ngIf="vehicles.length === 0">
+        <td colspan="6">No vehicles found.</td>
+      </tr>
+    </table>
+  </div>
+</div>
+
+<div class="modal" *ngIf="showDeliveringConfirm">
+  <div class="modal-content">
+    <span class="close" (click)="cancelDelivering()">&times;</span>
+    <h3>Are you sure all the consignments are in the vehicle?</h3>
+    <ul *ngIf="deliveringConsignments.length; else noDeliveringConsignments">
+      <li *ngFor="let item of deliveringConsignments; let i = index">
+        {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
+        <button type="button" (click)="removeDeliveringConsignment(i)">-</button>
+      </li>
+    </ul>
+    <ng-template #noDeliveringConsignments>
+      <p>No consignments found.</p>
+    </ng-template>
+    <div class="terminal-buttons">
+      <button type="button" (click)="confirmDelivering()">OK</button>
+      <button type="button" (click)="cancelDelivering()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" *ngIf="showCompletionConfirm">
+  <div class="modal-content">
+    <span class="close" (click)="cancelCompletion()">&times;</span>
+    <h3>Are you sure the below consignments are delivered?</h3>
+    <ul *ngIf="completionConsignments.length; else noConsignments">
+      <li *ngFor="let item of completionConsignments; let i = index">
+        {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
+        <button type="button" (click)="removeCompletionConsignment(i)">-</button>
+      </li>
+    </ul>
+    <ng-template #noConsignments>
+      <p>No consignments found.</p>
+    </ng-template>
+    <div class="terminal-buttons">
+      <button type="button" (click)="confirmCompletion()">OK</button>
+      <button type="button" (click)="cancelCompletion()">Cancel</button>
+    </div>
+  </div>
+</div>

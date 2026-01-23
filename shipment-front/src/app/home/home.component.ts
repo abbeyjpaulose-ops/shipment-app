@@ -54,17 +54,32 @@ export class HomeComponent implements OnInit {
 
     // Non-admin: use branches assigned in Profile (stored at login).
     try {
-      const stored = JSON.parse(localStorage.getItem('branches') || '[]');
-      if (Array.isArray(stored)) {
-        this.branchOptions = stored.map((name: string) => ({
+      const storedNames = JSON.parse(localStorage.getItem('branches') || '[]');
+      const storedIds = JSON.parse(localStorage.getItem('branchIds') || '[]');
+      if (Array.isArray(storedNames) && Array.isArray(storedIds) && storedNames.length === storedIds.length) {
+        const options = storedNames.map((name: string, index: number) => ({
+          id: String(storedIds[index] || ''),
+          name: String(name || '')
+        }));
+        this.branchOptions = [
+          { id: 'all', name: 'All Branches' },
+          ...options.filter((b: any) => b.name && b.name !== 'All Branches')
+        ];
+      } else if (Array.isArray(storedNames)) {
+        const options = storedNames.map((name: string) => ({
           id: String(name || ''),
           name: String(name || '')
         }));
+        this.branchOptions = [
+          { id: 'all', name: 'All Branches' },
+          ...options.filter((b: any) => b.name && b.name !== 'All Branches')
+        ];
       }
     } catch {
       this.branchOptions = [];
     }
 
+    this.syncSelectedBranch();
     if (!this.selectedBranchName && this.branchOptions.length) {
       this.selectedBranchId = this.branchOptions[0].id;
       this.selectedBranchName = this.branchOptions[0].name;
@@ -82,6 +97,11 @@ export class HomeComponent implements OnInit {
 
   private syncSelectedBranch() {
     if (!this.branchOptions.length) return;
+    if (this.selectedBranchId === 'all' || this.selectedBranchName === 'All Branches') {
+      this.selectedBranchId = 'all';
+      this.selectedBranchName = 'All Branches';
+      return;
+    }
     if (this.selectedBranchId) {
       const match = this.branchOptions.find((b) => b.id === this.selectedBranchId);
       if (match) {
