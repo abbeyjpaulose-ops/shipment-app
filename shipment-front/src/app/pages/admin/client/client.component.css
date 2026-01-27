@@ -2,21 +2,50 @@
   padding: 15px;
   max-width: 100%;
   box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.client-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.hub-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hub-filter label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.hub-filter select {
+  padding: 4px 6px;
 }
 
 .clients-table-wrapper {
-  overflow-x: auto;
+  overflow-x: hidden;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 th, td {
   padding: 8px;
   border: 1px solid #ddd;
   vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .edit-field {

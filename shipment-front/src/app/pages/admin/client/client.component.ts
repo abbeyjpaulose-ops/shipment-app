@@ -14,6 +14,8 @@ import { forkJoin } from 'rxjs';
 export class ClientComponent implements OnInit {
 
   clients: any[] = [];
+  hubs: any[] = [];
+  selectedHubId: string = '';
   productOptions: any[] = [];
   rateAddressOptions: Array<{ id: string; label: string }> = [];
   private rateAddressLabelById = new Map<string, string>();
@@ -44,6 +46,7 @@ export class ClientComponent implements OnInit {
 
   ngOnInit() {
     this.loadClients();
+    this.loadHubs();
     this.loadProducts();
     this.loadRateAddressOptions();
     // react to branch changes (same tab)
@@ -53,7 +56,11 @@ export class ClientComponent implements OnInit {
       if (current !== this.cbranch || currentId !== this.cbranchId) {
         this.cbranch = current;
         this.cbranchId = currentId;
+        if (current !== 'All Hubs') {
+          this.selectedHubId = '';
+        }
         this.loadClients();
+        this.loadHubs();
         this.loadProducts();
         this.loadRateAddressOptions();
       }
@@ -76,6 +83,10 @@ export class ClientComponent implements OnInit {
         this.cbranchId = currentId;
       }
       this.loadClients();
+      if (current !== 'All Hubs') {
+        this.selectedHubId = '';
+      }
+      this.loadHubs();
       this.loadProducts();
       this.loadRateAddressOptions();
     }
@@ -86,14 +97,28 @@ export class ClientComponent implements OnInit {
     const email = localStorage.getItem('email');
     this.cbranch = localStorage.getItem('branch') || 'All Branches';
     this.cbranchId = localStorage.getItem('branchId') || 'all';
+    const effectiveBranchId =
+      this.cbranch === 'All Hubs' ? 'all-hubs' : this.cbranchId;
 
-    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branchId=${this.cbranchId}`)
+    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branchId=${effectiveBranchId}`)
       .subscribe({
         next: (data) => {
           console.log("Clients loaded:", data);
           this.clients = data;
         },
         error: (err) => console.error("Error loading clients:", err)
+      });
+  }
+
+  loadHubs() {
+    this.http.get<any[]>('http://localhost:3000/api/hubs')
+      .subscribe({
+        next: (data) => {
+          this.hubs = data || [];
+        },
+        error: () => {
+          this.hubs = [];
+        }
       });
   }
 
@@ -118,6 +143,7 @@ export class ClientComponent implements OnInit {
       clients: this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist${branchParams}`)
     }).subscribe({
       next: ({ branches, hubs, clients }) => {
+        this.hubs = hubs || [];
         const options: Array<{ id: string; label: string }> = [];
 
         (branches || []).forEach((branch: any) => {
@@ -262,6 +288,16 @@ export class ClientComponent implements OnInit {
 
     this.newClient.branch = localStorage.getItem('branch') || 'All Branches';
     this.newClient.branchId = localStorage.getItem('branchId') || 'all';
+
+    if (this.newClient.branch === 'All Hubs' || this.newClient.branchId === 'all-hubs') {
+      const hub = (this.hubs || []).find((h) => String(h?._id || '') === String(this.selectedHubId || ''));
+      if (!hub) {
+        alert('Please select a hub before adding a client.');
+        return;
+      }
+      this.newClient.branchId = String(hub._id || '');
+      this.newClient.branch = String(hub.hubName || '').trim() || this.newClient.branch;
+    }
 
     if (this.newClient.branch === 'All Branches' || this.newClient.branchId === 'all') {
       alert('Please select a specific branch before adding a client.');

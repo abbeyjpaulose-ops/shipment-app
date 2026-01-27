@@ -17,6 +17,7 @@
   display: flex;
   gap: 10px;
   margin-bottom: 15px;
+  flex-wrap: wrap;
 }
 
 .filters input,
@@ -26,6 +27,8 @@
   border-radius: 10px;
   background: #ffffff;
   color: var(--text);
+  flex: 1 1 190px;
+  min-width: 0;
 }
 
 .tabs {
@@ -344,5 +347,73 @@
   .details-product-list li {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 1200px) {
+  .filters input,
+  .filters select {
+    padding: 7px 9px;
+    font-size: 13px;
+  }
+
+  .tabs button,
+  .return-btn {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .shipments-table th,
+  .shipments-table td {
+    padding: 7px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 992px) {
+  .filters {
+    gap: 8px;
+  }
+
+  .filters input,
+  .filters select {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .tabs button,
+  .return-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .shipments-table th,
+  .shipments-table td {
+    padding: 6px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters {
+    gap: 6px;
+  }
+
+  .filters input,
+  .filters select {
+    padding: 5px 7px;
+    font-size: 11px;
+  }
+
+  .tabs button,
+  .return-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .shipments-table th,
+  .shipments-table td {
+    padding: 5px;
+    font-size: 11px;
   }
 }

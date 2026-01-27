@@ -1,5 +1,7 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Hub from '../models/Hub.js';
+import Branch from '../models/Branch.js';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
@@ -25,6 +27,24 @@ router.post('/add', requireAuth, requireAdmin, async (req, res) => {
     });
 
     await hub.save();
+    const hasMissingLocation = (hub?.deliveryAddresses || []).some((addr) =>
+      (addr?.vehicles || []).some((v) => !v?.currentLocationId)
+    );
+    if (hasMissingLocation) {
+      await Hub.updateOne(
+        { _id: hub._id, GSTIN_ID: gstinId },
+        { $set: { 'deliveryAddresses.$[].vehicles.$[v].currentLocationId': hub._id } },
+        {
+          arrayFilters: [{
+            $or: [
+              { 'v.currentLocationId': { $exists: false } },
+              { 'v.currentLocationId': null },
+              { 'v.currentLocationId': '' }
+            ]
+          }]
+        }
+      );
+    }
     res.status(201).json(hub);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -138,19 +158,31 @@ router.patch('/:id/vehicle-status', requireAuth, async (req, res) => {
 
     const vehicleNo = String(req.body?.vehicleNo || req.body?.vehicleNumber || '').trim();
     const vehicleStatus = String(req.body?.vehicleStatus || '').trim();
-    const currentBranch = req.body?.currentBranch;
+    const currentLocationRaw = req.body?.currentLocationId ?? req.body?.currentBranch;
     if (!vehicleNo) return res.status(400).json({ message: 'Vehicle number is required' });
     if (!vehicleStatus) return res.status(400).json({ message: 'Vehicle status is required' });
 
-    const currentBranchValue = currentBranch !== undefined && currentBranch !== null
-      ? String(currentBranch).trim()
-      : null;
+    let currentLocationId = null;
+    if (currentLocationRaw !== undefined && currentLocationRaw !== null) {
+      const raw = String(currentLocationRaw).trim();
+      if (raw) {
+        if (mongoose.Types.ObjectId.isValid(raw)) {
+          currentLocationId = raw;
+        } else {
+          const [branchMatch, hubMatch] = await Promise.all([
+            Branch.findOne({ GSTIN_ID: gstinId, branchName: raw }).select('_id').lean(),
+            Hub.findOne({ GSTIN_ID: gstinId, hubName: raw }).select('_id').lean()
+          ]);
+          currentLocationId = branchMatch?._id || hubMatch?._id || null;
+        }
+      }
+    }
     const update = await Hub.updateOne(
       { _id: req.params.id, GSTIN_ID: gstinId },
       {
         $set: {
           'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': vehicleStatus,
-          ...(currentBranchValue ? { 'deliveryAddresses.$[].vehicles.$[v].currentBranch': currentBranchValue } : {})
+          ...(currentLocationId ? { 'deliveryAddresses.$[].vehicles.$[v].currentLocationId': currentLocationId } : {})
         }
       },
       { arrayFilters: [{ 'v.vehicleNo': vehicleNo }] }

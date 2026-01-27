@@ -39,9 +39,9 @@
                 <input [(ngModel)]="addr.vehicles[vIdx].vehicleNo" placeholder="Vehicle No" />
                 <input [(ngModel)]="addr.vehicles[vIdx].driverPhone" placeholder="Driver Phone" />
                 <span>{{ addr.vehicles[vIdx].vehicleStatus || 'online' }}</span>
-                <select [(ngModel)]="addr.vehicles[vIdx].currentBranch">
-                  <option *ngIf="!newHub.hubName" [ngValue]="''" disabled>Select Current Branch</option>
-                  <option *ngFor="let option of getHubBranchOptions()" [ngValue]="option">{{ option }}</option>
+                <select [(ngModel)]="addr.vehicles[vIdx].currentLocationId">
+                  <option [ngValue]="''">Use this hub</option>
+                  <option *ngFor="let option of getHubBranchOptions()" [ngValue]="option.id">{{ option.label }}</option>
                 </select>
                 <button *ngIf="addr.vehicles.length > 1"
                         class="delete-btn"
@@ -95,8 +95,8 @@
                 </button>
                 <div class="current-branch-inline">
                   <label>Current Branch</label>
-                  <select [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].currentBranch">
-                    <option *ngFor="let option of getEditHubBranchOptions(editingHub.deliveryAddresses[ai].vehicles[vi].currentBranch)" [ngValue]="option">{{ option }}</option>
+                  <select [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].currentLocationId">
+                    <option *ngFor="let option of getEditHubBranchOptions(editingHub.deliveryAddresses[ai].vehicles[vi].currentLocationId)" [ngValue]="option.id">{{ option.label }}</option>
                   </select>
                 </div>
                 <button *ngIf="editingHub.deliveryAddresses[ai].vehicles.length > 1"
@@ -199,4 +199,5 @@
     </table>
   </div>
 </div>
+
 

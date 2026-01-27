@@ -1,5 +1,7 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Branch from '../models/Branch.js';
+import Hub from '../models/Hub.js';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
@@ -22,6 +24,21 @@ router.post('/add', requireAuth, requireAdmin, async (req, res) => {
     });
 
     await branch.save();
+    if (Array.isArray(branch?.vehicles) && branch.vehicles.some((v) => !v?.currentLocationId)) {
+      await Branch.updateOne(
+        { _id: branch._id, GSTIN_ID: gstinId },
+        { $set: { 'vehicles.$[v].currentLocationId': branch._id } },
+        {
+          arrayFilters: [{
+            $or: [
+              { 'v.currentLocationId': { $exists: false } },
+              { 'v.currentLocationId': null },
+              { 'v.currentLocationId': '' }
+            ]
+          }]
+        }
+      );
+    }
     res.status(201).json(branch);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -132,19 +149,31 @@ router.patch('/:id/vehicle-status', requireAuth, async (req, res) => {
 
     const vehicleNo = String(req.body?.vehicleNo || req.body?.vehicleNumber || '').trim();
     const vehicleStatus = String(req.body?.vehicleStatus || '').trim();
-    const currentBranch = req.body?.currentBranch;
+    const currentLocationRaw = req.body?.currentLocationId ?? req.body?.currentBranch;
     if (!vehicleNo) return res.status(400).json({ message: 'Vehicle number is required' });
     if (!vehicleStatus) return res.status(400).json({ message: 'Vehicle status is required' });
 
-    const currentBranchValue = currentBranch !== undefined && currentBranch !== null
-      ? String(currentBranch).trim()
-      : null;
+    let currentLocationId = null;
+    if (currentLocationRaw !== undefined && currentLocationRaw !== null) {
+      const raw = String(currentLocationRaw).trim();
+      if (raw) {
+        if (mongoose.Types.ObjectId.isValid(raw)) {
+          currentLocationId = raw;
+        } else {
+          const [branchMatch, hubMatch] = await Promise.all([
+            Branch.findOne({ GSTIN_ID: gstinId, branchName: raw }).select('_id').lean(),
+            Hub.findOne({ GSTIN_ID: gstinId, hubName: raw }).select('_id').lean()
+          ]);
+          currentLocationId = branchMatch?._id || hubMatch?._id || null;
+        }
+      }
+    }
     const update = await Branch.updateOne(
       { _id: req.params.id, GSTIN_ID: gstinId },
       {
         $set: {
           'vehicles.$[v].vehicleStatus': vehicleStatus,
-          ...(currentBranchValue ? { 'vehicles.$[v].currentBranch': currentBranchValue } : {})
+          ...(currentLocationId ? { 'vehicles.$[v].currentLocationId': currentLocationId } : {})
         }
       },
       { arrayFilters: [{ 'v.vehicleNo': vehicleNo }] }

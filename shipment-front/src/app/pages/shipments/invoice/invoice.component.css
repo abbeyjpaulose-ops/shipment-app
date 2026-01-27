@@ -28,6 +28,8 @@
   border-radius: 10px;
   background: #ffffff;
   color: var(--text);
+  flex: 1 1 190px;
+  min-width: 0;
 }
 
 .action-bar {
@@ -286,6 +288,77 @@
   .details-product-list li {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+@media (max-width: 1200px) {
+  .filters input,
+  .filters select {
+    padding: 7px 9px;
+    font-size: 13px;
+  }
+
+  .action-bar button {
+    padding: 7px 12px;
+    font-size: 13px;
+  }
+
+  .invoice-table th,
+  .invoice-table td,
+  .product-table th,
+  .product-table td {
+    padding: 7px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 992px) {
+  .filters {
+    gap: 8px;
+  }
+
+  .filters input,
+  .filters select {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .action-bar button {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .invoice-table th,
+  .invoice-table td,
+  .product-table th,
+  .product-table td {
+    padding: 6px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 768px) {
+  .filters {
+    gap: 6px;
+  }
+
+  .filters input,
+  .filters select {
+    padding: 5px 7px;
+    font-size: 11px;
+  }
+
+  .action-bar button {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .invoice-table th,
+  .invoice-table td,
+  .product-table th,
+  .product-table td {
+    padding: 5px;
+    font-size: 11px;
   }
 }
   .form-row {

@@ -31,6 +31,56 @@ function getAllowedBranchIds(req) {
   return normalizeBranchIds(req.user?.branchIds);
 }
 
+function normalizeAmount(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function calculateFinalAmount(ewaybills, charges, applyConsignorDiscount) {
+  const safeEwaybills = Array.isArray(ewaybills) ? ewaybills : [];
+  const safeCharges = charges && typeof charges === 'object' ? charges : {};
+  let invoiceTotal = 0;
+  let packageTotal = 0;
+
+  for (const ewb of safeEwaybills) {
+    const invoices = Array.isArray(ewb?.invoices) ? ewb.invoices : [];
+    invoiceTotal += invoices.reduce((sum, inv) => {
+      const products = Array.isArray(inv?.products) ? inv.products : [];
+      const productTotal = products.reduce((pSum, p) => {
+        const qty = normalizeAmount(p?.amount);
+        const rate = normalizeAmount(p?.ratePer);
+        return pSum + (qty * rate);
+      }, 0);
+      const invoiceValue = normalizeAmount(inv?.value);
+      return sum + (productTotal > 0 ? productTotal : invoiceValue);
+    }, 0);
+
+    packageTotal += invoices.reduce((sum, inv) => {
+      const packages = Array.isArray(inv?.packages) ? inv.packages : [];
+      const packageSum = packages.reduce((pSum, p) => pSum + normalizeAmount(p?.amount), 0);
+      return sum + packageSum;
+    }, 0);
+  }
+
+  const chargeTotal = Object.entries(safeCharges)
+    .filter(([key]) => key !== 'consignorDiscount')
+    .reduce((sum, [, value]) => sum + normalizeAmount(value), 0);
+
+  const subtotal = invoiceTotal + packageTotal + chargeTotal;
+  const discountPercent = normalizeAmount(safeCharges?.consignorDiscount);
+  const discountAmount = applyConsignorDiscount ? (subtotal * discountPercent) / 100 : 0;
+  const finalAmount = subtotal - discountAmount;
+
+  return {
+    invoiceTotal,
+    packageTotal,
+    chargeTotal,
+    subtotal,
+    discountAmount,
+    finalAmount
+  };
+}
+
 function formatLocation(loc) {
   if (!loc) return '';
   const address = loc.address || loc.location || '';
@@ -68,6 +118,30 @@ function normalizeInvoiceStatus(value) {
   return '';
 }
 
+function stripVehicleFromRoutes(routes, vehicleNo, clearAll) {
+  if (!routes) return routes;
+  const vehicleLower = String(vehicleNo || '').trim().toLowerCase();
+  if (clearAll) {
+    return routes;
+  }
+  const parts = String(routes).split('$$');
+  const cleaned = parts.map((segment) => {
+    if (!segment || !segment.includes('|')) return segment;
+    const updated = segment.split(' -> ').map((part) => {
+      const pipeIndex = part.lastIndexOf('|');
+      if (pipeIndex === -1) return part;
+      const left = part.slice(0, pipeIndex).trim();
+      const token = part.slice(pipeIndex + 1).trim();
+      if (vehicleLower && token.toLowerCase() === vehicleLower) {
+        return left;
+      }
+      return part;
+    }).join(' -> ');
+    return updated;
+  });
+  return cleaned.join('$$');
+}
+
 function extractVehicleNumbersFromRoutes(routes) {
   const vehicles = new Set();
   const raw = String(routes || '');
@@ -90,17 +164,55 @@ function extractVehicleNumbersFromRoutes(routes) {
   return Array.from(vehicles);
 }
 
-async function autoCompleteVehiclesIfNoActive(gstinId, routes) {
-  const vehicleNumbers = extractVehicleNumbersFromRoutes(routes);
-  if (!vehicleNumbers.length) return;
-  const activeStatuses = [
+function getLastVehicleNumberFromRoutes(routes) {
+  const raw = String(routes || '');
+  if (!raw.trim()) return '';
+  const segments = raw.split('$$').map((part) => part.trim()).filter(Boolean);
+  let lastVehicle = '';
+  segments.forEach((segment) => {
+    const parts = segment.split(' -> ').map((p) => p.trim()).filter(Boolean);
+    parts.forEach((part) => {
+      if (!part.includes(')')) return;
+      const tokens = part.split('|').map((t) => t.trim()).filter(Boolean);
+      if (tokens.length < 2) return;
+      let vehicle = tokens[tokens.length - 1];
+      if (vehicle.toLowerCase() === 'out for delivery' && tokens.length >= 2) {
+        vehicle = tokens[tokens.length - 2];
+      }
+      if (!vehicle || vehicle.toLowerCase() === 'out for delivery') return;
+      lastVehicle = vehicle;
+    });
+  });
+  return lastVehicle;
+}
+
+function getActiveVehicleStatuses() {
+  return [
     'Pending',
-    'DPending',
+    'Manifestation',
+    'DManifestation',
+    'Out for Delivery',
+    'D-Out for Delivery',
+    'Will be Picked-Up',
+    'D-Will be Picked-Up',
+    'Manifested/Pending',
+    'In Transit/Pending'
+  ];
+}
+
+function getVehicleCompletionBlockingStatuses() {
+  return [
     'Manifestation',
     'DManifestation',
     'Out for Delivery',
     'D-Out for Delivery'
   ];
+}
+
+async function autoCompleteVehiclesIfNoActive(gstinId, routes) {
+  const vehicleNumbers = extractVehicleNumbersFromRoutes(routes);
+  if (!vehicleNumbers.length) return;
+  const activeStatuses = getVehicleCompletionBlockingStatuses();
   const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   for (const vehicleNo of vehicleNumbers) {
     const vehicleRegex = new RegExp(`\\|\\s*${escapeRegex(vehicleNo)}\\b`, 'i');
@@ -132,21 +244,162 @@ async function autoCompleteVehiclesIfNoActive(gstinId, routes) {
   }
 }
 
+async function filterVehiclesWithoutActiveShipments(gstinId, vehicleNumbers) {
+  const activeStatuses = getVehicleCompletionBlockingStatuses();
+  const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const uniqueVehicles = Array.from(new Set((vehicleNumbers || []).filter(Boolean)));
+  const eligible = [];
+
+  for (const vehicleNo of uniqueVehicles) {
+    const vehicleRegex = new RegExp(`\\|\\s*${escapeRegex(vehicleNo)}\\b`, 'i');
+    const ewaybills = await Ewaybill.find({ routes: { $regex: vehicleRegex } })
+      .select('shipmentId')
+      .lean();
+    const shipmentIds = Array.from(
+      new Set((ewaybills || []).map((e) => String(e?.shipmentId || '')).filter(Boolean))
+    );
+    if (!shipmentIds.length) {
+      eligible.push(vehicleNo);
+      continue;
+    }
+    const hasActive = await Shipment.exists({
+      GSTIN_ID: gstinId,
+      _id: { $in: shipmentIds },
+      shipmentStatus: { $in: activeStatuses }
+    });
+    if (!hasActive) {
+      eligible.push(vehicleNo);
+    }
+  }
+
+  return eligible;
+}
+
+async function autoCompleteVehicleIfNoBlocking(gstinId, vehicleNo) {
+  const vehicle = String(vehicleNo || '').trim();
+  if (!vehicle) return;
+  const activeStatuses = getVehicleCompletionBlockingStatuses();
+  const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const vehicleRegex = new RegExp(`\\|\\s*${escapeRegex(vehicle)}\\b`, 'i');
+  const ewaybills = await Ewaybill.find({ routes: { $regex: vehicleRegex } })
+    .select('shipmentId')
+    .lean();
+  const shipmentIds = Array.from(
+    new Set((ewaybills || []).map((e) => String(e?.shipmentId || '')).filter(Boolean))
+  );
+  if (!shipmentIds.length) {
+    await updateInternalVehiclesStatus(gstinId, [vehicle], 'online');
+    return;
+  }
+  const hasBlocking = await Shipment.exists({
+    GSTIN_ID: gstinId,
+    _id: { $in: shipmentIds },
+    shipmentStatus: { $in: activeStatuses }
+  });
+  if (!hasBlocking) {
+    await updateInternalVehiclesStatus(gstinId, [vehicle], 'online');
+  }
+}
+
 async function updateInternalVehiclesToScheduled(gstinId, routes) {
   const vehicleNumbers = extractVehicleNumbersFromRoutes(routes);
   if (!vehicleNumbers.length) return;
+  const uniqueVehicles = Array.from(new Set(vehicleNumbers));
+  const lastVehicle = getLastVehicleNumberFromRoutes(routes) || uniqueVehicles[uniqueVehicles.length - 1];
+  const others = uniqueVehicles.filter((v) => v !== lastVehicle);
+  if (others.length) {
+    await updateInternalVehiclesStatus(gstinId, others, 'online');
+  }
+  if (lastVehicle) {
+    await updateInternalVehiclesStatus(gstinId, [lastVehicle], 'scheduled');
+  }
+}
+
+async function updateInternalVehiclesStatus(gstinId, vehicleNumbers, status) {
+  if (!vehicleNumbers.length) return;
+  const safeStatus = String(status || '').trim() || 'online';
+  const arrayFilters = [{ 'v.vehicleNo': { $in: vehicleNumbers }, 'v.vehicleStatus': { $ne: 'offline' } }];
   await Promise.all([
     Branch.updateMany(
       { GSTIN_ID: gstinId, 'vehicles.vehicleNo': { $in: vehicleNumbers } },
-      { $set: { 'vehicles.$[v].vehicleStatus': 'scheduled' } },
-      { arrayFilters: [{ 'v.vehicleNo': { $in: vehicleNumbers } }] }
+      { $set: { 'vehicles.$[v].vehicleStatus': safeStatus } },
+      { arrayFilters }
     ),
     Hub.updateMany(
       { GSTIN_ID: gstinId, 'deliveryAddresses.vehicles.vehicleNo': { $in: vehicleNumbers } },
-      { $set: { 'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': 'scheduled' } },
-      { arrayFilters: [{ 'v.vehicleNo': { $in: vehicleNumbers } }] }
+      { $set: { 'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': safeStatus } },
+      { arrayFilters }
     )
   ]);
+}
+
+async function updateInternalVehicleStatusWithLocation(gstinId, vehicleNo, status, locationId) {
+  const vehicle = String(vehicleNo || '').trim();
+  if (!vehicle) return;
+  const safeStatus = String(status || '').trim() || 'online';
+  const location = String(locationId || '').trim();
+  const arrayFilters = [{ 'v.vehicleNo': vehicle, 'v.vehicleStatus': { $ne: 'offline' } }];
+  const update = location
+    ? { $set: { 'vehicles.$[v].vehicleStatus': safeStatus, 'vehicles.$[v].currentLocationId': location } }
+    : { $set: { 'vehicles.$[v].vehicleStatus': safeStatus } };
+  const hubUpdate = location
+    ? { $set: { 'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': safeStatus, 'deliveryAddresses.$[].vehicles.$[v].currentLocationId': location } }
+    : { $set: { 'deliveryAddresses.$[].vehicles.$[v].vehicleStatus': safeStatus } };
+  await Promise.all([
+    Branch.updateMany(
+      { GSTIN_ID: gstinId, 'vehicles.vehicleNo': vehicle },
+      update,
+      { arrayFilters }
+    ),
+    Hub.updateMany(
+      { GSTIN_ID: gstinId, 'deliveryAddresses.vehicles.vehicleNo': vehicle },
+      hubUpdate,
+      { arrayFilters }
+    )
+  ]);
+}
+
+async function updateInternalVehicleLocation(gstinId, vehicleNo, locationId, ownerType, ownerId) {
+  const vehicle = String(vehicleNo || '').trim();
+  const location = String(locationId || '').trim();
+  if (!vehicle || !location) return;
+  const arrayFilters = [{ 'v.vehicleNo': vehicle, 'v.vehicleStatus': { $ne: 'offline' } }];
+  const ownerTypeValue = String(ownerType || '').trim().toLowerCase();
+  const ownerIdValue = String(ownerId || '').trim();
+  const updates = [];
+  if (ownerTypeValue === 'branch' && ownerIdValue) {
+    updates.push(
+      Branch.updateMany(
+        { _id: ownerIdValue, GSTIN_ID: gstinId, 'vehicles.vehicleNo': vehicle },
+        { $set: { 'vehicles.$[v].currentLocationId': location } },
+        { arrayFilters }
+      )
+    );
+  } else if (ownerTypeValue === 'hub' && ownerIdValue) {
+    updates.push(
+      Hub.updateMany(
+        { _id: ownerIdValue, GSTIN_ID: gstinId, 'deliveryAddresses.vehicles.vehicleNo': vehicle },
+        { $set: { 'deliveryAddresses.$[].vehicles.$[v].currentLocationId': location } },
+        { arrayFilters }
+      )
+    );
+  } else {
+    updates.push(
+      Branch.updateMany(
+        { GSTIN_ID: gstinId, 'vehicles.vehicleNo': vehicle },
+        { $set: { 'vehicles.$[v].currentLocationId': location } },
+        { arrayFilters }
+      )
+    );
+    updates.push(
+      Hub.updateMany(
+        { GSTIN_ID: gstinId, 'deliveryAddresses.vehicles.vehicleNo': vehicle },
+        { $set: { 'deliveryAddresses.$[].vehicles.$[v].currentLocationId': location } },
+        { arrayFilters }
+      )
+    );
+  }
+  await Promise.all(updates);
 }
 
 async function buildBranchNameMap(branchIds = []) {
@@ -355,6 +608,16 @@ async function replaceShipmentLines(shipmentId, ewaybills, options = {}) {
 }
 
 // Create new shipment
+router.post('/quote', requireAuth, (req, res) => {
+  const { ewaybills, charges, applyConsignorDiscount } = req.body || {};
+  const totals = calculateFinalAmount(ewaybills, charges, applyConsignorDiscount !== false);
+  res.json({
+    finalAmount: totals.finalAmount,
+    subtotal: totals.subtotal,
+    discountAmount: totals.discountAmount
+  });
+});
+
 router.post('/add', requireAuth, async (req, res) => {
   try {
     const { ewaybills, ...shipmentData } = req.body;
@@ -362,6 +625,50 @@ router.post('/add', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const username = req.user.username || shipmentData.username;
     if (!username) return res.status(400).json({ message: 'Invalid username' });
+    const wantsAllHubs = shipmentData.allHubs === true ||
+      String(shipmentData.allHubs || '').toLowerCase() === 'true';
+    if (wantsAllHubs) {
+      const hubId = String(shipmentData.originHubId || shipmentData.hubId || '').trim();
+      if (!hubId) {
+        return res.status(400).json({ message: 'originHubId is required for All Hubs consignments' });
+      }
+      if (!mongoose.Types.ObjectId.isValid(hubId)) {
+        return res.status(400).json({ message: 'Invalid originHubId' });
+      }
+      const hub = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id branchId').lean();
+      if (!hub?.branchId) {
+        return res.status(400).json({ message: 'Invalid hub selection' });
+      }
+      shipmentData.originHubId = hub._id;
+      shipmentData.branchId = hub._id;
+      shipmentData.allHubs = true;
+      if (!shipmentData.currentLocationId && !shipmentData.currentBranchId) {
+        shipmentData.currentLocationId = hub._id;
+      }
+    } else {
+      shipmentData.allHubs = false;
+    }
+    const branchId = String(shipmentData.branchId || '').trim();
+    if (!branchId || branchId === 'all') {
+      return res.status(400).json({ message: 'branchId is required and must not be "all"' });
+    }
+    if (!mongoose.Types.ObjectId.isValid(branchId)) {
+      return res.status(400).json({ message: 'Invalid branchId' });
+    }
+    const allowedBranchIds = getAllowedBranchIds(req);
+    if (allowedBranchIds) {
+      if (wantsAllHubs) {
+        const hub = await Hub.findOne({ _id: branchId, GSTIN_ID: gstinId })
+          .select('_id branchId')
+          .lean();
+        const hubBranchId = String(hub?.branchId || '');
+        if (!hubBranchId || !allowedBranchIds.includes(hubBranchId)) {
+          return res.status(403).json({ message: 'Branch access denied' });
+        }
+      } else if (!allowedBranchIds.includes(branchId)) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
+    }
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     if (!shipmentData.billingClientId &&
@@ -370,14 +677,23 @@ router.post('/add', requireAuth, async (req, res) => {
       shipmentData.billingClientId = shipmentData.consignorId;
     }
 
-    const currentBranchId =
-      shipmentData.currentBranchId ||
+    const totals = calculateFinalAmount(ewaybills, shipmentData.charges, shipmentData.applyConsignorDiscount !== false);
+    shipmentData.finalAmount = totals.finalAmount;
+    delete shipmentData.applyConsignorDiscount;
+
+    if (!shipmentData.currentLocationId && shipmentData.currentBranchId) {
+      shipmentData.currentLocationId = shipmentData.currentBranchId;
+    }
+    delete shipmentData.currentBranchId;
+
+    const currentLocationId =
+      shipmentData.currentLocationId ||
       shipmentData.originBranchId ||
       shipmentData.branchId ||
       null;
     const shipment = await Shipment.create({
       ...shipmentData,
-      currentBranchId,
+      currentLocationId,
       GSTIN_ID: gstinId,
       username
     });
@@ -461,7 +777,7 @@ router.post('/add', requireAuth, async (req, res) => {
 
 // Get next consignment number for a company/branch (reset on April 1st)
 router.get('/nextConsignment', requireAuth, async (req, res) => {
-  const branchId = req.query.branchId;
+  const branchId = String(req.query.branchId || '').trim();
 
   if (!branchId) {
     return res.status(400).json({ message: 'Missing branchId in query parameters' });
@@ -470,9 +786,6 @@ router.get('/nextConsignment', requireAuth, async (req, res) => {
     return res.status(400).json({ message: 'Please select a specific branch to fetch consignment number' });
   }
   const allowedBranchIds = getAllowedBranchIds(req);
-  if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
-    return res.status(403).json({ message: 'Branch access denied' });
-  }
 
   try {
     const gstinId = Number(req.user.id);
@@ -483,11 +796,33 @@ router.get('/nextConsignment', requireAuth, async (req, res) => {
     const fiscalYearStart = new Date(year, 3, 1);
     const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59);
 
-    const matchQuery = branchId && branchId !== 'all'
-      ? (mongoose.Types.ObjectId.isValid(branchId)
-          ? { GSTIN_ID: gstinId, branchId: new mongoose.Types.ObjectId(branchId) }
-          : null)
-      : null;
+    let matchQuery = null;
+    if (branchId === 'all-hubs') {
+      if (allowedBranchIds && !allowedBranchIds.length) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
+      const hubQuery = { GSTIN_ID: gstinId };
+      if (allowedBranchIds) {
+        hubQuery.branchId = { $in: allowedBranchIds };
+      }
+      const hubIds = await Hub.find(hubQuery).select('_id').lean();
+      const allowedHubIds = (hubIds || []).map((h) => String(h?._id || '')).filter(Boolean);
+      if (!allowedHubIds.length) {
+        return res.json({ nextNumber: 1, fiscalYear: `${year}-${year + 1}` });
+      }
+      matchQuery = {
+        GSTIN_ID: gstinId,
+        allHubs: true,
+        branchId: { $in: allowedHubIds }
+      };
+    } else {
+      if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
+        return res.status(403).json({ message: 'Branch access denied' });
+      }
+      matchQuery = mongoose.Types.ObjectId.isValid(branchId)
+        ? { GSTIN_ID: gstinId, branchId: new mongoose.Types.ObjectId(branchId) }
+        : null;
+    }
     if (!matchQuery) {
       return res.status(400).json({ message: 'Invalid branchId' });
     }
@@ -990,31 +1325,122 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = req.body;
     const hubIdRaw = req.body?.hubId;
     const hubChargeRaw = req.body?.hubCharge;
+    const clearVehicleNo = String(req.body?.clearVehicleNo || '').trim();
+    const clearAllVehicles = req.body?.clearAllVehicles === true;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    const shipmentId = String(req.query.shipmentId || req.body?.shipmentId || '').trim();
+    const shipmentIdRaw = String(req.query.shipmentId || req.body?.shipmentId || '').trim();
+    const shipmentId = mongoose.Types.ObjectId.isValid(shipmentIdRaw) ? shipmentIdRaw : '';
     delete shipmentData._id;
     delete shipmentData.consignmentNumber;
     delete shipmentData.GSTIN_ID;
     delete shipmentData.branchId;
     delete shipmentData.branchName;
-    if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
-      shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
+    if (!shipmentData.currentLocationId && shipmentData.currentBranchId) {
+      shipmentData.currentLocationId = shipmentData.currentBranchId;
     }
-    const filter = shipmentId
-      ? { _id: shipmentId, GSTIN_ID: gstinId }
-      : { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId };
-    const shipment = await Shipment.findOneAndUpdate(
-      filter,
-      shipmentData,
-      { new: true }
-    );
-    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
+    delete shipmentData.currentBranchId;
+      if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
+        shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
+      }
+      const filter = shipmentId
+        ? { _id: shipmentId, GSTIN_ID: gstinId }
+        : { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId };
+      const existingShipment = await Shipment.findOne(filter).select('shipmentStatus').lean();
+      const shipment = await Shipment.findOneAndUpdate(
+        filter,
+        shipmentData,
+        { new: true }
+      );
+      if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
     if (ewaybills) {
       await replaceShipmentLines(shipment._id, ewaybills, { defaultInstockToAmount: false });
     }
+      const nextStatus = String(shipmentData.shipmentStatus || shipment.shipmentStatus || '').trim();
+      const deliveredVehicleNo = String(shipmentData.currentVehicleNo || '').trim();
+      const deliveredLocationId = String(shipmentData.currentLocationId || '').trim();
+      const deliveredVehicleOwnerType = String(shipmentData.currentVehicleOwnerType || '').trim();
+      const deliveredVehicleOwnerId = String(shipmentData.currentVehicleOwnerId || '').trim();
+      if (['DPending', 'Delivered'].includes(nextStatus)) {
+        shipmentData.currentVehicleNo = '';
+        shipmentData.currentVehicleOwnerType = '';
+        shipmentData.currentVehicleOwnerId = null;
+      }
+      let didUpdateVehicleLocation = false;
+      if (['DPending', 'Delivered'].includes(nextStatus)) {
+        if (deliveredLocationId && deliveredVehicleNo) {
+          await updateInternalVehicleLocation(
+            gstinId,
+            deliveredVehicleNo,
+            deliveredLocationId,
+            deliveredVehicleOwnerType,
+            deliveredVehicleOwnerId
+          );
+          didUpdateVehicleLocation = true;
+        }
+      }
+      const previousStatus = String(existingShipment?.shipmentStatus || '').trim();
+      const autoClearAllVehicles =
+        ['Manifestation', 'DManifestation'].includes(previousStatus) &&
+        ['Delivered', 'DPending'].includes(nextStatus);
+      const shouldClearVehicles = Boolean(clearVehicleNo || clearAllVehicles || autoClearAllVehicles);
 
-    const status = String(shipmentData.shipmentStatus || '').trim();
+      if (shouldClearVehicles && shipment?._id) {
+        let routeSource = '';
+        if (Array.isArray(ewaybills) && ewaybills.length) {
+          routeSource = ewaybills.map((ewb) => String(ewb?.routes || '')).join('$$');
+        }
+        if (!routeSource) {
+        const stored = await Ewaybill.find({ shipmentId: shipment._id })
+          .select('routes')
+          .lean();
+        routeSource = (stored || []).map((ewb) => String(ewb?.routes || '')).join('$$');
+      }
+      const vehiclesToClear = clearVehicleNo ? [clearVehicleNo] : extractVehicleNumbersFromRoutes(routeSource);
+      const vehiclesToOnline = await filterVehiclesWithoutActiveShipments(gstinId, vehiclesToClear);
+        if (vehiclesToOnline.length) {
+          const deliveredLocationId = String(shipmentData.currentLocationId || '').trim();
+          const fallbackVehicle = String(shipmentData.currentVehicleNo || '').trim();
+          if (deliveredLocationId) {
+            const lastVehicle = routeSource ? getLastVehicleNumberFromRoutes(routeSource) : '';
+            const chosenVehicle = String(lastVehicle || fallbackVehicle || '').trim();
+            const chosenLower = chosenVehicle.toLowerCase();
+            const remaining = chosenVehicle
+              ? vehiclesToOnline.filter((v) => String(v || '').trim().toLowerCase() !== chosenLower)
+              : vehiclesToOnline;
+            if (chosenVehicle && vehiclesToOnline.some((v) => String(v || '').trim().toLowerCase() === chosenLower)) {
+              await updateInternalVehicleStatusWithLocation(gstinId, chosenVehicle, 'online', deliveredLocationId);
+            }
+            if (remaining.length) {
+              await updateInternalVehiclesStatus(gstinId, remaining, 'online');
+            }
+          } else {
+            await updateInternalVehiclesStatus(gstinId, vehiclesToOnline, 'online');
+          }
+        }
+    }
+      if (shouldClearVehicles && shipment?._id) {
+        const existing = await Ewaybill.find({ shipmentId: shipment._id }).select('_id routes').lean();
+        const updates = (existing || []).map((ewb) => {
+          const nextRoutes = stripVehicleFromRoutes(
+            ewb.routes || '',
+            clearVehicleNo,
+            clearAllVehicles || autoClearAllVehicles
+          );
+          if (nextRoutes === ewb.routes) return null;
+          return {
+            updateOne: {
+              filter: { _id: ewb._id },
+            update: { $set: { routes: nextRoutes } }
+          }
+        };
+      }).filter(Boolean);
+      if (updates.length) {
+        await Ewaybill.bulkWrite(updates);
+      }
+    }
+
+      const status = nextStatus;
     if (['Manifestation', 'Out for Delivery', 'DManifestation', 'D-Out for Delivery'].includes(status)) {
       const routesSource = Array.isArray(ewaybills) && ewaybills.length
         ? ewaybills.map((ewb) => String(ewb?.routes || '')).join('$$')
@@ -1033,10 +1459,17 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     }
 
     if (['Pending', 'DPending', 'Delivered'].includes(status)) {
+      if (['DPending', 'Delivered'].includes(status) && !didUpdateVehicleLocation) {
+        const view = (await buildShipmentViews([shipment]))[0];
+        res.json(view);
+        return;
+      }
       const routesSource = Array.isArray(ewaybills) && ewaybills.length
         ? ewaybills.map((ewb) => String(ewb?.routes || '')).join('$$')
         : '';
-      if (routesSource) {
+      if (deliveredVehicleNo) {
+        await autoCompleteVehicleIfNoBlocking(gstinId, deliveredVehicleNo);
+      } else if (routesSource) {
         await autoCompleteVehiclesIfNoActive(gstinId, routesSource);
       } else {
         const stored = await Ewaybill.find({ shipmentId: shipment._id })
@@ -1050,8 +1483,9 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     }
 
     const hubId = String(hubIdRaw || '').trim();
+    const hubIdValid = hubId && mongoose.Types.ObjectId.isValid(hubId);
     const hubCharge = Math.max(Number(hubChargeRaw) || 0, 0);
-    if (hubId) {
+    if (hubIdValid) {
       const hubExists = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id').lean();
       if (hubExists) {
         const referenceNo = `${String(shipment._id)}$$hubcharge`;
@@ -1134,8 +1568,18 @@ router.post('/updateConsignment', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = updatedConsignment;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+    if (!shipmentData.currentLocationId && shipmentData.currentBranchId) {
+      shipmentData.currentLocationId = shipmentData.currentBranchId;
+    }
+    delete shipmentData.currentBranchId;
     if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
       shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
+    }
+    const nextStatus = String(shipmentData.shipmentStatus || '').trim();
+    if (['DPending', 'Delivered'].includes(nextStatus)) {
+      shipmentData.currentVehicleNo = '';
+      shipmentData.currentVehicleOwnerType = '';
+      shipmentData.currentVehicleOwnerId = null;
     }
     const shipment = await Shipment.findOneAndUpdate(
       { consignmentNumber: updatedConsignment.consignmentNumber, GSTIN_ID: gstinId },
@@ -1195,9 +1639,7 @@ router.get('/vehicle-consignments', requireAuth, async (req, res) => {
     if (statusFilter === 'manifestation') {
       statusCriteria = { shipmentStatus: { $in: ['Manifestation', 'DManifestation'] } };
     } else if (statusFilter === 'assigned') {
-      statusCriteria = {
-        shipmentStatus: { $in: ['Manifestation', 'DManifestation', 'Out for Delivery', 'D-Out for Delivery'] }
-      };
+      statusCriteria = { shipmentStatus: { $in: getActiveVehicleStatuses() } };
     }
     const shipments = await Shipment.find({
       GSTIN_ID: gstinId,

@@ -1,6 +1,6 @@
 <div class="branch-vehicles-container">
   <h2>Branch Vehicles</h2>
-  <p class="branch-subtitle">{{ branchId === 'all' ? 'All Branches' : branchName }}</p>
+  <p class="branch-subtitle">{{ branchId === 'all' ? 'All Branches' : (branchId === 'all-hubs' ? 'All Hubs' : branchName) }}</p>
 
   <div class="vehicles-table-wrapper">
     <table>
@@ -28,7 +28,7 @@
             {{ formatVehicleStatus(v.vehicleStatus) }}
           </ng-template>
         </td>
-        <td>{{ getCurrentBranchLabel(v.currentBranch) }}</td>
+        <td>{{ getCurrentBranchLabel(v.currentLocationId) }}</td>
         <td>
           <a [routerLink]="['/home/Branches']">Edit</a>
         </td>
@@ -67,6 +67,9 @@
     <ul *ngIf="completionConsignments.length; else noConsignments">
       <li *ngFor="let item of completionConsignments; let i = index">
         {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
+        <span *ngIf="getNextBranchLabelForCompletion(item)">
+          - Next: {{ getNextBranchLabelForCompletion(item) }}
+        </span>
         <button type="button" (click)="removeCompletionConsignment(i)">-</button>
       </li>
     </ul>

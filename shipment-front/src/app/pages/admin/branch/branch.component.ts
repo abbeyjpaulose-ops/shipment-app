@@ -24,7 +24,7 @@ export class BranchComponent implements OnInit {
     state: '',
     pinCode: '',
     phoneNum: '',
-    vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' }],
+    vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' }],
     status: 'active'
   };
 
@@ -72,12 +72,11 @@ export class BranchComponent implements OnInit {
 
   // Add Vehicle in Add Form
   addVehicle() {
-    const headingBranch = String(this.newBranch.branchName || '').trim();
     this.newBranch.vehicles.push({
       vehicleNo: '',
       driverPhone: '',
       vehicleStatus: 'online',
-      currentBranch: headingBranch
+      currentLocationId: ''
     });
   }
 
@@ -88,7 +87,7 @@ export class BranchComponent implements OnInit {
 
   // Add Vehicle while Editing
   addVehicleEdit() {
-    this.editingBranch.vehicles.push({ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' });
+    this.editingBranch.vehicles.push({ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' });
   }
 
   // Remove Vehicle while Editing
@@ -135,7 +134,12 @@ export class BranchComponent implements OnInit {
     }
 
     const vehicles = Array.isArray(this.newBranch.vehicles)
-      ? this.newBranch.vehicles.filter((v: any) => v?.vehicleNo && v?.driverPhone)
+      ? this.newBranch.vehicles
+          .filter((v: any) => v?.vehicleNo && v?.driverPhone)
+          .map((v: any) => ({
+            ...v,
+            currentLocationId: this.normalizeLocationId(v?.currentLocationId)
+          }))
       : [];
 
     const payload = {
@@ -174,67 +178,82 @@ export class BranchComponent implements OnInit {
       return;
     }
     this.newBranch.vehicles.forEach((v: any) => {
-      const currentBranch = String(v?.currentBranch || '').trim();
+      const currentLocationId = String(v?.currentLocationId || '').trim();
       const matchesPrevious =
-        previous && currentBranch.toLowerCase() === previous.toLowerCase();
-      if (!currentBranch || matchesPrevious) {
-        v.currentBranch = current;
+        previous && this.normalizeId(currentLocationId) === this.normalizeLocationId(previous);
+      if (!currentLocationId || matchesPrevious) {
+        v.currentLocationId = this.normalizeLocationId(current);
       }
     });
     this.lastHeadingBranchName = current;
   }
 
-  getAddBranchOptions(): string[] {
-    const options: string[] = [];
-    const heading = String(this.newBranch.branchName || '').trim();
-    if (heading) {
-      options.push(heading);
-    }
+  getAddBranchOptions(): Array<{ id: string; label: string }> {
+    const options: Array<{ id: string; label: string }> = [];
     (this.branches || []).forEach((branch: any) => {
-      const name = String(branch?.branchName || '').trim();
-      if (!name) return;
-      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
-      if (!exists) {
-        options.push(name);
-      }
+      const id = this.normalizeId(branch?._id);
+      const label = String(branch?.branchName || '').trim();
+      if (id && label) options.push({ id, label });
+    });
+    (this.hubs || []).forEach((hub: any) => {
+      const id = this.normalizeId(hub?._id);
+      const label = String(hub?.hubName || '').trim();
+      if (id && label) options.push({ id, label });
     });
     return options;
   }
 
-  getEditBranchOptions(currentValue: any): string[] {
-    const options: string[] = [];
-    const current = String(currentValue || '').trim();
-    if (current) {
-      options.push(current);
-    }
-    const heading = String(this.editingBranch?.branchName || '').trim();
-    if (heading) {
-      const exists = options.some((option) => option.toLowerCase() === heading.toLowerCase());
-      if (!exists) {
-        options.push(heading);
-      }
+  getEditBranchOptions(currentValue: any): Array<{ id: string; label: string }> {
+    const options: Array<{ id: string; label: string }> = [];
+    const currentId = this.normalizeLocationId(String(currentValue || '').trim());
+    const currentLabel = this.getCurrentLocationLabel(currentId);
+    if (currentId && currentLabel) {
+      options.push({ id: currentId, label: currentLabel });
     }
     const editingBranchId = this.normalizeId(this.editingBranch?._id);
     (this.hubs || []).forEach((hub: any) => {
       if (!editingBranchId) return;
       const hubBranchId = this.normalizeId(hub?.branchId);
       if (!hubBranchId || hubBranchId !== editingBranchId) return;
-      const name = String(hub?.hubName || '').trim();
-      if (!name) return;
-      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
-      if (!exists) {
-        options.push(name);
+      const id = this.normalizeId(hub?._id);
+      const label = String(hub?.hubName || '').trim();
+      if (id && label && !options.some((o) => o.id === id)) {
+        options.push({ id, label });
       }
     });
     (this.branches || []).forEach((branch: any) => {
-      const name = String(branch?.branchName || '').trim();
-      if (!name) return;
-      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
-      if (!exists) {
-        options.push(name);
+      const id = this.normalizeId(branch?._id);
+      const label = String(branch?.branchName || '').trim();
+      if (id && label && !options.some((o) => o.id === id)) {
+        options.push({ id, label });
       }
     });
     return options;
+  }
+
+  private getCurrentLocationLabel(value: string): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const branch = (this.branches || []).find((b: any) => this.normalizeId(b?._id) === raw);
+    if (branch?.branchName) return branch.branchName;
+    const hub = (this.hubs || []).find((h: any) => this.normalizeId(h?._id) === raw);
+    if (hub?.hubName) return hub.hubName;
+    return raw;
+  }
+
+  private normalizeLocationId(value: any): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^[a-f\d]{24}$/i.test(raw)) return raw;
+    const branch = (this.branches || []).find((b: any) =>
+      String(b?.branchName || '').trim().toLowerCase() === raw.toLowerCase()
+    );
+    if (branch?._id) return this.normalizeId(branch._id);
+    const hub = (this.hubs || []).find((h: any) =>
+      String(h?.hubName || '').trim().toLowerCase() === raw.toLowerCase()
+    );
+    if (hub?._id) return this.normalizeId(hub._id);
+    return '';
   }
 
   private normalizeId(value: any): string {
@@ -254,7 +273,7 @@ export class BranchComponent implements OnInit {
       state: '',
       pinCode: '',
       phoneNum: '',
-      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' }],
+      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' }],
       status: 'active'
     };
     this.lastHeadingBranchName = '';
@@ -263,12 +282,27 @@ export class BranchComponent implements OnInit {
   // Edit Branch Mode
   editBranch(branch: any) {
     this.editingBranch = JSON.parse(JSON.stringify(branch)); // deep copy to avoid UI distortions
+    if (Array.isArray(this.editingBranch?.vehicles)) {
+      this.editingBranch.vehicles.forEach((vehicle: any) => {
+        if (!vehicle.currentLocationId && vehicle.currentBranch) {
+          vehicle.currentLocationId = this.normalizeLocationId(vehicle.currentBranch);
+        }
+        delete vehicle.currentBranch;
+      });
+    }
     this.showEditBranchPopup = true;
   }
 
   // Save Edited Branch
   saveEdit() {
-    this.http.put(`http://localhost:3000/api/branches/${this.editingBranch._id}`, this.editingBranch).subscribe({
+    const payload = JSON.parse(JSON.stringify(this.editingBranch || {}));
+    if (Array.isArray(payload?.vehicles)) {
+      payload.vehicles.forEach((vehicle: any) => {
+        vehicle.currentLocationId = this.normalizeLocationId(vehicle.currentLocationId);
+        delete vehicle.currentBranch;
+      });
+    }
+    this.http.put(`http://localhost:3000/api/branches/${this.editingBranch._id}`, payload).subscribe({
       next: () => {
         alert('Branch updated successfully!');
         this.closeEditBranchPopup();

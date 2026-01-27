@@ -16,6 +16,11 @@
   color: var(--text);
 }
 
+.all-hubs-lock button {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;

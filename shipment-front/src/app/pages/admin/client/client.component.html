@@ -1,8 +1,18 @@
 ﻿<div class="clients-container">
   <h2>Manage Clients</h2>
 
-  <!-- Add Client Button -->
-  <button class="add-client-btn" (click)="openAddClientPopup()">+ Add Client</button>
+  <div class="client-actions">
+    <button class="add-client-btn" (click)="openAddClientPopup()">+ Add Client</button>
+    <div class="hub-filter" *ngIf="cbranch === 'All Hubs'">
+      <label>
+        <span>Hub</span>
+        <select [(ngModel)]="selectedHubId">
+          <option value="">Select hub</option>
+          <option *ngFor="let h of hubs" [value]="h._id">{{ h.hubName }}</option>
+        </select>
+      </label>
+    </div>
+  </div>
 
   <!-- Popup Modal -->
   <div class="modal" *ngIf="showAddClientPopup">

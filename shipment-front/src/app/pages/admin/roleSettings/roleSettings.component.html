@@ -42,7 +42,7 @@
           [disabled]="newUser.role === 'admin'"
           style="width: 100%; min-height: 80px;"
         >
-          <option *ngFor="let b of branches" [ngValue]="b.branchName">{{ b.branchName }}</option>
+          <option *ngFor="let b of branches" [ngValue]="b._id">{{ b.branchName }}</option>
         </select>
       </div>
 
@@ -74,7 +74,7 @@
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.username }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.phoneNumber || '-' }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ u.role }}</td>
-          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ (u.branches && u.branches.length) ? u.branches.join(', ') : u.branch }}</td>
+          <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">{{ (u.branchNames && u.branchNames.length) ? u.branchNames.join(', ') : (u.branchName || u.branch) }}</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">—</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
             <button (click)="startEdit(u)">Edit</button>
@@ -106,7 +106,7 @@
               [disabled]="editUser.role === 'admin'"
               style="width: 100%; min-height: 80px;"
             >
-              <option *ngFor="let b of branches" [ngValue]="b.branchName">{{ b.branchName }}</option>
+              <option *ngFor="let b of branches" [ngValue]="b._id">{{ b.branchName }}</option>
             </select>
           </td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">

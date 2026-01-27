@@ -25,9 +25,9 @@
             <input placeholder="Vehicle No." [(ngModel)]="v.vehicleNo">
             <input placeholder="Driver Phone" [(ngModel)]="v.driverPhone">
             <span>{{ v.vehicleStatus || 'online' }}</span>
-            <select [(ngModel)]="v.currentBranch">
-              <option *ngIf="!newBranch.branchName" [ngValue]="''" disabled>Select Current Branch</option>
-              <option *ngFor="let option of getAddBranchOptions()" [ngValue]="option">{{ option }}</option>
+            <select [(ngModel)]="v.currentLocationId">
+              <option [ngValue]="''">Use this branch</option>
+              <option *ngFor="let option of getAddBranchOptions()" [ngValue]="option.id">{{ option.label }}</option>
             </select>
             <button *ngIf="newBranch.vehicles.length > 1"
                     class="remove-btn"
@@ -65,8 +65,8 @@
             </button>
             <div class="current-branch-inline">
               <label>Current Branch</label>
-              <select [(ngModel)]="v.currentBranch">
-              <option *ngFor="let option of getEditBranchOptions(v.currentBranch)" [ngValue]="option">{{ option }}</option>
+              <select [(ngModel)]="v.currentLocationId">
+                <option *ngFor="let option of getEditBranchOptions(v.currentLocationId)" [ngValue]="option.id">{{ option.label }}</option>
               </select>
             </div>
             <button *ngIf="editingBranch.vehicles.length > 1"

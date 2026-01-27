@@ -1,14 +1,34 @@
 .container {
   display: flex;
+  min-height: 100vh;
 }
 
 .sidebar {
-  width: 250px;
+  flex: 0 0 clamp(220px, 20vw, 280px);
   background: #2c3e50;
   color: white;
   padding: 20px;
   height: 100vh;
   overflow-y: auto;
+}
+
+.content {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: hidden;
+  font-size: clamp(13px, 1.15vw, 16px);
+}
+
+.content table {
+  width: 100%;
+  table-layout: fixed;
+  max-width: 100%;
+}
+
+.content th,
+.content td {
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .sidebar h3 {

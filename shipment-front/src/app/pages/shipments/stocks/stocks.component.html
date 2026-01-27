@@ -27,6 +27,13 @@
       [(ngModel)]="searchText"
       (input)="applyFilters()" />
 
+    <select
+      *ngIf="branchId === 'all-hubs'"
+      [(ngModel)]="selectedHubFilterId"
+      (ngModelChange)="onHubFilterChange($event)">
+      <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
+    </select>
+
     <input
       type="date"
       [(ngModel)]="filterDate"
@@ -57,18 +64,22 @@
         <th>Consignor</th>
         <th>Delivery Address</th>
         <th>No. of Products</th>
+        <th>Branch</th>
+        <th>Current Branch</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       <tr *ngFor="let s of filteredStocks" (click)="openStockDetails(s)">
         <td>
-          <input type="checkbox" [(ngModel)]="s.selected" [disabled]="!isManifestSelectable(s)" (click)="$event.stopPropagation()" />
+          <input type="checkbox" [(ngModel)]="s.selected" (click)="$event.stopPropagation()" />
         </td>
         <td>{{ s.consignmentNumber }}</td>
         <td>{{ s.consignor }}</td>
         <td>{{ s.deliveryAddress }}</td>
         <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
+        <td>{{ getOriginBranchLabel(s) }}</td>
+        <td>{{ getCurrentBranchLabel(s) }}</td>
         <td>
           <button (click)="editStock(s); $event.stopPropagation()">Edit</button>
         </td>
@@ -94,7 +105,7 @@
     <div class="stock-details details-grid">
       <p><strong>Consignment No.:</strong> {{ selectedStock.consignmentNumber }}</p>
       <p><strong>Status:</strong> {{ selectedStock.shipmentStatus }}</p>
-      <p><strong>Branch:</strong> {{ selectedStock.branch }}</p>
+      <p><strong>Branch:</strong> {{ getOriginBranchLabel(selectedStock) }}</p>
       <p><strong>Consignor:</strong> {{ selectedStock.consignor }}</p>
       <p><strong>Consignor GST:</strong> {{ selectedStock.consignorGST }}</p>
       <p><strong>Consignor Phone:</strong> {{ selectedStock.consignorPhone }}</p>

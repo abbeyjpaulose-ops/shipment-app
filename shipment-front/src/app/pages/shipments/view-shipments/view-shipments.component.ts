@@ -44,15 +44,17 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   loadShipments(): void {
+    const storedBranchId = localStorage.getItem('branchId') || 'all';
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branchId: localStorage.getItem('branchId') || 'all'
+        branchId: storedBranchId === 'all-hubs' ? 'all' : storedBranchId
       }
     }).subscribe({
       next: (res: any[]) => {
         const normalized = (res || []).map((shipment) => ({
           ...shipment,
+          branch: this.getOriginBranchDisplay(shipment),
           invoices: this.flattenInvoices(shipment.ewaybills || shipment.invoices || [])
         }));
         this.shipments = normalized;
@@ -72,6 +74,7 @@ export class ViewShipmentsComponent implements OnInit {
       next: (res: any[]) => {
         const normalized = (res || []).map((shipment) => ({
           ...shipment,
+          branch: this.getOriginBranchDisplay(shipment),
           invoices: this.flattenInvoices(shipment.ewaybills || shipment.invoices || [])
         }));
         this.receivedShipments = normalized;
@@ -190,7 +193,12 @@ export class ViewShipmentsComponent implements OnInit {
       const deliveryId = this.normalizeId(s?.deliveryID);
       let matchesDelivery = true;
       if (branchId) {
-        if (branchId === 'all') {
+        if (branchId === 'all-hubs') {
+          const hubIds = (this.hubs || [])
+            .map(h => this.normalizeId(h?._id))
+            .filter(Boolean);
+          matchesDelivery = Boolean(deliveryId && hubIds.includes(deliveryId));
+        } else if (branchId === 'all') {
           const branchIds = (this.branches || [])
             .map(b => this.normalizeId(b?._id))
             .filter(Boolean);
@@ -307,13 +315,15 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   getCurrentBranchDisplay(shipment: any): string {
-    const currentBranchId = this.normalizeId(shipment?.currentBranchId || shipment?.currentBranch);
-    if (!currentBranchId) return '-';
-    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentBranchId);
+    const currentLocationId = this.normalizeId(
+      shipment?.currentLocationId || shipment?.currentBranchId || shipment?.currentBranch
+    );
+    if (!currentLocationId) return '-';
+    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentLocationId);
     if (branch?.branchName) return branch.branchName;
-    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === currentBranchId);
+    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === currentLocationId);
     if (hub?.hubName) return hub.hubName;
-    return currentBranchId;
+    return currentLocationId;
   }
 
   getOriginBranchDisplay(shipment: any): string {
@@ -321,6 +331,8 @@ export class ViewShipmentsComponent implements OnInit {
     if (!originBranchId) return '-';
     const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === originBranchId);
     if (branch?.branchName) return branch.branchName;
+    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === originBranchId);
+    if (hub?.hubName) return hub.hubName;
     return originBranchId;
   }
 

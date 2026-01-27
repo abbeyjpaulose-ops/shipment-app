@@ -84,7 +84,16 @@ export class RoleSettingsComponent implements OnInit {
       return;
     }
 
-    this.http.post('http://localhost:3000/api/admin/users', this.newUser)
+    const payload = {
+      email: this.newUser.email,
+      username: this.newUser.username,
+      phoneNumber: this.newUser.phoneNumber,
+      password: this.newUser.password,
+      role: this.newUser.role,
+      branchIds: this.newUser.branches
+    };
+
+    this.http.post('http://localhost:3000/api/admin/users', payload)
       .subscribe({
         next: () => {
           this.newUser = {
@@ -106,7 +115,9 @@ export class RoleSettingsComponent implements OnInit {
   startEdit(row: any) {
     this.editId = Number(row?._id);
     this.editUser = {
-      branches: Array.isArray(row?.branches) ? row.branches : (row?.branch ? [row.branch] : []),
+      branches: Array.isArray(row?.branchIds)
+        ? row.branchIds
+        : this.mapBranchNamesToIds(row?.branchNames || row?.branches || []),
       email: row?.email || '',
       username: row?.username || '',
       phoneNumber: row?.phoneNumber || '',
@@ -130,7 +141,7 @@ export class RoleSettingsComponent implements OnInit {
     if (this.editId === null) return;
 
     const payload: any = {
-      branches: this.editUser.branches,
+      branchIds: this.editUser.branches,
       email: this.editUser.email,
       username: this.editUser.username,
       phoneNumber: this.editUser.phoneNumber,
@@ -148,6 +159,20 @@ export class RoleSettingsComponent implements OnInit {
           alert(err?.error?.message || 'Failed to update user');
         }
       });
+  }
+
+  private mapBranchNamesToIds(values: any[]): string[] {
+    const names = Array.isArray(values) ? values : [values];
+    return names
+      .map((name) => String(name || '').trim())
+      .filter(Boolean)
+      .map((name) => {
+        const match = (this.branches || []).find((b) =>
+          String(b?.branchName || '').trim().toLowerCase() === name.toLowerCase()
+        );
+        return match?._id ? String(match._id) : '';
+      })
+      .filter(Boolean);
   }
 
   deleteUser(id: any) {

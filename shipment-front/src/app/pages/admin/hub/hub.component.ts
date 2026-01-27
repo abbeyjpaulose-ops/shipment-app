@@ -33,7 +33,7 @@ export class HubComponent implements OnInit, OnDestroy {
       {
         location: '',
         vehicles: [
-          { vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' }
+          { vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' }
         ]
       }
     ],
@@ -80,7 +80,7 @@ export class HubComponent implements OnInit, OnDestroy {
         next: (data) => {
           console.log("Hubs loaded:", data);
           const branchId = String(localStorage.getItem('branchId') || 'all');
-          this.hubs = branchId && branchId !== 'all'
+          this.hubs = branchId && branchId !== 'all' && branchId !== 'all-hubs'
             ? (data || []).filter((hub) => String(hub?.branchId || '') === branchId)
             : data;
         },
@@ -114,13 +114,20 @@ export class HubComponent implements OnInit, OnDestroy {
 
   addHub() {
     const branchId = localStorage.getItem('branchId') || 'all';
-    if (!branchId || branchId === 'all') {
+    if (!branchId || branchId === 'all' || branchId === 'all-hubs') {
       alert('Please select a specific branch before adding a hub.');
       return;
     }
     this.syncNewHubCurrentBranchDefaults();
-    this.newHub.branchId = branchId;
-    this.http.post('http://localhost:3000/api/hubs/add', this.newHub)
+    const payload = JSON.parse(JSON.stringify(this.newHub || {}));
+    payload.branchId = branchId;
+    (payload.deliveryAddresses || []).forEach((addr: any) => {
+      (addr?.vehicles || []).forEach((v: any) => {
+        v.currentLocationId = this.normalizeLocationId(v?.currentLocationId);
+        delete v.currentBranch;
+      });
+    });
+    this.http.post('http://localhost:3000/api/hubs/add', payload)
       .subscribe({
         next: () => {
           alert('Hub added successfully!');
@@ -149,7 +156,7 @@ export class HubComponent implements OnInit, OnDestroy {
         {
           location: '',
           vehicles: [
-            { vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: '' }
+            { vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' }
           ]
         }
       ],
@@ -163,7 +170,7 @@ export class HubComponent implements OnInit, OnDestroy {
   addAddress() {
     this.newHub.deliveryAddresses.push({
       location: '',
-      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: String(this.newHub.hubName || '').trim() }]
+      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' }]
     });
   }
 
@@ -175,7 +182,7 @@ export class HubComponent implements OnInit, OnDestroy {
   /** 🔹 Add / Remove Vehicles in Add Mode */
   addVehicle(addrIndex: number) {
     this.newHub.deliveryAddresses[addrIndex].vehicles.push({
-      vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: String(this.newHub.hubName || '').trim()
+      vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: ''
     });
   }
 
@@ -188,13 +195,21 @@ export class HubComponent implements OnInit, OnDestroy {
   editHub(hub: any) {
     this.editingHub = JSON.parse(JSON.stringify(hub)); // Deep clone
     this.ensureVehicleStatuses(this.editingHub);
+    (this.editingHub?.deliveryAddresses || []).forEach((addr: any) => {
+      (addr?.vehicles || []).forEach((v: any) => {
+        if (!v.currentLocationId && v.currentBranch) {
+          v.currentLocationId = this.normalizeLocationId(v.currentBranch);
+        }
+        delete v.currentBranch;
+      });
+    });
     this.showEditHubPopup = true;
   }
 
   addAddressEdit() {
     this.editingHub.deliveryAddresses.push({
       location: '',
-      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: String(this.editingHub?.hubName || '').trim() }]
+      vehicles: [{ vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: '' }]
     });
   }
 
@@ -204,7 +219,7 @@ export class HubComponent implements OnInit, OnDestroy {
 
   addVehicleEdit(addrIndex: number) {
     this.editingHub.deliveryAddresses[addrIndex].vehicles.push({
-      vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentBranch: String(this.editingHub?.hubName || '').trim()
+      vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: ''
     });
   }
 
@@ -235,7 +250,14 @@ export class HubComponent implements OnInit, OnDestroy {
 
 
   saveEdit() {
-    this.http.put(`http://localhost:3000/api/hubs/${this.editingHub._id}`, this.editingHub)
+    const payload = JSON.parse(JSON.stringify(this.editingHub || {}));
+    (payload?.deliveryAddresses || []).forEach((addr: any) => {
+      (addr?.vehicles || []).forEach((v: any) => {
+        v.currentLocationId = this.normalizeLocationId(v.currentLocationId);
+        delete v.currentBranch;
+      });
+    });
+    this.http.put(`http://localhost:3000/api/hubs/${this.editingHub._id}`, payload)
       .subscribe({
         next: () => {
           this.loadHubs();
@@ -260,11 +282,11 @@ export class HubComponent implements OnInit, OnDestroy {
     const previous = String(this.lastHubName || '').trim();
     (this.newHub.deliveryAddresses || []).forEach((addr: any) => {
       (addr?.vehicles || []).forEach((v: any) => {
-        const currentBranch = String(v?.currentBranch || '').trim();
+        const currentLocationId = String(v?.currentLocationId || '').trim();
         const matchesPrevious =
-          previous && currentBranch.toLowerCase() === previous.toLowerCase();
-        if (!currentBranch || matchesPrevious) {
-          v.currentBranch = current;
+          previous && this.normalizeLocationId(currentLocationId) === this.normalizeLocationId(previous);
+        if (!currentLocationId || matchesPrevious) {
+          v.currentLocationId = this.normalizeLocationId(current);
         }
       });
     });
@@ -276,49 +298,49 @@ export class HubComponent implements OnInit, OnDestroy {
     if (!current) return;
     (this.newHub.deliveryAddresses || []).forEach((addr: any) => {
       (addr?.vehicles || []).forEach((v: any) => {
-        if (!String(v?.currentBranch || '').trim()) {
-          v.currentBranch = current;
+        if (!String(v?.currentLocationId || '').trim()) {
+          v.currentLocationId = this.normalizeLocationId(current);
         }
       });
     });
   }
 
-  getHubBranchOptions(): string[] {
-    const options: string[] = [];
-    const hubName = String(this.newHub.hubName || '').trim();
-    if (hubName) {
-      options.push(hubName);
-    }
+  getHubBranchOptions(): Array<{ id: string; label: string }> {
+    const options: Array<{ id: string; label: string }> = [];
+    (this.hubs || []).forEach((hub: any) => {
+      const id = this.normalizeId(hub?._id);
+      const label = String(hub?.hubName || '').trim();
+      if (id && label) options.push({ id, label });
+    });
     (this.branches || []).forEach((branch: any) => {
-      const name = String(branch?.branchName || '').trim();
-      if (!name) return;
-      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
-      if (!exists) {
-        options.push(name);
+      const id = this.normalizeId(branch?._id);
+      const label = String(branch?.branchName || '').trim();
+      if (id && label && !options.some((o) => o.id === id)) {
+        options.push({ id, label });
       }
     });
     return options;
   }
 
-  getEditHubBranchOptions(currentValue: any): string[] {
-    const options: string[] = [];
-    const current = String(currentValue || '').trim();
-    if (current) {
-      options.push(current);
+  getEditHubBranchOptions(currentValue: any): Array<{ id: string; label: string }> {
+    const options: Array<{ id: string; label: string }> = [];
+    const currentId = this.normalizeLocationId(String(currentValue || '').trim());
+    const currentLabel = this.getLocationLabel(currentId);
+    if (currentId && currentLabel) {
+      options.push({ id: currentId, label: currentLabel });
     }
-    const hubName = String(this.editingHub?.hubName || '').trim();
-    if (hubName) {
-      const exists = options.some((option) => option.toLowerCase() === hubName.toLowerCase());
-      if (!exists) {
-        options.push(hubName);
+    (this.hubs || []).forEach((hub: any) => {
+      const id = this.normalizeId(hub?._id);
+      const label = String(hub?.hubName || '').trim();
+      if (id && label && !options.some((o) => o.id === id)) {
+        options.push({ id, label });
       }
-    }
+    });
     (this.branches || []).forEach((branch: any) => {
-      const name = String(branch?.branchName || '').trim();
-      if (!name) return;
-      const exists = options.some((option) => option.toLowerCase() === name.toLowerCase());
-      if (!exists) {
-        options.push(name);
+      const id = this.normalizeId(branch?._id);
+      const label = String(branch?.branchName || '').trim();
+      if (id && label && !options.some((o) => o.id === id)) {
+        options.push({ id, label });
       }
     });
     return options;
@@ -336,15 +358,46 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
   getFilteredVehicles(vehicles: any[]): any[] {
-    const branchName = String(localStorage.getItem('branch') || '').trim();
-    if (!branchName || branchName === 'All Branches') {
+    const branchId = String(localStorage.getItem('branchId') || '').trim();
+    if (!branchId || branchId === 'all' || branchId === 'all-hubs') {
       return vehicles || [];
     }
-    const target = branchName.toLowerCase();
     return (vehicles || []).filter((v: any) => {
-      const currentBranch = String(v?.currentBranch || '').trim().toLowerCase();
-      return currentBranch === target;
+      const currentLocationId = this.normalizeLocationId(v?.currentLocationId || v?.currentBranch);
+      return currentLocationId && currentLocationId === branchId;
     });
   }
 
+  private getLocationLabel(value: any): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const hub = (this.hubs || []).find((h: any) => this.normalizeId(h?._id) === raw);
+    if (hub?.hubName) return hub.hubName;
+    const branch = (this.branches || []).find((b: any) => this.normalizeId(b?._id) === raw);
+    if (branch?.branchName) return branch.branchName;
+    return raw;
+  }
+
+  private normalizeLocationId(value: any): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    if (/^[a-f\d]{24}$/i.test(raw)) return raw;
+    const hub = (this.hubs || []).find((h: any) =>
+      String(h?.hubName || '').trim().toLowerCase() === raw.toLowerCase()
+    );
+    if (hub?._id) return this.normalizeId(hub._id);
+    const branch = (this.branches || []).find((b: any) =>
+      String(b?.branchName || '').trim().toLowerCase() === raw.toLowerCase()
+    );
+    if (branch?._id) return this.normalizeId(branch._id);
+    return '';
+  }
+
+  private normalizeId(value: any): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value?._id) return String(value._id);
+    if (value?.$oid) return String(value.$oid);
+    return String(value);
+  }
 }

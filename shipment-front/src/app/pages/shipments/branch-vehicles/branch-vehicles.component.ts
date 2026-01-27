@@ -15,6 +15,7 @@ import { Observable, forkJoin, of } from 'rxjs';
 export class BranchVehiclesComponent implements OnInit, OnDestroy {
   branches: any[] = [];
   hubs: any[] = [];
+  isAdmin = String(localStorage.getItem('role') || '').toLowerCase() === 'admin';
   vehicles: Array<{
     branchId: string;
     branchName: string;
@@ -22,7 +23,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     vehicleNo: string;
     vehicleStatus: string;
     driverPhone: string;
-    currentBranch: string;
+    currentLocationId: string;
     sourceType: 'branch' | 'hub';
     sourceId: string;
   }> = [];
@@ -91,13 +92,14 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   buildVehicles() {
     const branchId = this.branchId || 'all';
     const branchName = String(this.branchName || '').trim().toLowerCase();
-    const filtered = branchId === 'all'
-      ? this.branches
-      : this.branches.filter((b: any) => {
-          const idMatch = String(b?._id || '') === String(branchId || '');
-          const nameMatch = String(b?.branchName || '').trim().toLowerCase() === branchName;
-          return idMatch || nameMatch;
-        });
+    const isAllHubs = branchId === 'all-hubs';
+    const isAllBranches = branchId === 'all';
+    const assignedBranchIds = this.isAdmin ? [] : this.getAssignedBranchIds();
+    const filtered = this.isAdmin
+      ? (this.branches || [])
+      : (assignedBranchIds.length
+          ? (this.branches || []).filter((b: any) => assignedBranchIds.includes(String(b?._id || '').trim()))
+          : []);
 
     const rows: Array<{
       branchId: string;
@@ -106,38 +108,39 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       vehicleNo: string;
       vehicleStatus: string;
       driverPhone: string;
-      currentBranch: string;
+      currentLocationId: string;
       sourceType: 'branch' | 'hub';
       sourceId: string;
     }> = [];
-    (filtered || []).forEach((b: any) => {
-      const list = Array.isArray(b?.vehicles) ? b.vehicles : [];
-      list.forEach((v: any) => {
-        const vehicleNo = String(v?.vehicleNo || '').trim();
-        const driverPhone = String(v?.driverPhone || '').trim();
-        const currentBranch = String(v?.currentBranch || '').trim();
-        if (!vehicleNo && !driverPhone) return;
-        if (branchId !== 'all') {
-          const currentBranchName = currentBranch.toLowerCase();
-          if (!currentBranchName || currentBranchName !== branchName) return;
-        }
-        rows.push({
-          branchId: String(b?._id || ''),
-          branchName: b?.branchName || '',
-          branchStatus: b?.status || '',
-          vehicleNo,
-          vehicleStatus: String(v?.vehicleStatus || 'online'),
-          driverPhone,
-          currentBranch,
-          sourceType: 'branch',
-          sourceId: String(b?._id || '')
+    if (!isAllHubs) {
+      (filtered || []).forEach((b: any) => {
+        const list = Array.isArray(b?.vehicles) ? b.vehicles : [];
+        list.forEach((v: any) => {
+          const vehicleNo = String(v?.vehicleNo || '').trim();
+          const driverPhone = String(v?.driverPhone || '').trim();
+          const currentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
+          if (!vehicleNo && !driverPhone) return;
+          if (!isAllBranches && !this.matchesBranchFilter(currentLocationId, branchId, branchName)) return;
+          rows.push({
+            branchId: String(b?._id || ''),
+            branchName: b?.branchName || '',
+            branchStatus: b?.status || '',
+            vehicleNo,
+            vehicleStatus: String(v?.vehicleStatus || 'online'),
+            driverPhone,
+            currentLocationId,
+            sourceType: 'branch',
+            sourceId: String(b?._id || '')
+          });
         });
       });
-    });
+    }
 
-    const hubs = branchId === 'all'
-      ? this.hubs
-      : this.hubs.filter((h: any) => String(h?.branchId || '') === String(branchId || ''));
+    const hubs = this.isAdmin
+      ? (this.hubs || [])
+      : (assignedBranchIds.length
+          ? (this.hubs || []).filter((h: any) => assignedBranchIds.includes(String(h?.branchId || '').trim()))
+          : []);
     (hubs || []).forEach((h: any) => {
       const deliveryAddresses = Array.isArray(h?.deliveryAddresses) ? h.deliveryAddresses : [];
       deliveryAddresses.forEach((addr: any) => {
@@ -145,12 +148,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
         list.forEach((v: any) => {
           const vehicleNo = String(v?.vehicleNo || '').trim();
           const driverPhone = String(v?.driverPhone || '').trim();
-          const currentBranch = String(v?.currentBranch || '').trim();
+          const currentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
           if (!vehicleNo && !driverPhone) return;
-          if (branchId !== 'all') {
-            const currentBranchName = currentBranch.toLowerCase();
-            if (!currentBranchName || currentBranchName !== branchName) return;
-          }
+          if (!isAllBranches && !isAllHubs && !this.matchesBranchFilter(currentLocationId, branchId, branchName)) return;
           rows.push({
             branchId: String(h?._id || ''),
             branchName: h?.hubName || '',
@@ -158,7 +158,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
             vehicleNo,
             vehicleStatus: String(v?.vehicleStatus || 'online'),
             driverPhone,
-            currentBranch,
+            currentLocationId,
             sourceType: 'hub',
             sourceId: String(h?._id || '')
           });
@@ -169,6 +169,30 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     this.vehicleStatusByKey = new Map(
       rows.map((v) => [`${v.sourceType}:${v.sourceId}:${v.vehicleNo}`, v.vehicleStatus || 'online'])
     );
+  }
+
+  private matchesBranchFilter(currentLocationId: string, branchId: string, branchName: string): boolean {
+    const raw = String(currentLocationId || '').trim();
+    if (!raw) return false;
+    const targetName = String(branchName || '').trim().toLowerCase();
+    const rawLower = raw.toLowerCase();
+    if (rawLower === targetName) return true;
+    if (String(raw) === String(branchId)) return true;
+    const branch = (this.branches || []).find((b: any) => String(b?._id || '') === raw);
+    if (branch?.branchName && String(branch.branchName).trim().toLowerCase() === targetName) return true;
+    const hub = (this.hubs || []).find((h: any) => String(h?._id || '') === raw);
+    if (hub?.hubName && String(hub.hubName).trim().toLowerCase() === targetName) return true;
+    return this.matchesBranchLabel(raw, String(branchName || ''));
+  }
+
+  private matchesBranchLabel(currentBranch: string, branchLabel: string): boolean {
+    const current = String(currentBranch || '').trim().toLowerCase();
+    const label = String(branchLabel || '').trim().toLowerCase();
+    if (!current || !label) return false;
+    if (label === current) return true;
+    if (label.startsWith(`${current}-`)) return true;
+    const labelPrefix = label.split('-')[0].trim();
+    return Boolean(labelPrefix) && labelPrefix === current;
   }
 
   private onStorage = (e: StorageEvent) => {
@@ -186,6 +210,18 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     if (value?._id) return String(value._id);
     if (value?.$oid) return String(value.$oid);
     return String(value);
+  }
+
+  private getAssignedBranchIds(): string[] {
+    try {
+      const storedIds = JSON.parse(localStorage.getItem('branchIds') || '[]');
+      if (!Array.isArray(storedIds)) return [];
+      return storedIds
+        .map((id: any) => String(id || '').trim())
+        .filter((id: string) => id);
+    } catch {
+      return [];
+    }
   }
 
   toggleBranchStatus(branchId: string) {
@@ -222,7 +258,10 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       this.deliveringConsignmentsOriginal,
       this.deliveringConsignments
     );
-    this.updateConsignmentStatuses([], removed, { applyCurrentBranchFromDetails: false }).subscribe({
+    this.updateConsignmentStatuses([], removed, {
+      applyCurrentBranchFromDetails: false,
+      vehicleNo: this.pendingStatusVehicle?.vehicleNo
+    }).subscribe({
       next: () => {
         this.updateVehicleStatus(this.pendingStatusVehicle, 'delivering');
         this.showDeliveringConfirm = false;
@@ -248,7 +287,10 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       this.completionConsignmentsOriginal,
       this.completionConsignments
     );
-    this.updateConsignmentStatuses(this.completionConsignments, removed, { applyCurrentBranchFromDetails: true }).subscribe({
+    this.updateConsignmentStatuses(this.completionConsignments, removed, {
+      applyCurrentBranchFromDetails: true,
+      vehicleNo: this.pendingStatusVehicle?.vehicleNo
+    }).subscribe({
       next: () => {
         this.updateVehicleStatus(this.pendingStatusVehicle, 'online', nextDeliveryPoint);
         this.showCompletionConfirm = false;
@@ -276,13 +318,33 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   }
 
   getCurrentBranchLabel(value: string) {
-    const raw = String(value || '').trim();
+    const raw = this.normalizeId(value);
     if (!raw) return '-';
     const branch = (this.branches || []).find((b: any) => String(b?._id || '') === raw);
     if (branch?.branchName) return branch.branchName;
+    const byName = (this.branches || []).find((b: any) =>
+      String(b?.branchName || '').trim().toLowerCase() === raw.toLowerCase()
+    );
+    if (byName?.branchName) return byName.branchName;
+    const byPrefix = (this.branches || []).find((b: any) =>
+      this.matchesBranchLabel(raw, String(b?.branchName || ''))
+    );
+    if (byPrefix?.branchName) return byPrefix.branchName;
     const hub = (this.hubs || []).find((h: any) => String(h?._id || '') === raw);
     if (hub?.hubName) return hub.hubName;
     return raw;
+  }
+
+  getNextBranchLabelForCompletion(item: any): string {
+    const status = String(item?.shipmentStatus || '').trim().toLowerCase();
+    const isNextRelevant =
+      status.includes('out for delivery') ||
+      status.includes('will be picked-up') ||
+      status.includes('manifestation');
+    if (!isNextRelevant) return '';
+    const nextId = this.parseCurrentBranchId(item?.shipmentStatusDetails || '');
+    if (!nextId) return '';
+    return this.getCurrentBranchLabel(nextId);
   }
 
   private fetchDeliveringConsignments() {
@@ -293,11 +355,6 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (resp) => {
         const list = Array.isArray(resp?.consignments) ? resp.consignments : [];
-        if (!list.length) {
-          this.updateVehicleStatus(this.pendingStatusVehicle, 'online');
-          this.pendingStatusVehicle = null;
-          return;
-        }
         this.deliveringConsignments = list;
         this.deliveringConsignmentsOriginal = list.map((c: any) => ({ ...c }));
         this.showDeliveringConfirm = true;
@@ -314,11 +371,6 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (resp) => {
         const list = Array.isArray(resp?.consignments) ? resp.consignments : [];
-        if (!list.length) {
-          this.updateVehicleStatus(this.pendingStatusVehicle, 'online');
-          this.pendingStatusVehicle = null;
-          return;
-        }
         this.completionConsignments = list;
         this.completionConsignmentsOriginal = list.map((c: any) => ({ ...c }));
         this.showCompletionConfirm = true;
@@ -338,7 +390,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   private updateConsignmentStatuses(
     kept: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }>,
     removed: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }>,
-    options: { applyCurrentBranchFromDetails: boolean }
+    options: { applyCurrentBranchFromDetails: boolean; vehicleNo?: string }
   ): Observable<any[]> {
     const updates = [
       ...kept.map((item) => this.buildShipmentUpdate(item, true, options)),
@@ -353,7 +405,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   private buildShipmentUpdate(
     item: { id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string },
     keep: boolean,
-    options: { applyCurrentBranchFromDetails: boolean }
+    options: { applyCurrentBranchFromDetails: boolean; vehicleNo?: string }
   ) {
     const shipmentId = String(item?.id || '').trim();
     const consignmentNumber = String(item?.consignmentNumber || '').trim();
@@ -373,7 +425,8 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       {
         shipmentId,
         shipmentStatus: nextStatus,
-        ...(currentBranchId ? { currentBranchId } : {})
+        ...(options.vehicleNo ? { clearVehicleNo: options.vehicleNo } : {}),
+        ...(currentBranchId ? { currentLocationId: currentBranchId } : {})
       }
     );
   }
@@ -387,7 +440,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     this.http.patch(endpoint, {
       vehicleNo: vehicle.vehicleNo,
       vehicleStatus: nextStatus,
-      ...(currentBranch ? { currentBranch } : {})
+      ...(currentBranch ? { currentLocationId: currentBranch } : {})
     }).subscribe({
       next: () => {
         this.loadBranches();

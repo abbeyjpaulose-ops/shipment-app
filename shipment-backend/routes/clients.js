@@ -2,6 +2,7 @@
 import express from 'express';
 import Client from '../models/Client.js';
 import Branch from '../models/Branch.js';
+import Hub from '../models/Hub.js';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
@@ -16,6 +17,16 @@ function getAllowedBranchIds(req) {
   const role = String(req.user?.role || '').toLowerCase();
   if (role === 'admin') return null;
   return normalizeBranchIds(req.user?.branchIds);
+}
+
+async function getAllowedHubIds(gstinId, allowedBranchIds) {
+  const query = { GSTIN_ID: gstinId };
+  if (Array.isArray(allowedBranchIds)) {
+    if (!allowedBranchIds.length) return [];
+    query.branchId = { $in: allowedBranchIds };
+  }
+  const hubs = await Hub.find(query).select('_id').lean();
+  return (hubs || []).map((h) => String(h?._id || '')).filter(Boolean);
 }
 
 function normalizeClientPayload(payload = {}) {
@@ -68,9 +79,20 @@ async function withBranchNames(records = []) {
     .select('_id branchName')
     .lean();
   const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
+  const missingBranchIds = branchIds.filter((id) => !branchNameById.has(String(id)));
+  let hubNameById = new Map();
+  if (missingBranchIds.length) {
+    const hubs = await Hub.find({ _id: { $in: missingBranchIds } })
+      .select('_id hubName')
+      .lean();
+    hubNameById = new Map((hubs || []).map((h) => [String(h._id), h.hubName || '']));
+  }
   return data.map((rec) => ({
     ...rec,
-    branchName: branchNameById.get(String(rec?.branchId || '')) || ''
+    branchName:
+      branchNameById.get(String(rec?.branchId || '')) ||
+      hubNameById.get(String(rec?.branchId || '')) ||
+      ''
   }));
 }
 
@@ -118,9 +140,22 @@ router.get('/', requireAuth, async (req, res) => {
     const { branchId } = req.query;
     const query = { GSTIN_ID: gstinId };
     const allowedBranchIds = getAllowedBranchIds(req);
-    if (branchId && branchId !== 'all') {
+    if (branchId === 'all-hubs') {
+      const hubIds = await getAllowedHubIds(gstinId, allowedBranchIds);
+      if (!hubIds.length) {
+        return res.json([]);
+      }
+      query.branchId = { $in: hubIds };
+    } else if (branchId && branchId !== 'all') {
       if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
-        return res.status(403).json({ message: 'Branch access denied' });
+        const hubMatch = await Hub.findOne({
+          _id: branchId,
+          GSTIN_ID: gstinId,
+          branchId: { $in: allowedBranchIds }
+        }).select('_id').lean();
+        if (!hubMatch) {
+          return res.status(403).json({ message: 'Branch access denied' });
+        }
       }
       query.branchId = branchId;
     } else if (branchId === 'all' && allowedBranchIds) {
@@ -335,9 +370,22 @@ router.get('/clientslist', requireAuth, async (req, res) => {
     const { branchId } = req.query;
     const query = { GSTIN_ID: gstinId, status: 'active' };
     const allowedBranchIds = getAllowedBranchIds(req);
-    if (branchId && branchId !== 'all') {
+    if (branchId === 'all-hubs') {
+      const hubIds = await getAllowedHubIds(gstinId, allowedBranchIds);
+      if (!hubIds.length) {
+        return res.json([]);
+      }
+      query.branchId = { $in: hubIds };
+    } else if (branchId && branchId !== 'all') {
       if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
-        return res.status(403).json({ message: 'Branch access denied' });
+        const hubMatch = await Hub.findOne({
+          _id: branchId,
+          GSTIN_ID: gstinId,
+          branchId: { $in: allowedBranchIds }
+        }).select('_id').lean();
+        if (!hubMatch) {
+          return res.status(403).json({ message: 'Branch access denied' });
+        }
       }
       query.branchId = branchId;
     } else if (branchId === 'all' && allowedBranchIds) {

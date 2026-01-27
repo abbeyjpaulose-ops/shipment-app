@@ -1,4 +1,4 @@
-<div class="page-shell">
+<div class="page-shell" [class.all-hubs-lock]="isAllHubsSelectionRequired">
   <header class="page-header">
     <div>
       <p class="eyebrow">Operations</p>
@@ -29,6 +29,15 @@
           <div>
             <p class="eyebrow">Shipment</p>
             <h3>Shipment Details</h3>
+          </div>
+          <div class="head-actions" *ngIf="branch === 'All Hubs'">
+            <div class="rate-unit">
+              <span>Hub</span>
+              <select [(ngModel)]="selectedAllHubId" (change)="onAllHubsSelect(selectedAllHubId)">
+                <option value="">Select hub</option>
+                <option *ngFor="let h of getAllHubsOptions()" [value]="h._id">{{ h.hubName }}</option>
+              </select>
+            </div>
           </div>
         </div>
         <div class="grid-2">
@@ -246,6 +255,7 @@
                 <label>Payment Mode
                   <select [(ngModel)]="paymentMode" [disabled]="!isPaymentModeEnabled()" (change)="onPaymentModeChange()">
                     <option>To Pay</option>
+                    <option *ngIf="allowReceiverCredit">To Pay with account credit</option>
                     <option *ngIf="allowAccountCredit">Account Credit</option>
                     <option>Paid</option>
                   </select>
@@ -357,7 +367,7 @@
             </div>
             <div class="grid-3 compact">
             <input placeholder="Customer INV No" [(ngModel)]="invoice.number">
-              <input type="number" placeholder="Value" [(ngModel)]="invoice.value" (ngModelChange)="calculateFinalAmount()">
+              <input type="number" placeholder="Value" [(ngModel)]="invoice.value" (ngModelChange)="scheduleQuote()">
             </div>
 
             <div class="subsection">
@@ -372,11 +382,11 @@
                       {{ prod.hsnNum }} - {{ prod.productName }}
                     </option>
                   </select>
-                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount" (ngModelChange)="calculateFinalAmount()">
+                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount" (ngModelChange)="scheduleQuote()">
                   <button class="icon-btn" (click)="deleteProduct(e, i, p)">バ</button>
                 </div>
                 <div class="rate-inline">
-                  <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer" (ngModelChange)="calculateFinalAmount()">
+                  <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer" (ngModelChange)="scheduleQuote()">
                   <span *ngIf="getSuggestedRate(product) !== null" class="suggested-rate">
                     Suggested: {{ getSuggestedRate(product) }}
                   </span>
@@ -391,7 +401,7 @@
                 <select [(ngModel)]="pkg.type">
                   <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
                 </select>
-                <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount" (ngModelChange)="calculateFinalAmount()">
+                <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount" (ngModelChange)="scheduleQuote()">
                 <button class="icon-btn" (click)="deletePackage(e, i, j)">バ</button>
               </div>
               <button class="tiny-btn" (click)="addPackage(e, i)">+ Package</button>
@@ -417,16 +427,16 @@
 
 
         <div class="charges-grid">
-          <label>ODC <input type="number" [(ngModel)]="charges.odc" (ngModelChange)="calculateFinalAmount()"></label>
-          <label>Unloading <input type="number" [(ngModel)]="charges.unloading" (ngModelChange)="calculateFinalAmount()"></label>
-          <label>Docket <input type="number" [(ngModel)]="charges.docket" (ngModelChange)="calculateFinalAmount()"></label>
-          <label>Other <input type="number" [(ngModel)]="charges.other" (ngModelChange)="calculateFinalAmount()"></label>
-          <label>CCC <input type="number" [(ngModel)]="charges.ccc" (ngModelChange)="calculateFinalAmount()"></label>
+          <label>ODC <input type="number" [(ngModel)]="charges.odc" (ngModelChange)="scheduleQuote()"></label>
+          <label>Unloading <input type="number" [(ngModel)]="charges.unloading" (ngModelChange)="scheduleQuote()"></label>
+          <label>Docket <input type="number" [(ngModel)]="charges.docket" (ngModelChange)="scheduleQuote()"></label>
+          <label>Other <input type="number" [(ngModel)]="charges.other" (ngModelChange)="scheduleQuote()"></label>
+          <label>CCC <input type="number" [(ngModel)]="charges.ccc" (ngModelChange)="scheduleQuote()"></label>
           <label>
             <div class="discount-label">
               <span>Discount (Consignor)</span>
               <label class="toggle-inline">
-                <input type="checkbox" [(ngModel)]="applyConsignorDiscount" (change)="calculateFinalAmount()">
+                <input type="checkbox" [(ngModel)]="applyConsignorDiscount" (change)="scheduleQuote()">
                 <span class="toggle-track">
                   <span class="toggle-thumb"></span>
                 </span>

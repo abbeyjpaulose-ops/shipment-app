@@ -42,10 +42,18 @@
       <option *ngFor="let route of routeOptions" [value]="route">{{ route }}</option>
     </select>
     <select [(ngModel)]="filterStatus" (change)="applyFilters()">
-      <option value="">All status</option>
-      <option value="Manifested">Manifested</option>
+      <option value="Manifestation">Manifestation</option>
+      <option value="DManifestation">DManifestation</option>
+      <option value="D-Out for Delivery">D-Out for Delivery</option>
       <option value="Out for Delivery">Out for Delivery</option>
       <option value="Will be Picked-Up">Will be Picked-Up</option>
+      <option value="D-Will be Picked-Up">D-Will be Picked-Up</option>
+    </select>
+    <select
+      *ngIf="branchId === 'all-hubs'"
+      [(ngModel)]="selectedHubFilterId"
+      (ngModelChange)="onHubFilterChange($event)">
+      <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
     </select>
 
     <button (click)="openManifestationPopup()">Delivery</button>

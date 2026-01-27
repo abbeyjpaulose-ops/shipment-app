@@ -39,7 +39,11 @@ export class HomeComponent implements OnInit {
           const options = (data || [])
             .map((b: any) => ({ id: String(b?._id || ''), name: String(b?.branchName || '') }))
             .filter((b: any) => b.name);
-          this.branchOptions = options;
+          this.branchOptions = [
+            { id: 'all', name: 'All Branches' },
+            { id: 'all-hubs', name: 'All Hubs' },
+            ...options.filter((b: any) => b.name !== 'All Branches' && b.name !== 'All Hubs')
+          ];
           this.syncSelectedBranch();
         });
       if (!this.selectedBranchName) {
@@ -63,7 +67,8 @@ export class HomeComponent implements OnInit {
         }));
         this.branchOptions = [
           { id: 'all', name: 'All Branches' },
-          ...options.filter((b: any) => b.name && b.name !== 'All Branches')
+          { id: 'all-hubs', name: 'All Hubs' },
+          ...options.filter((b: any) => b.name && b.name !== 'All Branches' && b.name !== 'All Hubs')
         ];
       } else if (Array.isArray(storedNames)) {
         const options = storedNames.map((name: string) => ({
@@ -72,7 +77,8 @@ export class HomeComponent implements OnInit {
         }));
         this.branchOptions = [
           { id: 'all', name: 'All Branches' },
-          ...options.filter((b: any) => b.name && b.name !== 'All Branches')
+          { id: 'all-hubs', name: 'All Hubs' },
+          ...options.filter((b: any) => b.name && b.name !== 'All Branches' && b.name !== 'All Hubs')
         ];
       }
     } catch {
@@ -97,6 +103,11 @@ export class HomeComponent implements OnInit {
 
   private syncSelectedBranch() {
     if (!this.branchOptions.length) return;
+    if (this.selectedBranchId === 'all-hubs' || this.selectedBranchName === 'All Hubs') {
+      this.selectedBranchId = 'all-hubs';
+      this.selectedBranchName = 'All Hubs';
+      return;
+    }
     if (this.selectedBranchId === 'all' || this.selectedBranchName === 'All Branches') {
       this.selectedBranchId = 'all';
       this.selectedBranchName = 'All Branches';
@@ -123,8 +134,11 @@ export class HomeComponent implements OnInit {
   onBranchChange(event: any) {
     const branchId = String(event.target.value || '');
     const isAll = branchId === 'all';
+    const isAllHubs = branchId === 'all-hubs';
     const match = this.branchOptions.find((b) => b.id === branchId);
-    const branchName = isAll ? 'All Branches' : (match?.name || branchId);
+    const branchName = isAll
+      ? 'All Branches'
+      : (isAllHubs ? 'All Hubs' : (match?.name || branchId));
     this.selectedBranchId = branchId;
     this.selectedBranchName = branchName;
     localStorage.setItem('branch', branchName);
