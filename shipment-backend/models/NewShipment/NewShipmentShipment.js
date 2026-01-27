@@ -8,11 +8,13 @@ const ShipmentSchema = new mongoose.Schema(
     // User / branch scope
     username: { type: String, required: true, trim: true },
     branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
+    //vehicle
     currentLocationId: { type: mongoose.Schema.Types.ObjectId, index: true },
     currentBranchId: { type: mongoose.Schema.Types.ObjectId, index: true }, // deprecated
     currentVehicleNo: { type: String, trim: true },
     currentVehicleOwnerType: { type: String, trim: true },
     currentVehicleOwnerId: { type: mongoose.Schema.Types.ObjectId, index: true },
+    //user/ branch
     allHubs: { type: Boolean, default: false, index: true },
     originHubId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hub' },
 

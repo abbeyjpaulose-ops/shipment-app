@@ -1,4 +1,4 @@
-﻿import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
@@ -230,14 +230,14 @@ calculateFinalAmount() {
     return status === 'DPending' ||
       status === 'DManifestation' ||
       status === 'D-Out for Delivery' ||
-      status === 'D-Will be Picked-Up';
+      status === 'D-|Will be Picked-Up';
   }
 
   private isDeliveryStatusForOthers(status: string): boolean {
     return status === 'DPending' ||
       status === 'DManifestation' ||
       status === 'D-Out for Delivery' ||
-      status === 'D-Will be Picked-Up';
+      status === 'D-|Will be Picked-Up';
   }
 
   private isCompanyMatch(stock: any): boolean {
@@ -251,6 +251,23 @@ calculateFinalAmount() {
 
   private getBaseStocks(): any[] {
     const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+    if (branchId === 'all') {
+      if (this.activeTab === 'other-branch' || this.activeTab === 'others-in-branch') {
+        return (this.allStocks || []).filter(stock => {
+          const status = String(stock.shipmentStatus || '').trim();
+          if (status !== 'DPending') return false;
+          const originBranchId = this.normalizeId(stock.branchId);
+          const currentBranchId = this.normalizeId(
+            stock.currentLocationId || stock.currentBranchId || stock.currentBranch
+          );
+          return originBranchId && currentBranchId && originBranchId !== currentBranchId;
+        });
+      }
+      return (this.allStocks || []).filter(stock => {
+        const status = String(stock.shipmentStatus || '').trim();
+        return status === 'Pending';
+      });
+    }
     if (this.activeTab === 'other-branch') {
       if (!branchId || branchId === 'all') return [];
       if (branchId === 'all-hubs') {
@@ -504,33 +521,63 @@ calculateFinalAmount() {
     return deliveryId;
   }
 
-  getCurrentBranchLabel(stock: any): string {
-    const currentBranchId = this.normalizeId(
-      stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch
-    );
-    if (currentBranchId) {
-      const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === currentBranchId);
-      if (branch?.branchName) return branch.branchName;
-      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentBranchId);
-      if (hub?.hubName) return hub.hubName;
+  private formatLocationDisplay(idValue: any, labelValue: any): string {
+    const rawId = this.normalizeId(idValue);
+    const rawLabel = String(labelValue || '').trim();
+
+    let resolvedId = rawId;
+    let resolvedName = '';
+
+    const branchById = rawId
+      ? (this.branches || []).find((b) => this.normalizeId(b?._id) === rawId)
+      : null;
+    if (branchById?._id) {
+      resolvedId = this.normalizeId(branchById._id);
+      resolvedName = String(branchById.branchName || '').trim();
+    } else {
+      const hubById = rawId
+        ? (this.hubs || []).find((h) => this.normalizeId(h?._id) === rawId)
+        : null;
+      if (hubById?._id) {
+        resolvedId = this.normalizeId(hubById._id);
+        resolvedName = String(hubById.hubName || '').trim();
+      }
     }
-    const current = this.resolveBranchByIdOrName(
-      stock?.currentLocationId || stock?.currentBranchId,
+
+    if (!resolvedName && rawLabel) {
+      const labelLower = rawLabel.toLowerCase();
+      const branchByName = (this.branches || []).find(
+        (b) => String(b?.branchName || '').trim().toLowerCase() === labelLower
+      );
+      if (branchByName?._id) {
+        resolvedId = this.normalizeId(branchByName._id);
+        resolvedName = String(branchByName.branchName || '').trim();
+      } else {
+        const hubByName = (this.hubs || []).find(
+          (h) => String(h?.hubName || '').trim().toLowerCase() === labelLower
+        );
+        if (hubByName?._id) {
+          resolvedId = this.normalizeId(hubByName._id);
+          resolvedName = String(hubByName.hubName || '').trim();
+        }
+      }
+    }
+
+    const name = resolvedName || rawLabel || resolvedId || '-';
+    if (!resolvedId) return name;
+    if (name.toLowerCase() === String(resolvedId).toLowerCase()) return name;
+    return `${name}$$${resolvedId}`;
+  }
+
+  getCurrentBranchLabel(stock: any): string {
+    return this.formatLocationDisplay(
+      stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch,
       stock?.currentBranch
     );
-    return this.firstNonEmpty(current?.branchName, stock?.currentBranch);
   }
 
   getOriginBranchLabel(stock: any): string {
-    const branchId = this.normalizeId(stock?.branchId);
-    if (branchId) {
-      const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === branchId);
-      if (branch?.branchName) return branch.branchName;
-      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === branchId);
-      if (hub?.hubName) return hub.hubName;
-    }
-    const name = this.firstNonEmpty(stock?.branch, stock?.branchName);
-    return name || branchId || '-';
+    return this.formatLocationDisplay(stock?.branchId || stock?.branch, stock?.branch || stock?.branchName);
   }
 
   private firstNonEmpty(...values: any[]): string {
@@ -1270,8 +1317,32 @@ calculateFinalAmount() {
 addRoutePoint() {
   if (!this.selectedRoutePoint) return;
   const vehicleNo = this.selectedRouteVehicle || '';
+
+  const branchId = this.normalizeId(this.branchId || localStorage.getItem('branchId'));
+  const isAllHubsSelection = branchId === 'all-hubs';
+  const selectedHubId = isAllHubsSelection
+    ? (this.normalizeId(this.selectedHubFilterId) || this.normalizeId(localStorage.getItem('hubId')))
+    : '';
+  const selectedHub = selectedHubId
+    ? (this.hubs || []).find((h) => this.normalizeId(h?._id) === selectedHubId)
+    : null;
+  const selectedHubName = String(selectedHub?.hubName || '').trim();
+  const selectedPointName = String(this.selectedRoutePoint.name || '').trim();
+  const selectedPointNameLower = selectedPointName.toLowerCase();
+
+  const shouldSwapAllHubsBranch =
+    isAllHubsSelection &&
+    this.selectedRoutePoint.type === 'Branch' &&
+    selectedHubName &&
+    (
+      selectedPointNameLower === 'all hubs' ||
+      selectedPointNameLower === String(this.branch || '').trim().toLowerCase()
+    );
+
+  const routeName = shouldSwapAllHubsBranch ? selectedHubName : this.selectedRoutePoint.name;
+
   this.shipmentRoute.push({
-    name: this.selectedRoutePoint.name,
+    name: routeName,
     type: this.selectedRoutePoint.type,
     vehicleNo
   });
@@ -1578,11 +1649,11 @@ onEditingPaymentModeChange() {
 }
 
 private buildRouteString(): string {
-  if (!this.shipmentRoute.length) return '';
-
   if (this.manifestationStatus === 'Will be Picked-Up') {
-    return '$$Will be Picked-Up';
+    return '$$|Will be Picked-Up';
   }
+
+  if (!this.shipmentRoute.length) return '';
 
   const hasBaskets = (this.routeBaskets || []).length > 0;
   const prefix = hasBaskets
@@ -1868,7 +1939,7 @@ finalizeManifestation() {
     return;
   }
 
-  const requiresRoute = this.manifestationStatus !== 'Will be Picked-Up';
+  const requiresRoute = String(this.manifestationStatus || '').trim() !== 'Will be Picked-Up';
   if (requiresRoute && this.shipmentRoute.some(p => !String(p.vehicleNo || '').trim())) {
     alert('Please select a vehicle for each route point.');
     return;
@@ -1879,7 +1950,7 @@ finalizeManifestation() {
     return;
   }
 
-  const routeString = requiresRoute ? this.buildRouteString() : '';
+  const routeString = this.buildRouteString();
   if (requiresRoute && !routeString) {
     alert('Please add at least one route point.');
     return;
@@ -1896,7 +1967,16 @@ finalizeManifestation() {
             const existingRoutes = String(ewb?.routes || '').trim();
             const nextRoutes = String(routeString || '').trim();
             if (!existingRoutes) return { ...ewb, routes: nextRoutes };
+
+            const isWillBePickedUp = String(this.manifestationStatus || '').trim() === 'Will be Picked-Up';
+            if (isWillBePickedUp) {
+              return existingRoutes === nextRoutes ? { ...ewb } : { ...ewb, routes: nextRoutes };
+            }
+
             const normalizedNext = nextRoutes.replace(/^\$\$\s*/, '');
+            if (normalizedNext && existingRoutes.includes(normalizedNext)) {
+              return { ...ewb };
+            }
             return { ...ewb, routes: `${existingRoutes}$$${normalizedNext}` };
           })()
         : { ...ewb }
@@ -1922,7 +2002,7 @@ finalizeManifestation() {
       } else if (nextStatus === 'Out for Delivery') {
         nextStatus = 'D-Out for Delivery';
       } else if (nextStatus === 'Will be Picked-Up') {
-        nextStatus = 'D-Will be Picked-Up';
+        nextStatus = 'D-|Will be Picked-Up';
       }
     }
     const shouldAttachVehicle = requiresRoute &&

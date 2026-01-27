@@ -17,6 +17,9 @@ export class ViewShipmentsComponent implements OnInit {
   filteredReceived: any[] = [];
   branches: any[] = [];
   hubs: any[] = [];
+  branchId: string = localStorage.getItem('branchId') || 'all';
+  selectedHubFilterId: string | null = null;
+  selectedHubFilterName: string = '';
   clientList: any[] = [];
   guestList: any[] = [];
   email: string = '';
@@ -168,6 +171,35 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   applyFilters(): void {
+    this.branchId = localStorage.getItem('branchId') || 'all';
+    const branchId = String(this.branchId || '').trim();
+    const hubFilterId = this.normalizeId(this.selectedHubFilterId);
+    const useHubFilter = branchId === 'all-hubs';
+
+    if (useHubFilter && !hubFilterId) {
+      const storedHubId = this.normalizeId(localStorage.getItem('hubId'));
+      const storedHubName = String(localStorage.getItem('hubName') || '').trim();
+      if (storedHubId) {
+        const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === storedHubId);
+        this.selectedHubFilterId = storedHubId;
+        this.selectedHubFilterName = String(hub?.hubName || storedHubName || '').trim();
+      } else {
+        const options = this.getAllHubsFilterOptions();
+        const firstHubId = this.normalizeId(options?.[0]?._id);
+        this.selectedHubFilterId = firstHubId || null;
+        this.selectedHubFilterName = String(options?.[0]?.hubName || '').trim();
+      }
+    }
+
+    const effectiveHubFilterId = this.normalizeId(this.selectedHubFilterId);
+    if (effectiveHubFilterId && !this.selectedHubFilterName) {
+      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === effectiveHubFilterId);
+      this.selectedHubFilterName = String(hub?.hubName || '').trim();
+    }
+    const effectiveHubName = this.selectedHubFilterName;
+
+    const storedBranchName = String(localStorage.getItem('branch') || '').trim();
+
     this.filteredShipments = this.shipments.filter(s => {
       const matchesSearch = this.searchText
         ? (s.consignmentNumber?.toLowerCase().includes(this.searchText.toLowerCase()) ||
@@ -186,27 +218,54 @@ export class ViewShipmentsComponent implements OnInit {
         ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase())
         : true;
 
-      return matchesSearch && matchesDate && matchesStatus && matchesConsignor;
-    });
-    this.filteredReceived = this.receivedShipments.filter(s => {
-      const branchId = String(localStorage.getItem('branchId') || '').trim();
-      const deliveryId = this.normalizeId(s?.deliveryID);
-      let matchesDelivery = true;
-      if (branchId) {
+      const matchesHub = !useHubFilter || (
+        effectiveHubFilterId && this.matchesHubFilterForShipment(s, effectiveHubFilterId, effectiveHubName)
+      );
+
+      const matchesBranchColumn = (() => {
+        const originId = this.normalizeId(s?.branchId || s?.branch);
+        const originLabel = String(s?.branch || '').trim();
+        if (!branchId || branchId === 'all') return true;
         if (branchId === 'all-hubs') {
-          const hubIds = (this.hubs || [])
-            .map(h => this.normalizeId(h?._id))
-            .filter(Boolean);
-          matchesDelivery = Boolean(deliveryId && hubIds.includes(deliveryId));
-        } else if (branchId === 'all') {
-          const branchIds = (this.branches || [])
-            .map(b => this.normalizeId(b?._id))
-            .filter(Boolean);
-          matchesDelivery = Boolean(deliveryId && branchIds.includes(deliveryId));
-        } else {
-          matchesDelivery = Boolean(deliveryId && deliveryId === branchId);
+          if (!effectiveHubFilterId) return false;
+          const hubNameLower = String(effectiveHubName || '').trim().toLowerCase();
+          const originLower = originLabel.toLowerCase();
+          return originId === effectiveHubFilterId ||
+            (hubNameLower && (originLower === hubNameLower || this.matchesBranchLabel(originLabel, effectiveHubName)));
         }
+        const selectedBranchId = this.normalizeId(branchId);
+        const branchById = (this.branches || []).find(
+          (b) => this.normalizeId(b?._id) === selectedBranchId
+        );
+        const selectedBranchName = String(branchById?.branchName || storedBranchName || '').trim();
+        const selectedLower = selectedBranchName.toLowerCase();
+        const originLower = originLabel.toLowerCase();
+        return originId === selectedBranchId ||
+          (selectedLower && (originLower === selectedLower || this.matchesBranchLabel(originLabel, selectedBranchName)));
+      })();
+
+      return matchesSearch && matchesDate && matchesStatus && matchesConsignor && matchesHub && matchesBranchColumn;
+    });
+    const selectedRouteTokens = (() => {
+      const tokens: string[] = [];
+      if (branchId === 'all-hubs') {
+        if (effectiveHubFilterId) tokens.push(effectiveHubFilterId);
+        if (effectiveHubName) tokens.push(effectiveHubName);
+        return tokens.map(t => String(t).trim().toLowerCase()).filter(Boolean);
       }
+      if (branchId && branchId !== 'all') {
+        tokens.push(this.normalizeId(branchId));
+        const branchById = (this.branches || []).find(
+          (b) => this.normalizeId(b?._id) === this.normalizeId(branchId)
+        );
+        const branchName = String(branchById?.branchName || storedBranchName || '').trim();
+        if (branchName) tokens.push(branchName);
+      }
+      return tokens.map(t => String(t).trim().toLowerCase()).filter(Boolean);
+    })();
+    this.filteredReceived = this.receivedShipments.filter(s => {
+      const matchesDelivery = true;
+
       const matchesSearch = this.searchText
         ? (s.consignmentNumber?.toLowerCase().includes(this.searchText.toLowerCase()) ||
            s.consignor?.toLowerCase().includes(this.searchText.toLowerCase()))
@@ -224,8 +283,64 @@ export class ViewShipmentsComponent implements OnInit {
         ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase())
         : true;
 
-      return matchesDelivery && matchesSearch && matchesDate && matchesStatus && matchesConsignor;
+      const matchesRoute = selectedRouteTokens.length === 0
+        ? true
+        : (s?.ewaybills || []).some((ewb: any) => {
+            const routesRaw = String(ewb?.routes || '').toLowerCase();
+            return selectedRouteTokens.some((token) => routesRaw.includes(token));
+          });
+
+      return matchesDelivery && matchesRoute && matchesSearch && matchesDate && matchesStatus && matchesConsignor;
     });
+  }
+  getAllHubsFilterOptions(): any[] {
+    return this.hubs || [];
+  }
+
+  onHubFilterChange(value: string | null): void {
+    this.selectedHubFilterId = value;
+    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(value));
+    this.selectedHubFilterName = String(hub?.hubName || '').trim();
+    if (value) {
+      localStorage.setItem('hubId', String(value));
+      localStorage.setItem('hubName', this.selectedHubFilterName);
+    }
+    this.applyFilters();
+  }
+
+  private matchesHubIdOrName(idValue: any, labelValue: any, hubId: string, hubName: string): boolean {
+    if (!hubId) return false;
+    const id = this.normalizeId(idValue);
+    const label = String(labelValue || '').trim();
+    const hasHubName = Boolean(hubName);
+    if (id && id === hubId) return true;
+    if (!hasHubName || !label) return false;
+    const hubNameLower = hubName.toLowerCase();
+    const labelLower = label.toLowerCase();
+    return labelLower === hubNameLower || this.matchesBranchLabel(label, hubName);
+  }
+
+  private matchesHubFilterForShipment(shipment: any, hubId: string, hubName: string): boolean {
+    const currentId = this.normalizeId(
+      shipment?.currentLocationId || shipment?.currentBranchId || shipment?.currentBranch
+    );
+    const currentLabel = String(shipment?.currentBranch || '').trim();
+    const originId = this.normalizeId(shipment?.branchId || shipment?.branch);
+    const originLabel = String(shipment?.branch || '').trim();
+    return (
+      this.matchesHubIdOrName(currentId, currentLabel, hubId, hubName) ||
+      this.matchesHubIdOrName(originId, originLabel, hubId, hubName)
+    );
+  }
+
+  private matchesBranchLabel(currentBranch: string, branchLabel: string): boolean {
+    const current = String(currentBranch || '').trim().toLowerCase();
+    const label = String(branchLabel || '').trim().toLowerCase();
+    if (!current || !label) return false;
+    if (label === current) return true;
+    if (label.startsWith(`${current}-`)) return true;
+    const labelPrefix = label.split('-')[0].trim();
+    return Boolean(labelPrefix) && labelPrefix === current;
   }
 
   hasSelectedReceived(): boolean {

@@ -1,4 +1,4 @@
-﻿<div class="stocks-container">
+<div class="stocks-container">
   <h2>Manifested/ On Delivery</h2>
 
   <div class="stocks-tabs">
@@ -19,7 +19,7 @@
     </button>
   </div>
 
-  <!-- 🔍 Search and Filters (no status filter here) -->
+  <!-- ?? Search and Filters (no status filter here) -->
   <div class="filters">
     <input
       type="text"
@@ -41,14 +41,7 @@
       <option value="">All routes</option>
       <option *ngFor="let route of routeOptions" [value]="route">{{ route }}</option>
     </select>
-    <select [(ngModel)]="filterStatus" (change)="applyFilters()">
-      <option value="Manifestation">Manifestation</option>
-      <option value="DManifestation">DManifestation</option>
-      <option value="D-Out for Delivery">D-Out for Delivery</option>
-      <option value="Out for Delivery">Out for Delivery</option>
-      <option value="Will be Picked-Up">Will be Picked-Up</option>
-      <option value="D-Will be Picked-Up">D-Will be Picked-Up</option>
-    </select>
+
     <select
       *ngIf="branchId === 'all-hubs'"
       [(ngModel)]="selectedHubFilterId"
@@ -57,8 +50,8 @@
     </select>
 
     <button (click)="openManifestationPopup()">Delivery</button>
-      <button (click)="printReceipts()">🖨️ Print Receipts</button>
-       <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
+      <button (click)="printReceipts()">??? Print Receipts</button>
+       <!--<button (click)="downloadReceipts()">?? Download Receipts</button> -->
   </div>
 
     <!-- Manifestation Button -->
@@ -66,7 +59,7 @@
     
   </div>
 
-  <!-- 📦 Stocks Table -->
+  <!-- ?? Stocks Table -->
   <table class="stocks-table">
     <thead>
       <tr>
@@ -74,8 +67,8 @@
         <th>Consignment No.</th>
         <th>Status</th>
         <th>Consignor</th>
-        <th>Delivery Address</th>
-        <th>Routes</th>
+        <th>Branch</th>
+        <th>Current Branch</th>
         <th>No. of Products</th>
         <th>Actions</th>
       </tr>
@@ -88,8 +81,8 @@
         <td>{{ s.consignmentNumber }}</td>
         <td>{{ s.shipmentStatus }}</td>
         <td>{{ s.consignor }}</td>
-        <td>{{ s.deliveryAddress }}</td>
-        <td>{{ getRoutesDisplay(s) }}</td>
+        <td>{{ getOriginBranchDisplay(s) }}</td>
+        <td>{{ getCurrentBranchDisplay(s) }}</td>
         <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
         <td>
           <button (click)="editStock(s); $event.stopPropagation()">Edit</button>
@@ -101,7 +94,7 @@
 
 </div>
 
-<!-- 📑 Shipment Details Modal -->
+<!-- ?? Shipment Details Modal -->
 <div class="modal details-modal" *ngIf="selectedStock">
   <div class="modal-content details-content">
     <button class="details-close" type="button" (click)="closeStockDetails()">&times;</button>
@@ -172,7 +165,7 @@
   </div>
 </div>
 
-<!-- ✅ Edit Modal -->
+<!-- ? Edit Modal -->
 <div class="modal edit-stock-modal" *ngIf="editingStock">
   <div class="modal-content edit-stock-content">
     <div class="edit-stock-header">
@@ -322,7 +315,7 @@
         <option *ngFor="let pkgItem of pkgList" [value]="pkgItem.pkgName">{{ pkgItem.pkgName }}</option>
       </select>
       <input placeholder="Amount*" type="number" [(ngModel)]="pkg.amount" />
-      <button type="button" class="danger" (click)="deletePackage(i, j)">dY-`�,? Delete Package {{i}}/{{j}}</button>
+      <button type="button" class="danger" (click)="deletePackage(i, j)">dY-`?,? Delete Package {{i}}/{{j}}</button>
     </div>
     <button type="button" class="ghost" (click)="addPackage(i)">+ Add Package</button>
 
@@ -341,7 +334,7 @@
         (focus)="onProductAmountFocus(invoice, product, i)"
         (ngModelChange)="onProductAmountChange(invoice, product, $event, i)"
       />
-      <button type="button" class="danger" (click)="deleteProduct(i, k)">dY-`�,? Delete Product {{i}}/{{k}}</button>
+      <button type="button" class="danger" (click)="deleteProduct(i, k)">dY-`?,? Delete Product {{i}}/{{k}}</button>
     </div>
     <button type="button" class="ghost" (click)="addProduct(i)">+ Add Product</button>
   </div>
@@ -438,7 +431,7 @@
     </div>
   </div>
 </div>
-<!-- 🧾 Manifestation Terminal Popup -->
+<!-- ?? Manifestation Terminal Popup -->
 <div class="modal" *ngIf="showManifestationPopup">
   <div class="modal-content terminal-style">
     <span class="close" (click)="closeManifestationPopup()">&times;</span>

@@ -44,6 +44,7 @@
       placeholder="Filter by consignor"
       [(ngModel)]="filterConsignor"
       (input)="applyFilters()" />
+
       
       <button (click)="openManifestationPopup()">Manifestation</button>
       <button (click)="printReceipts()">🖨️ Print Receipts</button>
@@ -61,6 +62,7 @@
       <tr>
         <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
         <th>Consignment No.</th>
+        <th>Status</th>
         <th>Consignor</th>
         <th>Delivery Address</th>
         <th>No. of Products</th>
@@ -75,6 +77,7 @@
           <input type="checkbox" [(ngModel)]="s.selected" (click)="$event.stopPropagation()" />
         </td>
         <td>{{ s.consignmentNumber }}</td>
+        <td>{{ s.shipmentStatus }}</td>
         <td>{{ s.consignor }}</td>
         <td>{{ s.deliveryAddress }}</td>
         <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>

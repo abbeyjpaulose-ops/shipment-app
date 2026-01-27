@@ -26,7 +26,12 @@
         <option value="Manifested">Manifested</option>
         <option value="Delivered">Delivered</option>
       </select>
-
+      <select
+        *ngIf="branchId === 'all-hubs'"
+        [(ngModel)]="selectedHubFilterId"
+        (ngModelChange)="onHubFilterChange($event)">
+        <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
+      </select>
       <input
         type="text"
         placeholder="Filter by consignor"
@@ -43,6 +48,7 @@
             <th>Status</th>
             <th>Branch</th>
             <th>Current Branch</th>
+            <th>Routes</th>
             <th>Consignor</th>
             <th>Delivery Address</th>
             <th>No. of Products</th>
@@ -54,6 +60,7 @@
             <td>{{ s.shipmentStatus }}</td>
             <td>{{ s.branch }}</td>
             <td>{{ getCurrentBranchDisplay(s) }}</td>
+            <td>{{ getRoutesDisplay(s) }}</td>
             <td>{{ s.consignor }}</td>
             <td>{{ s.deliveryAddress }}</td>
             <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
@@ -85,7 +92,12 @@
         <option value="Manifested">Manifested</option>
         <option value="Delivered">Delivered</option>
       </select>
-
+      <select
+        *ngIf="branchId === 'all-hubs'"
+        [(ngModel)]="selectedHubFilterId"
+        (ngModelChange)="onHubFilterChange($event)">
+        <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
+      </select>
       <input
         type="text"
         placeholder="Filter by consignor"
@@ -101,6 +113,7 @@
             <th>Consignment No.</th>
             <th>Branch</th>
             <th>Current Branch</th>
+            <th>Routes</th>
             <th>Consignor</th>
             <th>Status</th>
             <th>Delivery Address</th>
@@ -120,6 +133,7 @@
             <td>{{ s.consignmentNumber }}</td>
             <td>{{ s.branch }}</td>
             <td>{{ getCurrentBranchDisplay(s) }}</td>
+            <td>{{ getRoutesDisplay(s) }}</td>
             <td>{{ s.consignor }}</td>
             <td>{{ s.shipmentStatus }}</td>
             <td>{{ s.deliveryAddress }}</td>

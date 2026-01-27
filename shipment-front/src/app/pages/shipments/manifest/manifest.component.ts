@@ -1,4 +1,4 @@
-ï»¿import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
@@ -25,7 +25,7 @@ export class ManifestComponent implements OnInit, OnDestroy {
   selectedHubFilterId: string | null = null;
   selectedHubFilterName = '';
   selectedStock: any = null;
-  editingStock: any = null;   // Î“Â£Ã  track which stock is being edited
+  editingStock: any = null;   // G£à track which stock is being edited
 
   // Billing
 billingType: 'consignor' | 'different' = 'consignor';
@@ -225,24 +225,63 @@ calculateFinalAmount() {
     return String(value);
   }
 
+  private formatLocationDisplay(idValue: any, labelValue: any): string {
+    const rawId = this.normalizeId(idValue);
+    const rawLabel = String(labelValue || '').trim();
+
+    let resolvedId = rawId;
+    let resolvedName = '';
+
+    const branchById = rawId
+      ? (this.branches || []).find((b) => this.normalizeId(b?._id) === rawId)
+      : null;
+    if (branchById?._id) {
+      resolvedId = this.normalizeId(branchById._id);
+      resolvedName = String(branchById.branchName || '').trim();
+    } else {
+      const hubById = rawId
+        ? (this.hubs || []).find((h) => this.normalizeId(h?._id) === rawId)
+        : null;
+      if (hubById?._id) {
+        resolvedId = this.normalizeId(hubById._id);
+        resolvedName = String(hubById.hubName || '').trim();
+      }
+    }
+
+    if (!resolvedName && rawLabel) {
+      const labelLower = rawLabel.toLowerCase();
+      const branchByName = (this.branches || []).find(
+        (b) => String(b?.branchName || '').trim().toLowerCase() === labelLower
+      );
+      if (branchByName?._id) {
+        resolvedId = this.normalizeId(branchByName._id);
+        resolvedName = String(branchByName.branchName || '').trim();
+      } else {
+        const hubByName = (this.hubs || []).find(
+          (h) => String(h?.hubName || '').trim().toLowerCase() === labelLower
+        );
+        if (hubByName?._id) {
+          resolvedId = this.normalizeId(hubByName._id);
+          resolvedName = String(hubByName.hubName || '').trim();
+        }
+      }
+    }
+
+    const name = resolvedName || rawLabel || resolvedId || '-';
+    if (!resolvedId) return name;
+    if (name.toLowerCase() === String(resolvedId).toLowerCase()) return name;
+    return `${name}$$${resolvedId}`;
+  }
+
   getOriginBranchDisplay(stock: any): string {
-    const originBranchId = this.normalizeId(stock?.branchId || stock?.branch);
-    if (!originBranchId) return '-';
-    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === originBranchId);
-    if (branch?.branchName) return branch.branchName;
-    return originBranchId;
+    return this.formatLocationDisplay(stock?.branchId || stock?.branch, stock?.branch);
   }
 
   getCurrentBranchDisplay(stock: any): string {
-    const currentLocationId = this.normalizeId(
-      stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch
+    return this.formatLocationDisplay(
+      stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch,
+      stock?.currentBranch
     );
-    if (!currentLocationId) return '-';
-    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === currentLocationId);
-    if (branch?.branchName) return branch.branchName;
-    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentLocationId);
-    if (hub?.hubName) return hub.hubName;
-    return currentLocationId;
   }
 
   private getBranchIdByName(name: string): string {
@@ -317,25 +356,6 @@ calculateFinalAmount() {
     return Boolean(labelPrefix) && labelPrefix === current;
   }
 
-  private isManifestStatus(status: string): boolean {
-    return status === 'Manifestation' ||
-      status === 'Out for Delivery' ||
-      status === 'Will be Picked-Up';
-  }
-
-  private isDeliveryStatus(status: string): boolean {
-    return status === 'DPending' ||
-      status === 'DManifestation' ||
-      status === 'D-Out for Delivery' ||
-      status === 'D-Will be Picked-Up';
-  }
-
-  private isDeliveryStatusForOthers(status: string): boolean {
-    return status === 'DManifestation' ||
-      status === 'D-Out for Delivery' ||
-      status === 'D-Will be Picked-Up';
-  }
-
   private isAllowedManifestStatus(status: string): boolean {
     return status === 'Manifestation' ||
       status === 'Out for Delivery' ||
@@ -366,40 +386,98 @@ calculateFinalAmount() {
   }
 
   private getBaseStocks(allStocks: any[]): any[] {
-    const selectedBranchId = this.getSelectedManifestBranchId();
-    if (!selectedBranchId) return [];
-
+    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+    if (branchId === 'all') {
+      if (this.activeTab === 'other-branch' || this.activeTab === 'others-in-branch') {
+        return (allStocks || []).filter(stock => {
+          const status = String(stock.shipmentStatus || '').trim();
+          if (!this.isAllowedDeliveryStatus(status)) return false;
+          const originBranchId = this.normalizeId(stock.branchId || stock.branch);
+          const currentBranchId = this.normalizeId(
+            stock.currentLocationId || stock.currentBranchId || stock.currentBranch
+          );
+          return originBranchId && currentBranchId && originBranchId !== currentBranchId;
+        });
+      }
+      return (allStocks || []).filter(stock => {
+        const status = String(stock.shipmentStatus || '').trim();
+        return this.isAllowedManifestStatus(status);
+      });
+    }
     if (this.activeTab === 'other-branch') {
+      const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+      const selectedLocationId = branchId === 'all-hubs'
+        ? this.normalizeId(this.selectedHubFilterId)
+        : this.normalizeId(branchId);
+      if (!selectedLocationId || selectedLocationId === 'all') return [];
+
+      const selectedBranch = (this.branches || []).find(
+        (b) => this.normalizeId(b?._id) === selectedLocationId
+      );
+      const selectedHub = selectedBranch
+        ? null
+        : (this.hubs || []).find((h) => this.normalizeId(h?._id) === selectedLocationId);
+      const selectedName = String(selectedBranch?.branchName || selectedHub?.hubName || '').trim();
+      const selectedNameLower = selectedName.toLowerCase();
+
       return (allStocks || []).filter(stock => {
         const status = String(stock.shipmentStatus || '').trim();
         if (!this.isAllowedDeliveryStatus(status)) return false;
+
         const originBranchId = this.normalizeId(stock.branchId || stock.branch);
         const originBranchLabel = String(stock.branch || '').trim();
         const currentBranchId = this.normalizeId(
           stock.currentLocationId || stock.currentBranchId || stock.currentBranch
         );
-        return originBranchId &&
-          currentBranchId &&
-          this.matchesSelectedBranch(originBranchId, originBranchLabel, selectedBranchId) &&
-          originBranchId !== currentBranchId;
+
+        const isIdMatch = Boolean(originBranchId) && originBranchId === selectedLocationId;
+        const isNameMatch = Boolean(selectedName) && Boolean(originBranchLabel) && (
+          originBranchLabel.toLowerCase() === selectedNameLower ||
+          this.matchesBranchLabel(originBranchLabel, selectedName)
+        );
+
+        return originBranchId && currentBranchId && (isIdMatch || isNameMatch) && originBranchId !== currentBranchId;
       });
     }
 
     if (this.activeTab === 'others-in-branch') {
+      const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+      const selectedLocationId = branchId === 'all-hubs'
+        ? this.normalizeId(this.selectedHubFilterId)
+        : this.normalizeId(branchId);
+      if (!selectedLocationId || selectedLocationId === 'all') return [];
+
+      const selectedBranch = (this.branches || []).find(
+        (b) => this.normalizeId(b?._id) === selectedLocationId
+      );
+      const selectedHub = selectedBranch
+        ? null
+        : (this.hubs || []).find((h) => this.normalizeId(h?._id) === selectedLocationId);
+      const selectedName = String(selectedBranch?.branchName || selectedHub?.hubName || '').trim();
+      const selectedNameLower = selectedName.toLowerCase();
+
       return (allStocks || []).filter(stock => {
         const status = String(stock.shipmentStatus || '').trim();
         if (!this.isAllowedDeliveryStatus(status)) return false;
+
         const originBranchId = this.normalizeId(stock.branchId || stock.branch);
         const currentBranchId = this.normalizeId(
           stock.currentLocationId || stock.currentBranchId || stock.currentBranch
         );
         const currentBranchLabel = String(stock.currentBranch || '').trim();
-        return originBranchId &&
-          currentBranchId &&
-          this.matchesSelectedBranch(currentBranchId, currentBranchLabel, selectedBranchId) &&
-          originBranchId !== currentBranchId;
+
+        const isIdMatch = Boolean(currentBranchId) && currentBranchId === selectedLocationId;
+        const isNameMatch = Boolean(selectedName) && Boolean(currentBranchLabel) && (
+          currentBranchLabel.toLowerCase() === selectedNameLower ||
+          this.matchesBranchLabel(currentBranchLabel, selectedName)
+        );
+
+        return originBranchId && currentBranchId && (isIdMatch || isNameMatch) && originBranchId !== currentBranchId;
       });
     }
+
+    const selectedBranchId = this.getSelectedManifestBranchId();
+    if (!selectedBranchId) return [];
 
     return (allStocks || []).filter(stock => {
       const status = String(stock.shipmentStatus || '').trim();
@@ -637,7 +715,7 @@ calculateFinalAmount() {
   applyFilters() {
     const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
     const hubFilterId = this.normalizeId(this.selectedHubFilterId);
-    const useHubFilter = branchId === 'all-hubs';
+    const useHubFilter = branchId === 'all-hubs' && (this.activeTab === 'stocks' || this.activeTab === 'other-branch' || this.activeTab === 'others-in-branch');
     if (useHubFilter && !hubFilterId) {
       const storedHubId = this.normalizeId(localStorage.getItem('hubId'));
       const storedHubName = String(localStorage.getItem('hubName') || '').trim();
@@ -735,6 +813,16 @@ calculateFinalAmount() {
   setActiveTab(tab: 'stocks' | 'other-branch' | 'others-in-branch') {
     if (this.activeTab === tab) return;
     this.activeTab = tab;
+    // Ensure the status filter does not hide delivery-status rows on delivery tabs.
+    if (tab === 'stocks') {
+      if (this.isAllowedDeliveryStatus(String(this.filterStatus || '').trim())) {
+        this.filterStatus = 'Manifestation';
+      }
+    } else {
+      if (!this.isAllowedDeliveryStatus(String(this.filterStatus || '').trim())) {
+        this.filterStatus = '';
+      }
+    }
     this.loadStocks();
   }
 
@@ -748,7 +836,7 @@ calculateFinalAmount() {
   }
 
     editStock(stock: any) {
-    console.log('Ã¢o?Ã¯,? Edit stock:', stock);
+    console.log('âo?ï,? Edit stock:', stock);
     const cloned = JSON.parse(JSON.stringify(stock));
     cloned.invoices = this.flattenInvoices(cloned.ewaybills || cloned.invoices || []);
     this.editingStock = cloned;
@@ -783,15 +871,15 @@ calculateFinalAmount() {
         this.http.put(`http://localhost:3000/api/newshipments/${payload.consignmentNumber}`, payload)
           .subscribe({
             next: () => {
-              console.log('Ã¢o. Stock updated');
+              console.log('âo. Stock updated');
               this.loadStocks();          // reload updated data
               this.editingStock = null;   // close modal
             },
-            error: (err) => console.error('Ã¢?O Error updating stock:', err)
+            error: (err) => console.error('â?O Error updating stock:', err)
           });
       },
       error: (err) => {
-        console.error('Ã¢?O Error updating manifests:', err);
+        console.error('â?O Error updating manifests:', err);
         alert('Failed to update manifests. Please try again.');
       }
     });
@@ -1273,7 +1361,7 @@ loadBranches() {
       next: (data) => {
         console.log("Branches loaded:", data);
         this.branches = data;
-        this.updateAvailableRoutePoints(); // Î“Â¼Ã âˆ©â••Ã… Refresh route options
+        this.updateAvailableRoutePoints(); // G¼àn+Å Refresh route options
       },
       error: (err) => console.error("Error loading branches:", err)
     });
@@ -1286,7 +1374,7 @@ loadHubs() {
       next: (data) => {
         console.log("Hubs loaded:", data);
         this.hubs = data;
-        this.updateAvailableRoutePoints(); // Î“Â¼Ã âˆ©â••Ã… Refresh route options
+        this.updateAvailableRoutePoints(); // G¼àn+Å Refresh route options
       },
       error: (err) => console.error("Error loading hubs:", err)
     });
@@ -1542,7 +1630,7 @@ openManifestationPopup() {
 
   // Guard clause: ensure at least one consignment is selected
   if (this.selectedForManifestation.length === 0) {
-    alert('Î“ÃœÃ¡âˆ©â••Ã… Please select at least one consignment to manifest.');
+    alert('GÜán+Å Please select at least one consignment to manifest.');
     return;
   }
 
@@ -1739,11 +1827,11 @@ closeManifestationPopup() {
 validateManifestQty(product: any) {
   product.manifestQtyTouched = true;
   if (product.manifestQty > product.instock) {
-    alert(`Î“ÃœÃ¡âˆ©â••Ã… Manifest quantity cannot exceed available stock (${product.instock}).`);
+    alert(`GÜán+Å Manifest quantity cannot exceed available stock (${product.instock}).`);
     product.manifestQty = product.instock;
   }
   if (product.manifestQty < 0) {
-    alert('Î“ÃœÃ¡âˆ©â••Ã… Manifest quantity cannot be negative.');
+    alert('GÜán+Å Manifest quantity cannot be negative.');
     product.manifestQty = 0;
   }
 }
