@@ -64,6 +64,17 @@
   flex: 0 0 auto;
 }
 
+.filters button.cancel-btn {
+  border-color: var(--stock-danger);
+  color: var(--stock-danger);
+  background: #fff5f5;
+}
+
+.filters button.cancel-btn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
+}
+
 .filters button:hover {
   border-color: var(--stock-primary);
   color: var(--stock-primary-strong);
@@ -543,6 +554,41 @@
 .terminal-buttons button:last-child {
   background-color: #555;
   color: white;
+}
+
+.cancel-list {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cancel-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--stock-border);
+  border-radius: 10px;
+  background: #f8fafc;
+  color: var(--stock-text);
+}
+
+.cancel-list .remove-btn {
+  border: 1px solid var(--stock-danger);
+  color: var(--stock-danger);
+  background: #fff5f5;
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.cancel-list .remove-btn:hover {
+  border-color: #b91c1c;
+  color: #b91c1c;
 }
 .product-line {
   display: flex;

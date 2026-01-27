@@ -46,7 +46,8 @@
       (input)="applyFilters()" />
 
       
-      <button (click)="openManifestationPopup()">Manifestation</button>
+      <button (click)="openManifestationPopup()" [disabled]="activeTab === 'other-branch'">Manifestation</button>
+      <button class="cancel-btn" (click)="openCancelPopup()" [disabled]="!hasSelectedConsignment()">Delete</button>
       <button (click)="printReceipts()">🖨️ Print Receipts</button>
        <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
   </div>
@@ -571,6 +572,7 @@
     Hub charge total: {{ getHubChargeTotal() }}
   </div>
 </div>
+
         <ul class="route-list">
           <li *ngFor="let point of shipmentRoute; let i = index">
             {{ i + 1 }}. {{ point.name }} ({{ point.type }}) <span *ngIf="point.vehicleNo">- {{ point.vehicleNo }}</span>
@@ -592,6 +594,24 @@
     </ng-template>
   </div>
 </div>
+
+<!-- Cancel Confirmation Popup -->
+<div class="modal" *ngIf="showCancelPopup">
+  <div class="modal-content">
+    <h3>Are you sure you want to cancel the below list? This cannot be reverted! You can always edit it</h3>
+    <ul class="cancel-list">
+      <li *ngFor="let s of getSelectedConsignments()">
+        <span>{{ s.consignmentNumber }}</span>
+        <button type="button" class="remove-btn" (click)="removeSelection(s)">Remove</button>
+      </li>
+    </ul>
+    <div class="terminal-buttons">
+      <button (click)="confirmCancelSelection()">Ok</button>
+      <button (click)="closeCancelPopup()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 
 
 

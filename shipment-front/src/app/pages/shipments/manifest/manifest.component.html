@@ -49,7 +49,8 @@
       <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
     </select>
 
-    <button (click)="openManifestationPopup()">Delivery</button>
+    <button (click)="openManifestationPopup()" [disabled]="activeTab === 'other-branch'">Delivery</button>
+      <button class="cancel-btn" (click)="openCancelPopup()" [disabled]="!hasSelectedConsignment()">Delete</button>
       <button (click)="printReceipts()">??? Print Receipts</button>
        <!--<button (click)="downloadReceipts()">?? Download Receipts</button> -->
   </div>
@@ -92,6 +93,33 @@
   </table>
 
 
+</div>
+
+<!-- Cancel Confirmation Popup -->
+<div class="modal" *ngIf="showCancelPopup">
+  <div class="modal-content">
+    <h3>Are you sure you want to cancel the below list? This cannot be reverted! You can always edit it</h3>
+    <ul class="cancel-list">
+      <li *ngFor="let s of getSelectedConsignments()">
+        <span>{{ s.consignmentNumber }}</span>
+        <button type="button" class="remove-btn" (click)="removeSelection(s)">Remove</button>
+      </li>
+    </ul>
+    <div class="terminal-buttons">
+      <button (click)="confirmCancelSelection()">Ok</button>
+      <button (click)="closeCancelPopup()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Error Popup -->
+<div class="modal" *ngIf="showDeleteErrorPopup">
+  <div class="modal-content">
+    <h3>{{ deleteErrorMessage }}</h3>
+    <div class="terminal-buttons">
+      <button (click)="closeDeleteErrorPopup()">Ok</button>
+    </div>
+  </div>
 </div>
 
 <!-- ?? Shipment Details Modal -->
@@ -499,6 +527,7 @@
     </ng-template>
   </div>
 </div>
+
 
 
 

@@ -780,6 +780,72 @@ calculateFinalAmount() {
     });
   }
 
+  clearSelection() {
+    this.filteredStocks.forEach(s => {
+      s.selected = false;
+    });
+    this.selectedForManifestation = [];
+  }
+
+  hasSelectedConsignment(): boolean {
+    return (this.filteredStocks || []).some(s => s.selected);
+  }
+
+  showCancelPopup = false;
+
+  openCancelPopup() {
+    if (String(this.branchId || '').trim().toLowerCase() === 'all') {
+      alert('Please select a specific branch for canceling');
+      return;
+    }
+    if (!this.hasSelectedConsignment()) return;
+    this.showCancelPopup = true;
+  }
+
+  closeCancelPopup() {
+    this.showCancelPopup = false;
+  }
+
+  getSelectedConsignments(): any[] {
+    return (this.filteredStocks || []).filter(s => s.selected);
+  }
+
+  removeSelection(consignment: any) {
+    if (consignment) {
+      consignment.selected = false;
+    }
+  }
+
+  confirmCancelSelection() {
+    const selected = this.getSelectedConsignments();
+    if (!selected.length) {
+      this.closeCancelPopup();
+      return;
+    }
+
+    const updates = selected.map((consignment) => {
+      const shipmentId = consignment?._id ? encodeURIComponent(consignment._id) : '';
+      const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
+      const payload = { ...consignment, shipmentStatus: 'Deleted' };
+      return this.http.put(
+        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
+        payload
+      );
+    });
+
+    forkJoin(updates).subscribe({
+      next: () => {
+        this.closeCancelPopup();
+        this.clearSelection();
+        this.loadStocks();
+      },
+      error: (err) => {
+        console.error('Error cancelling consignments:', err);
+        alert('Failed to cancel consignments. Please try again.');
+      }
+    });
+  }
+
 
   openStockDetails(stock: any) {
     this.selectedStock = this.enrichShipmentDetails(stock);
