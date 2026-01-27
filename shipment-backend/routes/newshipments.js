@@ -1293,7 +1293,12 @@ router.get('/', requireAuth, async (req, res) => {
         if (!allowedBranchIds.length) {
           return res.json([]);
         }
-        shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId: { $in: allowedBranchIds } })
+        const hubs = await Hub.find({ GSTIN_ID: gstinId, branchId: { $in: allowedBranchIds } })
+          .select('_id')
+          .lean();
+        const allowedHubIds = (hubs || []).map((h) => String(h?._id || '')).filter(Boolean);
+        const allowedLocationIds = Array.from(new Set([...allowedBranchIds, ...allowedHubIds]));
+        shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId: { $in: allowedLocationIds } })
           .sort({ createdAt: -1 });
       } else {
         shipments = await Shipment.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
@@ -1715,3 +1720,4 @@ router.post('/deliver', requireAuth, async (req, res) => {
 });
 
 export default router;
+

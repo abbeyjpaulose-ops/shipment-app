@@ -2580,6 +2580,21 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.productError = 'Please enter HSN number and product name.';
       return;
     }
+
+    // Allow saving with an empty Rates by Route section by dropping incomplete rows.
+    const isValidObjectId = (value: any) => /^[a-f\d]{24}$/i.test(String(value || '').trim());
+    const rates = Array.isArray(this.newProduct.rates) ? this.newProduct.rates : [];
+    const sanitizedRates = rates.filter((r: any) => {
+      const pickupLocationId = String(r?.pickupLocationId || '').trim();
+      const deliveryLocationId = String(r?.deliveryLocationId || '').trim();
+      const ratePerNum = Number(r?.rate?.ratePerNum || 0);
+      const ratePerVolume = Number(r?.rate?.ratePerVolume || 0);
+      const ratePerKg = Number(r?.rate?.ratePerKg || 0);
+      const hasAnyRate = ratePerNum > 0 || ratePerVolume > 0 || ratePerKg > 0;
+      return isValidObjectId(pickupLocationId) && isValidObjectId(deliveryLocationId) && hasAnyRate;
+    });
+    this.newProduct.rates = sanitizedRates;
+
     this.newProduct.branchId = branchId;
     this.http.post('http://localhost:3000/api/products/add', this.newProduct, {
       headers: { 'Content-Type': 'application/json' }
@@ -2700,3 +2715,6 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.newClient.deliveryLocations.splice(index, 1);
   }
 }
+
+
+

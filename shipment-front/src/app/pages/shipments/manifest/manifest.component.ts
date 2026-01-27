@@ -25,7 +25,7 @@ export class ManifestComponent implements OnInit, OnDestroy {
   selectedHubFilterId: string | null = null;
   selectedHubFilterName = '';
   selectedStock: any = null;
-  editingStock: any = null;   // G£‡ track which stock is being edited
+  editingStock: any = null;   // G?? track which stock is being edited
 
   // Billing
 billingType: 'consignor' | 'different' = 'consignor';
@@ -310,6 +310,11 @@ calculateFinalAmount() {
     if (!selectedBranchId) return false;
     const normalizedSelected = this.normalizeId(selectedBranchId);
     if (branchIdValue && this.normalizeId(branchIdValue) === normalizedSelected) return true;
+    const hubByCurrentId = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(branchIdValue));
+    if (hubByCurrentId) {
+      const hubBranchId = this.normalizeId(hubByCurrentId?.branchId || hubByCurrentId?.branch);
+      if (hubBranchId && hubBranchId === normalizedSelected) return true;
+    }
     const hub = this.getHubById(normalizedSelected);
     if (hub) {
       const hubBranchId = this.normalizeId(hub?.branchId || hub?.branch);
@@ -407,7 +412,7 @@ calculateFinalAmount() {
     if (this.activeTab === 'other-branch') {
       const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
       const selectedLocationId = branchId === 'all-hubs'
-        ? this.normalizeId(this.selectedHubFilterId)
+        ? this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'))
         : this.normalizeId(branchId);
       if (!selectedLocationId || selectedLocationId === 'all') return [];
 
@@ -443,7 +448,7 @@ calculateFinalAmount() {
     if (this.activeTab === 'others-in-branch') {
       const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
       const selectedLocationId = branchId === 'all-hubs'
-        ? this.normalizeId(this.selectedHubFilterId)
+        ? this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'))
         : this.normalizeId(branchId);
       if (!selectedLocationId || selectedLocationId === 'all') return [];
 
@@ -493,7 +498,7 @@ calculateFinalAmount() {
   private getSelectedManifestBranchId(): string {
     const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
     if (branchId === 'all-hubs') {
-      return this.normalizeId(this.selectedHubFilterId);
+      return this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'));
     }
     if (!branchId || branchId === 'all') return '';
     return this.normalizeId(branchId);
@@ -836,7 +841,7 @@ calculateFinalAmount() {
   }
 
     editStock(stock: any) {
-    console.log('‚o?Ô,? Edit stock:', stock);
+    console.log('?o??,? Edit stock:', stock);
     const cloned = JSON.parse(JSON.stringify(stock));
     cloned.invoices = this.flattenInvoices(cloned.ewaybills || cloned.invoices || []);
     this.editingStock = cloned;
@@ -871,15 +876,15 @@ calculateFinalAmount() {
         this.http.put(`http://localhost:3000/api/newshipments/${payload.consignmentNumber}`, payload)
           .subscribe({
             next: () => {
-              console.log('‚o. Stock updated');
+              console.log('?o. Stock updated');
               this.loadStocks();          // reload updated data
               this.editingStock = null;   // close modal
             },
-            error: (err) => console.error('‚?O Error updating stock:', err)
+            error: (err) => console.error('??O Error updating stock:', err)
           });
       },
       error: (err) => {
-        console.error('‚?O Error updating manifests:', err);
+        console.error('??O Error updating manifests:', err);
         alert('Failed to update manifests. Please try again.');
       }
     });
@@ -1361,7 +1366,8 @@ loadBranches() {
       next: (data) => {
         console.log("Branches loaded:", data);
         this.branches = data;
-        this.updateAvailableRoutePoints(); // Gº‡n+≈ Refresh route options
+        this.updateAvailableRoutePoints(); // Refresh route options
+        this.loadStocks();
       },
       error: (err) => console.error("Error loading branches:", err)
     });
@@ -1374,7 +1380,22 @@ loadHubs() {
       next: (data) => {
         console.log("Hubs loaded:", data);
         this.hubs = data;
-        this.updateAvailableRoutePoints(); // Gº‡n+≈ Refresh route options
+        this.updateAvailableRoutePoints(); // Refresh route options
+
+        const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+        if (branchId === 'all-hubs') {
+          const storedHubId = this.normalizeId(localStorage.getItem('hubId'));
+          const fallbackHubId = this.normalizeId((this.hubs || [])[0]?._id);
+          const hubId = storedHubId || fallbackHubId;
+          if (hubId) {
+            this.selectedHubFilterId = hubId;
+            const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === hubId);
+            this.selectedHubFilterName = String(hub?.hubName || '').trim();
+            localStorage.setItem('hubId', hubId);
+            localStorage.setItem('hubName', this.selectedHubFilterName);
+          }
+          this.loadStocks();
+        }
       },
       error: (err) => console.error("Error loading hubs:", err)
     });
@@ -1519,10 +1540,12 @@ getBasketOptions(): Array<{ key: string; text: string }> {
 }
 
   ngOnInit() {
+    this.activeTab = 'stocks';
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = this.branchService.currentBranch || localStorage.getItem('branch') || 'All Branches';
     this.branchId = localStorage.getItem('branchId') || 'all';
+    if (this.branchId === 'all') { this.filterStatus = ''; }
 
     this.branchSub = this.branchService.branch$.subscribe(branch => {
       this.branch = branch;
@@ -1630,7 +1653,7 @@ openManifestationPopup() {
 
   // Guard clause: ensure at least one consignment is selected
   if (this.selectedForManifestation.length === 0) {
-    alert('G‹·n+≈ Please select at least one consignment to manifest.');
+    alert('G??n+? Please select at least one consignment to manifest.');
     return;
   }
 
@@ -1827,11 +1850,11 @@ closeManifestationPopup() {
 validateManifestQty(product: any) {
   product.manifestQtyTouched = true;
   if (product.manifestQty > product.instock) {
-    alert(`G‹·n+≈ Manifest quantity cannot exceed available stock (${product.instock}).`);
+    alert(`G??n+? Manifest quantity cannot exceed available stock (${product.instock}).`);
     product.manifestQty = product.instock;
   }
   if (product.manifestQty < 0) {
-    alert('G‹·n+≈ Manifest quantity cannot be negative.');
+    alert('G??n+? Manifest quantity cannot be negative.');
     product.manifestQty = 0;
   }
 }
@@ -1905,6 +1928,11 @@ printReceipts() {
 }
 
 }
+
+
+
+
+
 
 
 
