@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
-import { Observable, forkJoin, of } from 'rxjs';
+import { forkJoin } from 'rxjs';
 
 @Component({
   selector: 'app-branch-vehicles',
@@ -15,6 +15,24 @@ import { Observable, forkJoin, of } from 'rxjs';
 export class BranchVehiclesComponent implements OnInit, OnDestroy {
   branches: any[] = [];
   hubs: any[] = [];
+  manifests: any[] = [];
+  private scheduledVehicleSet = new Set<string>();
+  private latestManifestStatusByVehicle = new Map<string, string>();
+  editManifestsLoading = false;
+  editVehicleManifests: Array<{
+    id: string;
+    manifestNumber: string;
+    status: string;
+    vehicleNo: string;
+    pickup: string;
+    drop: string;
+    consignments: Array<{
+      consignmentNumber: string;
+      shipmentStatus: string;
+      products: Array<{ name: string; qty: number }>;
+    }>;
+  }> = [];
+  isUpdatingManifestVehicle = false;
   isAdmin = String(localStorage.getItem('role') || '').toLowerCase() === 'admin';
   vehicles: Array<{
     branchId: string;
@@ -24,6 +42,8 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     vehicleStatus: string;
     driverPhone: string;
     currentLocationId: string;
+    vehicleCurrentLocationId: string;
+    vehicleCurrentLocationType: string;
     sourceType: 'branch' | 'hub';
     sourceId: string;
   }> = [];
@@ -31,32 +51,30 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   branchName: string = localStorage.getItem('branch') || 'All Branches';
   private branchCheck: any;
   private refreshTimer: any;
-  private vehicleStatusByKey = new Map<string, string>();
-  showDeliveringConfirm = false;
-  showCompletionConfirm = false;
-  pendingStatusVehicle: any = null;
-  deliveringConsignments: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }> = [];
-  completionConsignments: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }> = [];
-  private deliveringConsignmentsOriginal: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }> = [];
-  private completionConsignmentsOriginal: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }> = [];
+  showEditLocationPopup = false;
+  editLocationVehicle: any = null;
+  editLocationValue = '';
 
   constructor(private http: HttpClient) {}
 
   ngOnInit() {
     this.loadBranches();
     this.loadHubs();
+    this.loadManifests();
     this.branchCheck = setInterval(() => {
       const current = localStorage.getItem('branch') || 'All Branches';
       const currentId = localStorage.getItem('branchId') || 'all';
       if (current !== this.branchName || currentId !== this.branchId) {
         this.branchName = current;
         this.branchId = currentId;
+        this.loadManifests();
         this.buildVehicles();
       }
     }, 1000);
     this.refreshTimer = setInterval(() => {
       this.loadBranches();
       this.loadHubs();
+      this.loadManifests();
     }, 5000);
     window.addEventListener('storage', this.onStorage);
   }
@@ -89,6 +107,22 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadManifests() {
+    const params: any = {};
+    if (this.branchId && this.branchId !== 'all' && this.branchId !== 'all-hubs') {
+      params.entityType = 'branch';
+      params.entityId = this.branchId;
+    }
+    this.http.get<any[]>(`http://localhost:3000/api/manifests`, { params }).subscribe({
+      next: (data) => {
+        this.manifests = Array.isArray(data) ? data : [];
+        this.buildScheduledVehicleSet();
+        this.buildVehicles();
+      },
+      error: (err) => console.error('Error loading manifests:', err)
+    });
+  }
+
   buildVehicles() {
     const branchId = this.branchId || 'all';
     const branchName = String(this.branchName || '').trim().toLowerCase();
@@ -109,6 +143,8 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       vehicleStatus: string;
       driverPhone: string;
       currentLocationId: string;
+      vehicleCurrentLocationId: string;
+      vehicleCurrentLocationType: string;
       sourceType: 'branch' | 'hub';
       sourceId: string;
     }> = [];
@@ -118,7 +154,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
         list.forEach((v: any) => {
           const vehicleNo = String(v?.vehicleNo || '').trim();
           const driverPhone = String(v?.driverPhone || '').trim();
-          const currentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
+          const currentLocationId = this.normalizeId(b?._id);
+          const vehicleCurrentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
+          const vehicleCurrentLocationType = String(v?.currentLocationType || '').trim().toLowerCase();
           if (!vehicleNo && !driverPhone) return;
           if (!isAllBranches && !this.matchesBranchFilter(currentLocationId, branchId, branchName)) return;
           rows.push({
@@ -126,9 +164,11 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
             branchName: b?.branchName || '',
             branchStatus: b?.status || '',
             vehicleNo,
-            vehicleStatus: String(v?.vehicleStatus || 'online'),
+            vehicleStatus: this.resolveVehicleStatus(vehicleNo, v?.vehicleStatus),
             driverPhone,
             currentLocationId,
+            vehicleCurrentLocationId,
+            vehicleCurrentLocationType,
             sourceType: 'branch',
             sourceId: String(b?._id || '')
           });
@@ -148,7 +188,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
         list.forEach((v: any) => {
           const vehicleNo = String(v?.vehicleNo || '').trim();
           const driverPhone = String(v?.driverPhone || '').trim();
-          const currentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
+          const currentLocationId = this.normalizeId(h?._id);
+          const vehicleCurrentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
+          const vehicleCurrentLocationType = String(v?.currentLocationType || '').trim().toLowerCase();
           if (!vehicleNo && !driverPhone) return;
           if (!isAllBranches && !isAllHubs && !this.matchesBranchFilter(currentLocationId, branchId, branchName)) return;
           rows.push({
@@ -156,9 +198,11 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
             branchName: h?.hubName || '',
             branchStatus: h?.status || '',
             vehicleNo,
-            vehicleStatus: String(v?.vehicleStatus || 'online'),
+            vehicleStatus: this.resolveVehicleStatus(vehicleNo, v?.vehicleStatus),
             driverPhone,
             currentLocationId,
+            vehicleCurrentLocationId,
+            vehicleCurrentLocationType,
             sourceType: 'hub',
             sourceId: String(h?._id || '')
           });
@@ -166,9 +210,6 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       });
     });
     this.vehicles = rows;
-    this.vehicleStatusByKey = new Map(
-      rows.map((v) => [`${v.sourceType}:${v.sourceId}:${v.vehicleNo}`, v.vehicleStatus || 'online'])
-    );
   }
 
   private matchesBranchFilter(currentLocationId: string, branchId: string, branchName: string): boolean {
@@ -201,6 +242,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       this.branchId = localStorage.getItem('branchId') || 'all';
       this.loadBranches();
       this.loadHubs();
+      this.loadManifests();
     }
   };
 
@@ -232,89 +274,150 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     });
   }
 
-  onVehicleStatusChange(vehicle: any) {
-    if (!vehicle) return;
-    const key = `${vehicle.sourceType}:${vehicle.sourceId}:${vehicle.vehicleNo}`;
-    const previousStatus = this.vehicleStatusByKey.get(key) || vehicle.vehicleStatus || 'online';
-    const nextStatus = String(vehicle.vehicleStatus || '').trim().toLowerCase();
-    if (nextStatus === 'delivering') {
-      this.pendingStatusVehicle = { ...vehicle, previousStatus };
-      vehicle.vehicleStatus = previousStatus;
-      this.fetchDeliveringConsignments();
-      return;
+  openEditLocation(vehicle: any, event?: MouseEvent) {
+    if (event) event.stopPropagation();
+    if (!vehicle?.vehicleNo) return;
+    this.editLocationVehicle = vehicle;
+    const currentId = this.normalizeId(vehicle?.vehicleCurrentLocationId);
+    const currentType = String(vehicle?.vehicleCurrentLocationType || '').trim().toLowerCase();
+    if (currentId && currentType) {
+      this.editLocationValue = `${currentType}:${currentId}`;
+    } else if (vehicle?.currentLocationId && vehicle?.sourceType) {
+      this.editLocationValue = `${vehicle.sourceType}:${vehicle.currentLocationId}`;
+    } else {
+      this.editLocationValue = '';
     }
-    if (nextStatus === 'completed') {
-      this.pendingStatusVehicle = { ...vehicle, previousStatus };
-      vehicle.vehicleStatus = previousStatus;
-      this.fetchCompletionConsignments();
-      return;
-    }
-    this.updateVehicleStatus(vehicle, nextStatus);
+    this.loadVehicleManifestsForEdit(vehicle.vehicleNo);
+    this.showEditLocationPopup = true;
   }
 
-  confirmDelivering() {
-    if (!this.pendingStatusVehicle) return;
-    const removed = this.getRemovedConsignments(
-      this.deliveringConsignmentsOriginal,
-      this.deliveringConsignments
-    );
-    this.updateConsignmentStatuses([], removed, {
-      applyCurrentBranchFromDetails: false,
-      vehicleNo: this.pendingStatusVehicle?.vehicleNo
+  closeEditLocationPopup() {
+    this.showEditLocationPopup = false;
+    this.editLocationVehicle = null;
+    this.editLocationValue = '';
+    this.editVehicleManifests = [];
+    this.editManifestsLoading = false;
+    this.isUpdatingManifestVehicle = false;
+  }
+
+  saveEditLocation() {
+    if (!this.editLocationVehicle || !this.editLocationValue) return;
+    const [type, id] = String(this.editLocationValue).split(':');
+    if (!type || !id) return;
+    const endpoint = this.editLocationVehicle.sourceType === 'hub'
+      ? `http://localhost:3000/api/hubs/${this.editLocationVehicle.sourceId}/vehicle-status`
+      : `http://localhost:3000/api/branches/${this.editLocationVehicle.sourceId}/vehicle-status`;
+    this.http.patch(endpoint, {
+      vehicleNo: this.editLocationVehicle.vehicleNo,
+      vehicleStatus: this.editLocationVehicle.vehicleStatus || 'online',
+      currentLocationId: id,
+      currentLocationType: type
     }).subscribe({
       next: () => {
-        this.updateVehicleStatus(this.pendingStatusVehicle, 'delivering');
-        this.showDeliveringConfirm = false;
-        this.deliveringConsignments = [];
-        this.deliveringConsignmentsOriginal = [];
-        this.pendingStatusVehicle = null;
+        this.closeEditLocationPopup();
+        this.loadBranches();
+        this.loadHubs();
+        this.loadManifests();
       },
-      error: (err) => console.error('Error updating consignments:', err)
+      error: (err) => console.error('Error updating vehicle location:', err)
     });
   }
 
-  cancelDelivering() {
-    this.showDeliveringConfirm = false;
-    this.deliveringConsignments = [];
-    this.deliveringConsignmentsOriginal = [];
-    this.pendingStatusVehicle = null;
-  }
-
-  confirmCompletion() {
-    if (!this.pendingStatusVehicle) return;
-    const nextDeliveryPoint = this.getNextDeliveryPointFromConsignments(this.completionConsignments);
-    const removed = this.getRemovedConsignments(
-      this.completionConsignmentsOriginal,
-      this.completionConsignments
-    );
-    this.updateConsignmentStatuses(this.completionConsignments, removed, {
-      applyCurrentBranchFromDetails: true,
-      vehicleNo: this.pendingStatusVehicle?.vehicleNo
-    }).subscribe({
-      next: () => {
-        this.updateVehicleStatus(this.pendingStatusVehicle, 'online', nextDeliveryPoint);
-        this.showCompletionConfirm = false;
-        this.completionConsignments = [];
-        this.completionConsignmentsOriginal = [];
-        this.pendingStatusVehicle = null;
-      },
-      error: (err) => console.error('Error updating consignments:', err)
+  private loadVehicleManifestsForEdit(vehicleNo: string) {
+    const target = String(vehicleNo || '').trim().toLowerCase();
+    const manifestMatches = (this.manifests || [])
+      .filter((m: any) => String(m?.vehicleNo || '').trim().toLowerCase() === target)
+      .filter((m: any) => String(m?.status || '').trim().toLowerCase() === 'scheduled');
+    this.editManifestsLoading = true;
+    this.editVehicleManifests = [];
+    this.fillManifestDetails(manifestMatches, (payload) => {
+      this.editVehicleManifests = payload;
+      this.editManifestsLoading = false;
     });
   }
 
-  cancelCompletion() {
-    this.showCompletionConfirm = false;
-    this.completionConsignments = [];
-    this.completionConsignmentsOriginal = [];
-    this.pendingStatusVehicle = null;
-  }
+  private fillManifestDetails(
+    manifestMatches: any[],
+    onDone: (payload: Array<{
+      id: string;
+      manifestNumber: string;
+      status: string;
+      vehicleNo: string;
+      pickup: string;
+      drop: string;
+      consignments: Array<{
+        consignmentNumber: string;
+        shipmentStatus: string;
+        products: Array<{ name: string; qty: number }>;
+      }>;
+    }>) => void
+  ) {
+    if (!manifestMatches.length) {
+      onDone([]);
+      return;
+    }
 
-  removeDeliveringConsignment(index: number) {
-    this.deliveringConsignments.splice(index, 1);
-  }
+    const consignmentNumbers = Array.from(new Set(
+      manifestMatches
+        .flatMap((m: any) => Array.isArray(m?.items) ? m.items : [])
+        .map((i: any) => String(i?.consignmentNumber || '').trim())
+        .filter(Boolean)
+    ));
 
-  removeCompletionConsignment(index: number) {
-    this.completionConsignments.splice(index, 1);
+    if (!consignmentNumbers.length) {
+      onDone(manifestMatches.map((m: any) => ({
+        id: String(m?._id || ''),
+        manifestNumber: String(m?.manifestNumber || ''),
+        status: String(m?.status || ''),
+        vehicleNo: String(m?.vehicleNo || ''),
+        pickup: this.resolveManifestPickup(m),
+        drop: this.resolveManifestDrop(m),
+        consignments: []
+      })));
+      return;
+    }
+
+    const calls = consignmentNumbers.map((consignmentNumber) =>
+      this.http.get<any[]>(`http://localhost:3000/api/newshipments/getConsignment`, {
+        params: { consignmentNumber }
+      })
+    );
+
+    forkJoin(calls).subscribe({
+      next: (responses: any[]) => {
+        const consignments = responses.flatMap((r) => Array.isArray(r) ? r : []);
+        const byNumber = new Map(
+          consignments.map((c: any) => [String(c?.consignmentNumber || ''), c])
+        );
+        const payload = manifestMatches.map((m: any) => {
+          const items = Array.isArray(m?.items) ? m.items : [];
+          const manifestConsignments = items.map((item: any) => {
+            const consignmentNumber = String(item?.consignmentNumber || '').trim();
+            const shipment = byNumber.get(consignmentNumber);
+            const products = this.buildShipmentProductSummary(shipment);
+            return {
+              consignmentNumber,
+              shipmentStatus: String(shipment?.shipmentStatus || ''),
+              products
+            };
+          }).filter((c: any) => c.consignmentNumber);
+          return {
+            id: String(m?._id || ''),
+            manifestNumber: String(m?.manifestNumber || ''),
+            status: String(m?.status || ''),
+            vehicleNo: String(m?.vehicleNo || ''),
+            pickup: this.resolveManifestPickup(m),
+            drop: this.resolveManifestDrop(m),
+            consignments: manifestConsignments
+          };
+        });
+        onDone(payload);
+      },
+      error: (err) => {
+        console.error('Error loading vehicle manifests', err);
+        onDone([]);
+      }
+    });
   }
 
   getCurrentBranchLabel(value: string) {
@@ -335,147 +438,147 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     return raw;
   }
 
-  getNextBranchLabelForCompletion(item: any): string {
-    const status = String(item?.shipmentStatus || '').trim().toLowerCase();
-    const isNextRelevant =
-      status.includes('out for delivery') ||
-      status.includes('will be picked-up') ||
-      status.includes('manifestation');
-    if (!isNextRelevant) return '';
-    const nextId = this.parseCurrentBranchId(item?.shipmentStatusDetails || '');
-    if (!nextId) return '';
-    return this.getCurrentBranchLabel(nextId);
+  getVehicleCurrentBranchLabel(vehicle: any) {
+    const id = this.normalizeId(vehicle?.vehicleCurrentLocationId || '');
+    if (!id) return '-';
+    return this.getCurrentBranchLabel(id);
   }
 
-  private fetchDeliveringConsignments() {
-    const vehicleNo = String(this.pendingStatusVehicle?.vehicleNo || '').trim();
-    if (!vehicleNo) return;
-    this.http.get<any>('http://localhost:3000/api/newshipments/vehicle-consignments', {
-      params: { vehicleNumber: vehicleNo, statusFilter: 'assigned' }
-    }).subscribe({
-      next: (resp) => {
-        const list = Array.isArray(resp?.consignments) ? resp.consignments : [];
-        this.deliveringConsignments = list;
-        this.deliveringConsignmentsOriginal = list.map((c: any) => ({ ...c }));
-        this.showDeliveringConfirm = true;
-      },
-      error: (err) => console.error('Error loading delivering consignments:', err)
+  getLocationOptions(): Array<{ value: string; label: string }> {
+    const options: Array<{ value: string; label: string }> = [];
+    (this.branches || []).forEach((b: any) => {
+      const id = this.normalizeId(b?._id);
+      if (!id) return;
+      const name = String(b?.branchName || '').trim();
+      options.push({ value: `branch:${id}`, label: `Branch: ${name || id}` });
     });
-  }
-
-  private fetchCompletionConsignments() {
-    const vehicleNo = String(this.pendingStatusVehicle?.vehicleNo || '').trim();
-    if (!vehicleNo) return;
-    this.http.get<any>('http://localhost:3000/api/newshipments/vehicle-consignments', {
-      params: { vehicleNumber: vehicleNo, statusFilter: 'assigned' }
-    }).subscribe({
-      next: (resp) => {
-        const list = Array.isArray(resp?.consignments) ? resp.consignments : [];
-        this.completionConsignments = list;
-        this.completionConsignmentsOriginal = list.map((c: any) => ({ ...c }));
-        this.showCompletionConfirm = true;
-      },
-      error: (err) => console.error('Error loading completion consignments:', err)
+    (this.hubs || []).forEach((h: any) => {
+      const id = this.normalizeId(h?._id);
+      if (!id) return;
+      const name = String(h?.hubName || '').trim();
+      options.push({ value: `hub:${id}`, label: `Hub: ${name || id}` });
     });
+    return options;
   }
 
-  private getRemovedConsignments(
-    original: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }>,
-    current: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }>
-  ): Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }> {
-    const currentIds = new Set(current.map((c) => String(c?.id || '')));
-    return original.filter((c) => !currentIds.has(String(c?.id || '')));
-  }
-
-  private updateConsignmentStatuses(
-    kept: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }>,
-    removed: Array<{ id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string }>,
-    options: { applyCurrentBranchFromDetails: boolean; vehicleNo?: string }
-  ): Observable<any[]> {
-    const updates = [
-      ...kept.map((item) => this.buildShipmentUpdate(item, true, options)),
-      ...removed.map((item) => this.buildShipmentUpdate(item, false, options))
-    ].filter(Boolean) as any[];
-    if (!updates.length) {
-      return of([] as any[]);
-    }
-    return forkJoin(updates);
-  }
-
-  private buildShipmentUpdate(
-    item: { id: string; consignmentNumber: string; shipmentStatus: string; shipmentStatusDetails?: string },
-    keep: boolean,
-    options: { applyCurrentBranchFromDetails: boolean; vehicleNo?: string }
-  ) {
-    const shipmentId = String(item?.id || '').trim();
-    const consignmentNumber = String(item?.consignmentNumber || '').trim();
-    if (!shipmentId || !consignmentNumber) return null;
-    const status = String(item?.shipmentStatus || '').trim();
-    const isManifestation = status === 'Manifestation' || status === 'DManifestation';
-    const isDStatus = status.startsWith('D');
-    const nextStatus = keep
-      ? (isManifestation ? 'DPending' : 'Delivered')
-      : (isDStatus ? 'DPending' : 'Pending');
-    const currentBranchId = options.applyCurrentBranchFromDetails && keep
-      ? this.parseCurrentBranchId(item?.shipmentStatusDetails)
-      : '';
-    const shipmentParam = `?shipmentId=${encodeURIComponent(shipmentId)}`;
-    return this.http.put(
-      `http://localhost:3000/api/newshipments/${consignmentNumber}${shipmentParam}`,
-      {
-        shipmentId,
-        shipmentStatus: nextStatus,
-        ...(options.vehicleNo ? { clearVehicleNo: options.vehicleNo } : {}),
-        ...(currentBranchId ? { currentLocationId: currentBranchId } : {})
-      }
-    );
-  }
-
-  private updateVehicleStatus(vehicle: any, status: string, currentBranch?: string | null) {
-    if (!vehicle?.vehicleNo || !vehicle?.sourceId) return;
-    const nextStatus = status === 'completed' ? 'online' : status;
-    const endpoint = vehicle.sourceType === 'hub'
-      ? `http://localhost:3000/api/hubs/${vehicle.sourceId}/vehicle-status`
-      : `http://localhost:3000/api/branches/${vehicle.sourceId}/vehicle-status`;
-    this.http.patch(endpoint, {
-      vehicleNo: vehicle.vehicleNo,
-      vehicleStatus: nextStatus,
-      ...(currentBranch ? { currentLocationId: currentBranch } : {})
-    }).subscribe({
-      next: () => {
-        this.loadBranches();
-        this.loadHubs();
-      },
-      error: (err) => console.error('Error updating vehicle status:', err)
-    });
-  }
-
-  private getNextDeliveryPointFromConsignments(
-    consignments: Array<{ shipmentStatusDetails?: string }>
-  ): string | null {
-    const details = (consignments || [])
-      .map((c) => String(c?.shipmentStatusDetails || '').trim())
-      .find((text) => text);
-    if (!details) return null;
-    return this.parseCurrentBranchId(details);
-  }
-
-  private parseCurrentBranchId(details?: string): string {
-    if (!details) return '';
-    const parts = String(details)
-      .split('$$')
-      .map((part) => String(part || '').trim())
-      .filter(Boolean);
-    if (!parts.length) return '';
-    const last = parts[parts.length - 1];
-    if (!last) return '';
-    const cleaned = last.includes('/') ? last.split('/').pop() || '' : last;
-    return String(cleaned || '').trim();
-  }
 
   formatVehicleStatus(status: string) {
     const value = String(status || '').trim().toLowerCase();
     if (!value) return '';
     return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  private buildScheduledVehicleSet() {
+    const latestByVehicle = new Map<string, { status: string; ts: number }>();
+    (this.manifests || []).forEach((m: any) => {
+      const vehicleNo = String(m?.vehicleNo || '').trim().toLowerCase();
+      if (!vehicleNo) return;
+      const status = String(m?.status || '').trim().toLowerCase();
+      const tsSource = m?.deliveredAt || m?.updatedAt || m?.createdAt;
+      const ts = tsSource ? new Date(tsSource).getTime() : 0;
+      const existing = latestByVehicle.get(vehicleNo);
+      if (!existing || ts >= existing.ts) {
+        latestByVehicle.set(vehicleNo, { status, ts });
+      }
+    });
+    const scheduled = new Set<string>();
+    const latestStatus = new Map<string, string>();
+    latestByVehicle.forEach((info, vehicleNo) => {
+      if (info.status === 'scheduled') scheduled.add(vehicleNo);
+      latestStatus.set(vehicleNo, info.status);
+    });
+    this.scheduledVehicleSet = scheduled;
+    this.latestManifestStatusByVehicle = latestStatus;
+  }
+
+  private resolveVehicleStatus(vehicleNo: string, fallback: string) {
+    const key = String(vehicleNo || '').trim().toLowerCase();
+    if (!key) return String(fallback || 'online');
+    if (this.scheduledVehicleSet.has(key)) return 'scheduled';
+    const latest = this.latestManifestStatusByVehicle.get(key);
+    if (!latest) return 'completed';
+    if (latest === 'completed') return 'completed';
+    return String(fallback || 'online');
+  }
+
+  private resolveManifestPickup(manifest: any): string {
+    const entityType = String(manifest?.entityType || '').trim().toLowerCase();
+    const entityId = this.normalizeId(manifest?.entityId);
+    return this.resolveLocationName(entityType, entityId);
+  }
+
+  private resolveManifestDrop(manifest: any): string {
+    const deliveryType = String(manifest?.deliveryType || '').trim().toLowerCase();
+    const deliveryId = this.normalizeId(manifest?.deliveryId);
+    if (deliveryType && deliveryId) {
+      return this.resolveLocationName(deliveryType, deliveryId);
+    }
+    return this.resolveManifestPickup(manifest);
+  }
+
+  private resolveLocationName(entityType: string, entityId: string): string {
+    if (!entityType || !entityId) return '-';
+    if (entityType === 'hub') {
+      const hub = (this.hubs || []).find((h: any) => this.normalizeId(h?._id) === entityId);
+      return hub?.hubName ? String(hub.hubName).trim() : entityId;
+    }
+    const branch = (this.branches || []).find((b: any) => this.normalizeId(b?._id) === entityId);
+    return branch?.branchName ? String(branch.branchName).trim() : entityId;
+  }
+
+  private buildShipmentProductSummary(shipment: any): Array<{ name: string; qty: number }> {
+    if (!shipment) return [];
+    const invoices = Array.isArray(shipment?.ewaybills)
+      ? shipment.ewaybills.flatMap((ewb: any) => ewb?.invoices || [])
+      : (shipment?.invoices || []);
+    const products = invoices.flatMap((inv: any) => inv?.products || []);
+    const summary = new Map<string, number>();
+    products.forEach((p: any) => {
+      const name = String(p?.type || p?.productName || '').trim();
+      if (!name) return;
+      const qty = Number(p?.amount) || 0;
+      summary.set(name, (summary.get(name) || 0) + qty);
+    });
+    return Array.from(summary.entries()).map(([name, qty]) => ({ name, qty }));
+  }
+
+  getCompanyVehicleOptions(): string[] {
+    const options = new Set<string>();
+    (this.branches || []).forEach((b: any) => {
+      (b?.vehicles || []).forEach((v: any) => {
+        const no = String(v?.vehicleNo || '').trim();
+        if (no) options.add(no);
+      });
+    });
+    (this.hubs || []).forEach((h: any) => {
+      (h?.deliveryAddresses || []).forEach((addr: any) => {
+        (addr?.vehicles || []).forEach((v: any) => {
+          const no = String(v?.vehicleNo || '').trim();
+          if (no) options.add(no);
+        });
+      });
+    });
+    return Array.from(options);
+  }
+
+  onManifestVehicleChange(manifest: any, vehicleNo: string) {
+    const id = String(manifest?.id || '').trim();
+    const nextVehicle = String(vehicleNo || '').trim();
+    if (!id || !nextVehicle) return;
+    if (nextVehicle === String(manifest?.vehicleNo || '').trim()) return;
+    this.isUpdatingManifestVehicle = true;
+    this.http.patch(`http://localhost:3000/api/manifests/${id}/vehicle`, {
+      vehicleNo: nextVehicle
+    }).subscribe({
+      next: () => {
+        manifest.vehicleNo = nextVehicle;
+        this.loadManifests();
+        this.isUpdatingManifestVehicle = false;
+      },
+      error: (err) => {
+        console.error('Error updating manifest vehicle', err);
+        this.isUpdatingManifestVehicle = false;
+      }
+    });
   }
 }

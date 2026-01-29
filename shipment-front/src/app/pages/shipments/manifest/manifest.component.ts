@@ -26,6 +26,18 @@ export class ManifestComponent implements OnInit, OnDestroy {
   selectedHubFilterName = '';
   selectedStock: any = null;
   editingStock: any = null;   // G?? track which stock is being edited
+  manifests: any[] = [];
+  manifestSearchText = '';
+  manifestStatusFilter = '';
+  manifestVehicleFilter = '';
+  showManifestDetails = false;
+  selectedManifestDetails: any = null;
+  showConsignmentEdit = false;
+  eligibleConsignments: any[] = [];
+  consignmentEditLoading = false;
+  consignmentEditError = '';
+  consignmentsToAdd = new Set<string>();
+  consignmentsToRemove = new Set<string>();
 
   // Billing
 billingType: 'consignor' | 'different' = 'consignor';
@@ -390,6 +402,397 @@ calculateFinalAmount() {
     return parts.length ? parts[parts.length - 1] : '';
   }
 
+  getManifestEntityName(manifest: any): string {
+    const entityType = String(manifest?.entityType || '').toLowerCase();
+    const entityId = this.normalizeId(manifest?.entityId);
+    if (!entityType || !entityId) return '-';
+    if (entityType === 'hub') {
+      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === entityId);
+      return hub?.hubName ? String(hub.hubName).trim() : entityId;
+    }
+    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === entityId);
+    return branch?.branchName ? String(branch.branchName).trim() : entityId;
+  }
+
+  getManifestDeliveryPointName(manifest: any): string {
+    const deliveryType = String(manifest?.deliveryType || '').toLowerCase();
+    const deliveryId = this.normalizeId(manifest?.deliveryId);
+    if (!deliveryType || !deliveryId) return '-';
+    if (deliveryType === 'hub') {
+      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === deliveryId);
+      return hub?.hubName ? String(hub.hubName).trim() : deliveryId;
+    }
+    const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === deliveryId);
+    return branch?.branchName ? String(branch.branchName).trim() : deliveryId;
+  }
+
+  private resolveLocationNameByIdOrName(value: string): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const branch = this.resolveBranchByIdOrName(raw, raw);
+    if (branch?.branchName) return String(branch.branchName).trim();
+    const hub = this.resolveHubByIdOrName(raw, raw);
+    if (hub?.hubName) return String(hub.hubName).trim();
+    return raw;
+  }
+
+  getManifestItemCount(manifest: any): number {
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    return items.length;
+  }
+
+  openManifestDetails(manifest: any) {
+    if (!manifest?._id) return;
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const consignmentNumbers = Array.from(new Set(
+      items.map((i: any) => String(i?.consignmentNumber || '').trim()).filter(Boolean)
+    ));
+    if (!consignmentNumbers.length) {
+      this.selectedManifestDetails = {
+        manifest,
+        deliveryPoint: this.getManifestDeliveryPointName(manifest) || this.getManifestEntityName(manifest) || '-',
+        pickupPoint: '-',
+        consignments: []
+      };
+      this.showManifestDetails = true;
+      return;
+    }
+    const calls = consignmentNumbers.map((consignmentNumber) =>
+      this.http.get<any[]>(`http://localhost:3000/api/newshipments/getConsignment`, {
+        params: { consignmentNumber: String(consignmentNumber || '') }
+      })
+    );
+    forkJoin(calls).subscribe({
+      next: (responses: any[]) => {
+        const consignments = responses.flatMap((r) => Array.isArray(r) ? r : []);
+        const formatted = consignments.map((c) => {
+          const enriched = this.enrichShipmentDetails(c);
+          const invoices = Array.isArray(enriched?.ewaybills)
+            ? enriched.ewaybills.flatMap((ewb: any) => ewb?.invoices || [])
+            : (enriched?.invoices || []);
+          const products = invoices.flatMap((inv: any) => inv?.products || []);
+          const productSummaryMap = new Map<string, any>();
+          products.forEach((p: any) => {
+            const name = String(p?.type || p?.productName || '').trim();
+            if (!name) return;
+            const entry = productSummaryMap.get(name) || {
+              name,
+              amount: 0,
+              instock: 0,
+              intransit: 0,
+              delivered: 0
+            };
+            entry.amount += Number(p?.amount) || 0;
+            entry.instock += Number(p?.instock) || 0;
+            entry.intransit += Number(p?.intransitstock) || 0;
+            entry.delivered += Number(p?.deliveredstock) || 0;
+            productSummaryMap.set(name, entry);
+          });
+          const productSummary = Array.from(productSummaryMap.values());
+          return {
+            shipmentId: enriched?._id ? String(enriched._id) : '',
+            consignmentNumber: enriched?.consignmentNumber || '',
+            shipmentStatus: enriched?.shipmentStatus || '',
+            shipmentStatusDetails: enriched?.shipmentStatusDetails || '',
+            currentLocation: this.resolveLocationNameByIdOrName(
+              this.normalizeId(enriched?.currentLocationId || enriched?.currentBranchId || enriched?.currentBranch) ||
+              String(enriched?.currentBranch || '')
+            ) || '-',
+            branchId: this.normalizeId(enriched?.branchId || ''),
+            pickupName: enriched?.pickupName || '',
+            pickupAddress: enriched?.pickupAddress || '',
+            pickupPhone: enriched?.pickupPhone || '',
+            pickupPincode: enriched?.pickupPincode || '',
+            productSummary
+          };
+        });
+        const manifestDeliveryPoint = this.getManifestDeliveryPointName(manifest);
+        let deliveryPoint = manifestDeliveryPoint;
+        let pickupPoint = '-';
+        if (!deliveryPoint || deliveryPoint === '-') {
+          const statusDetails = String(formatted?.[0]?.shipmentStatusDetails || '').trim();
+          const lastId = this.getLastStatusDetailBranchId(statusDetails);
+          const resolved = this.resolveLocationNameByIdOrName(lastId);
+          deliveryPoint = resolved || this.getManifestEntityName(manifest) || '-';
+        }
+        if (formatted?.length) {
+          pickupPoint = this.resolveLocationNameByIdOrName(formatted[0]?.pickupName || '') || '-';
+        }
+        this.selectedManifestDetails = {
+          manifest,
+          deliveryPoint,
+          pickupPoint,
+          consignments: formatted
+        };
+        this.showManifestDetails = true;
+        this.resetConsignmentEditState();
+      },
+      error: (err) => {
+        console.error('Failed to load manifest consignments', err);
+        this.selectedManifestDetails = {
+          manifest,
+          deliveryPoint: this.getManifestDeliveryPointName(manifest) || this.getManifestEntityName(manifest) || '-',
+          pickupPoint: '-',
+          consignments: []
+        };
+        this.showManifestDetails = true;
+        this.resetConsignmentEditState();
+      }
+    });
+  }
+
+  private refreshSelectedManifestDetails(manifestId: any) {
+    if (!this.showManifestDetails) return;
+    const selectedId = this.normalizeId(this.selectedManifestDetails?.manifest?._id);
+    const targetId = this.normalizeId(manifestId);
+    if (!selectedId || !targetId || selectedId !== targetId) return;
+    const manifest = this.selectedManifestDetails?.manifest;
+    if (manifest) {
+      this.openManifestDetails(manifest);
+    }
+  }
+  closeManifestDetails() {
+    this.showManifestDetails = false;
+    this.selectedManifestDetails = null;
+    this.resetConsignmentEditState();
+  }
+
+  canDeliverManifest(manifest: any): boolean {
+    const status = String(manifest?.status || '').trim().toLowerCase();
+    return status !== 'completed' && status !== 'cancelled';
+  }
+
+  canCancelManifest(manifest: any): boolean {
+    const status = String(manifest?.status || '').trim().toLowerCase();
+    return status !== 'completed' && status !== 'cancelled';
+  }
+
+  canUncancelManifest(manifest: any): boolean {
+    const status = String(manifest?.status || '').trim().toLowerCase();
+    if (status !== 'cancelled') return false;
+    let allowed = true;
+    if (typeof manifest?.canUncancel === 'boolean') {
+      allowed = manifest.canUncancel;
+    }
+    const selectedId = this.normalizeId(this.selectedManifestDetails?.manifest?._id);
+    const targetId = this.normalizeId(manifest?._id);
+    if (selectedId && targetId && selectedId === targetId) {
+      const consignments = Array.isArray(this.selectedManifestDetails?.consignments)
+        ? this.selectedManifestDetails.consignments
+        : [];
+      const hasDelivered = consignments.some((c: any) =>
+        String(c?.shipmentStatus || '').trim().toLowerCase() === 'delivered'
+      );
+      if (hasDelivered) {
+        allowed = false;
+      }
+    }
+    return allowed;
+  }
+
+  isCancelledManifest(manifest: any): boolean {
+    return String(manifest?.status || '').trim().toLowerCase() === 'cancelled';
+  }
+
+  canEditConsignments(manifest: any): boolean {
+    const status = String(manifest?.status || '').trim().toLowerCase();
+    return status !== 'completed' && status !== 'cancelled';
+  }
+
+  private resetConsignmentEditState() {
+    this.showConsignmentEdit = false;
+    this.eligibleConsignments = [];
+    this.consignmentEditLoading = false;
+    this.consignmentEditError = '';
+    this.consignmentsToAdd.clear();
+    this.consignmentsToRemove.clear();
+  }
+
+  startConsignmentEdit(manifest: any) {
+    if (!manifest?._id) return;
+    this.resetConsignmentEditState();
+    this.showConsignmentEdit = true;
+    this.loadEligibleConsignments(manifest);
+  }
+
+  cancelConsignmentEdit() {
+    this.resetConsignmentEditState();
+  }
+
+  private loadEligibleConsignments(manifest: any) {
+    const branchId = this.branchId || localStorage.getItem('branchId') || '';
+    if (!branchId || branchId === 'all') {
+      this.consignmentEditError = 'Select a specific branch or hub to load eligible consignments.';
+      return;
+    }
+    this.consignmentEditLoading = true;
+    this.http.get<any>(`http://localhost:3000/api/manifests/${manifest._id}/eligible-consignments`, {
+      params: { branchId }
+    }).subscribe({
+      next: (res: any) => {
+        this.eligibleConsignments = Array.isArray(res?.consignments) ? res.consignments : [];
+        this.consignmentEditLoading = false;
+      },
+      error: (err) => {
+        console.error('Failed to load eligible consignments', err);
+        this.consignmentEditError = 'Failed to load eligible consignments.';
+        this.consignmentEditLoading = false;
+      }
+    });
+  }
+
+  toggleConsignmentAdd(consignment: any) {
+    const key = String(consignment?._id || consignment?.shipmentId || consignment?.consignmentNumber || '').trim();
+    if (!key) return;
+    if (this.consignmentsToAdd.has(key)) {
+      this.consignmentsToAdd.delete(key);
+    } else {
+      this.consignmentsToAdd.add(key);
+    }
+  }
+
+  toggleConsignmentRemove(consignment: any) {
+    const key = String(consignment?.shipmentId || consignment?._id || consignment?.consignmentNumber || '').trim();
+    if (!key) return;
+    if (this.consignmentsToRemove.has(key)) {
+      this.consignmentsToRemove.delete(key);
+    } else {
+      this.consignmentsToRemove.add(key);
+    }
+  }
+
+  isConsignmentMarkedForAdd(consignment: any): boolean {
+    const key = String(consignment?._id || consignment?.shipmentId || consignment?.consignmentNumber || '').trim();
+    return key ? this.consignmentsToAdd.has(key) : false;
+  }
+
+  isConsignmentMarkedForRemove(consignment: any): boolean {
+    const key = String(consignment?.shipmentId || consignment?._id || consignment?.consignmentNumber || '').trim();
+    return key ? this.consignmentsToRemove.has(key) : false;
+  }
+
+  applyConsignmentEdit(manifest: any) {
+    if (!manifest?._id) return;
+    const addShipmentIds = Array.from(this.consignmentsToAdd.values())
+      .filter((v) => this.isObjectId(v));
+    const addConsignmentNumbers = Array.from(this.consignmentsToAdd.values())
+      .filter((v) => !this.isObjectId(v));
+    const removeShipmentIds = Array.from(this.consignmentsToRemove.values())
+      .filter((v) => this.isObjectId(v));
+    const removeConsignmentNumbers = Array.from(this.consignmentsToRemove.values())
+      .filter((v) => !this.isObjectId(v));
+
+    this.http.patch<any>(`http://localhost:3000/api/manifests/${manifest._id}/consignments`, {
+      addShipmentIds,
+      addConsignmentNumbers,
+      removeShipmentIds,
+      removeConsignmentNumbers
+    }).subscribe({
+      next: (res: any) => {
+        this.resetConsignmentEditState();
+        this.loadManifests();
+        this.loadStocks();
+        if (res?.manifest) {
+          const updatedManifest = { ...res.manifest, items: res.items || [] };
+          this.openManifestDetails(updatedManifest);
+        } else {
+          this.refreshSelectedManifestDetails(manifest._id);
+        }
+      },
+      error: (err) => {
+        console.error('Failed to update manifest consignments', err);
+        alert('Failed to update consignments.');
+      }
+    });
+  }
+
+  private isObjectId(value: string): boolean {
+    return /^[a-f0-9]{24}$/i.test(String(value || '').trim());
+  }
+
+  deliverManifest(manifest: any) {
+    if (!manifest?._id) return;
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const consignmentNumbers = Array.from(new Set(
+      items.map((i: any) => String(i?.consignmentNumber || '').trim()).filter(Boolean)
+    ));
+    if (!consignmentNumbers.length) {
+      alert('No consignments found for this manifest.');
+      return;
+    }
+    const confirmMsg = `Deliver manifest ${manifest.manifestNumber || ''} for ${consignmentNumbers.length} consignments?`;
+    if (!confirm(confirmMsg)) return;
+
+    this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+      status: 'Completed'
+    }).subscribe({
+      next: () => {
+        this.loadManifests();
+        this.loadStocks();
+      },
+      error: (err) => {
+        console.error('Failed to update manifest status', err);
+        alert('Failed to update manifest status.');
+      }
+    });
+  }
+
+  cancelManifest(manifest: any) {
+    if (!manifest?._id) return;
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const consignmentNumbers = Array.from(new Set(
+      items.map((i: any) => String(i?.consignmentNumber || '').trim()).filter(Boolean)
+    ));
+    if (!consignmentNumbers.length) {
+      alert('No consignments found for this manifest.');
+      return;
+    }
+    const confirmMsg = `Cancel manifest ${manifest.manifestNumber || ''} for ${consignmentNumbers.length} consignments?`;
+    if (!confirm(confirmMsg)) return;
+
+      this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+        status: 'Cancelled'
+      }).subscribe({
+        next: () => {
+          this.loadManifests();
+          this.loadStocks();
+          this.refreshSelectedManifestDetails(manifest._id);
+        },
+        error: (err) => {
+          console.error('Failed to cancel manifest', err);
+          alert('Failed to cancel manifest.');
+        }
+    });
+  }
+
+  uncancelManifest(manifest: any) {
+    if (!manifest?._id) return;
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    const consignmentNumbers = Array.from(new Set(
+      items.map((i: any) => String(i?.consignmentNumber || '').trim()).filter(Boolean)
+    ));
+    if (!consignmentNumbers.length) {
+      alert('No consignments found for this manifest.');
+      return;
+    }
+    const confirmMsg = `Uncancel manifest ${manifest.manifestNumber || ''} for ${consignmentNumbers.length} consignments?`;
+    if (!confirm(confirmMsg)) return;
+
+      this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+        status: 'Scheduled'
+      }).subscribe({
+        next: () => {
+          this.loadManifests();
+          this.loadStocks();
+          this.refreshSelectedManifestDetails(manifest._id);
+        },
+        error: (err) => {
+          console.error('Failed to uncancel manifest', err);
+          alert('Failed to uncancel manifest.');
+      }
+    });
+  }
+
   private getBaseStocks(allStocks: any[]): any[] {
     const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
     if (branchId === 'all') {
@@ -502,6 +905,49 @@ calculateFinalAmount() {
     }
     if (!branchId || branchId === 'all') return '';
     return this.normalizeId(branchId);
+  }
+
+  private getManifestEntityFilter(): { entityType: string; entityId: string } | null {
+    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+    if (branchId === 'all-hubs') {
+      const hubId = this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'));
+      return hubId ? { entityType: 'hub', entityId: hubId } : null;
+    }
+    if (branchId && branchId !== 'all') {
+      return { entityType: 'branch', entityId: this.normalizeId(branchId) };
+    }
+    return null;
+  }
+
+  loadManifests() {
+    const params: any = {};
+    const entity = this.getManifestEntityFilter();
+    if (entity?.entityType && entity?.entityId) {
+      params.entityType = entity.entityType;
+      params.entityId = entity.entityId;
+    }
+    this.http.get<any[]>('http://localhost:3000/api/manifests', { params }).subscribe({
+      next: (res: any[]) => {
+        this.manifests = Array.isArray(res) ? res : [];
+      },
+      error: (err: any) => console.error('Error loading manifests:', err)
+    });
+  }
+
+  filterManifests(list: any[]): any[] {
+    const raw = Array.isArray(list) ? list : [];
+    const q = String(this.manifestSearchText || '').trim().toLowerCase();
+    const status = String(this.manifestStatusFilter || '').trim().toLowerCase();
+    const vehicle = String(this.manifestVehicleFilter || '').trim().toLowerCase();
+    return raw.filter((m) => {
+      const number = String(m?.manifestNumber || '').toLowerCase();
+      const matchesSearch = !q || number.includes(q);
+      const mStatus = String(m?.status || '').trim().toLowerCase();
+      const matchesStatus = !status || mStatus === status;
+      const mVehicle = String(m?.vehicleNo || '').trim().toLowerCase();
+      const matchesVehicle = !vehicle || mVehicle.includes(vehicle);
+      return matchesSearch && matchesStatus && matchesVehicle;
+    });
   }
 
   getDeliveryDisplayName(stock: any): string {
@@ -863,7 +1309,7 @@ calculateFinalAmount() {
       const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
       const payload = {
         ...consignment,
-        shipmentStatus: 'Deleted',
+        shipmentStatus: 'Deleted during Transportation',
         currentVehicleNo: '',
         currentVehicleOwnerType: '',
         currentVehicleOwnerId: null
@@ -1448,6 +1894,7 @@ loadBranches() {
         this.branches = data;
         this.updateAvailableRoutePoints(); // Refresh route options
         this.loadStocks();
+        this.loadManifests();
       },
       error: (err) => console.error("Error loading branches:", err)
     });
@@ -1475,6 +1922,7 @@ loadHubs() {
             localStorage.setItem('hubName', this.selectedHubFilterName);
           }
           this.loadStocks();
+          this.loadManifests();
         }
       },
       error: (err) => console.error("Error loading hubs:", err)
@@ -1632,6 +2080,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
       this.branchId = localStorage.getItem('branchId') || 'all';
       this.updateAvailableRoutePoints();
       this.loadStocks();
+      this.loadManifests();
     });
 
     // react to branch changes (same tab)
@@ -1643,6 +2092,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
         this.branchId = currentId;
         this.updateAvailableRoutePoints();
         this.loadStocks();
+        this.loadManifests();
       }
     }, 1000);
 
@@ -1699,6 +2149,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
         this.branch = current;
         this.branchId = currentId;
         this.loadStocks();
+        this.loadManifests();
       }
     }
   };
@@ -1778,15 +2229,15 @@ closeManifestationPopup() {
   this.showManifestationPopup = false;
 }
 
-  finalizeManifestation() {
-    if (this.selectedForManifestation.length === 0) {
-      alert('No consignments selected.');
-      return;
-    }
+private executeDelivery(consignments: any[], onSuccess?: () => void) {
+  if (!consignments.length) {
+    alert('No consignments selected.');
+    return;
+  }
 
-    const vehicleUpdates: Array<ReturnType<typeof this.http.patch>> = [];
-    const completionTargets = new Map<string, { vehicleNo: string; ownerType: 'Branch' | 'Hub'; ownerId: string; locationId: string }>();
-    const updates = (this.selectedForManifestation || []).map((consignment) => {
+  const vehicleUpdates: Array<ReturnType<typeof this.http.patch>> = [];
+  const completionTargets = new Map<string, { vehicleNo: string; ownerType: 'Branch' | 'Hub'; ownerId: string; locationId: string }>();
+  const updates = (consignments || []).map((consignment) => {
       const updatedEwaybills = (consignment.ewaybills || []).map((ewb: any) => ({
         ...ewb
       }));
@@ -1882,6 +2333,10 @@ closeManifestationPopup() {
   forkJoin(calls).subscribe({
     next: (responses: any[]) => {
       console.log('[manifest:update] response', responses);
+      if (onSuccess) {
+        onSuccess();
+        return;
+      }
       this.showManifestationPopup = false;
       this.selectedForManifestation = [];
       this.filteredStocks.forEach(s => s.selected = false);
@@ -1891,6 +2346,15 @@ closeManifestationPopup() {
       console.error('Error updating consignment status:', err);
       alert('Failed to update consignment status.');
     }
+  });
+}
+
+finalizeManifestation() {
+  this.executeDelivery(this.selectedForManifestation, () => {
+    this.showManifestationPopup = false;
+    this.selectedForManifestation = [];
+    this.filteredStocks.forEach(s => s.selected = false);
+    this.loadStocks();
   });
 }
 
@@ -2008,6 +2472,7 @@ printReceipts() {
 }
 
 }
+
 
 
 

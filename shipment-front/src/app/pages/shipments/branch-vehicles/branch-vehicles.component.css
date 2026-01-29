@@ -48,6 +48,10 @@
   position: relative;
 }
 
+.vehicle-manifest-modal {
+  width: 720px;
+}
+
 .close {
   position: absolute;
   right: 15px;
@@ -78,4 +82,98 @@
 .terminal-buttons button:last-child {
   background-color: #555;
   color: #fff;
+}
+
+.link-button {
+  background: #2563eb;
+  border: none;
+  padding: 6px 12px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.modal-subtitle {
+  color: #6b7280;
+  margin: 6px 0 12px;
+}
+
+.manifest-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  background: #f9fafb;
+}
+
+.manifest-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.manifest-status {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.manifest-meta {
+  font-size: 13px;
+  color: #4b5563;
+  margin-top: 4px;
+}
+
+.manifest-vehicle-select select {
+  margin-left: 8px;
+  padding: 4px 6px;
+}
+
+.manifest-consignments {
+  margin-top: 10px;
+}
+
+.edit-manifest-list {
+  margin-top: 16px;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 12px;
+}
+
+.consignment-row {
+  border-top: 1px dashed #d1d5db;
+  padding-top: 8px;
+  margin-top: 8px;
+}
+
+.consignment-header {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 600;
+}
+
+.consignment-status {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.consignment-products {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.product-pill {
+  background: #e0f2fe;
+  color: #0f172a;
+  padding: 2px 6px;
+  border-radius: 999px;
+}
+
+.manifest-empty {
+  font-size: 12px;
+  color: #6b7280;
 }

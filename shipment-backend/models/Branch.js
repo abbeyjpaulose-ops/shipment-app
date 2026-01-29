@@ -6,7 +6,8 @@ const VehicleSchema = new mongoose.Schema(
     vehicleNo: { type: String, required: true, trim: true },
     driverPhone: { type: String, required: true, trim: true },
     vehicleStatus: { type: String, trim: true, default: 'online' },
-    currentLocationId: { type: mongoose.Schema.Types.ObjectId }
+    currentLocationId: { type: mongoose.Schema.Types.ObjectId },
+    currentLocationType: { type: String, trim: true, lowercase: true }
   },
   { _id: false }
 );

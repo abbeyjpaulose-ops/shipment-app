@@ -18,7 +18,7 @@ import adminUsersRoutes from './routes/adminUsers.js';
 import pricingRoutes from './routes/pricing.js';
 import auditLogsRoutes from './routes/auditLogs.js';
 import paymentsRoutes from './routes/payments.js';
-import tpartnerActivityRoutes from './routes/tpartnerActivity.js';
+import manifestRoutes from './routes/manifests.js';
 
 
 
@@ -47,7 +47,7 @@ app.use('/api/admin/users', adminUsersRoutes);
 app.use('/api/pricing', pricingRoutes);
 app.use('/api/audit-logs', auditLogsRoutes);
 app.use('/api/payments', paymentsRoutes);
-app.use('/api/tpartner-activity', tpartnerActivityRoutes);
+app.use('/api/manifests', manifestRoutes);
 
 
 app.listen(3000, () => console.log('🚀 Server running on port 3000'));

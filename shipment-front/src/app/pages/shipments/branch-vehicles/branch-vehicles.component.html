@@ -16,21 +16,10 @@
         <td>{{ v.branchName }}</td>
         <td>{{ v.vehicleNo }}</td>
         <td>{{ v.driverPhone }}</td>
+        <td>{{ formatVehicleStatus(v.vehicleStatus) }}</td>
+        <td>{{ getVehicleCurrentBranchLabel(v) }}</td>
         <td>
-          <ng-container *ngIf="v.vehicleStatus !== 'online' && v.vehicleStatus !== 'offline'; else statusLabel">
-            <select [(ngModel)]="v.vehicleStatus" (change)="onVehicleStatusChange(v)">
-              <option value="scheduled">Scheduled</option>
-              <option value="delivering">Delivering</option>
-              <option value="completed">Completed</option>
-            </select>
-          </ng-container>
-          <ng-template #statusLabel>
-            {{ formatVehicleStatus(v.vehicleStatus) }}
-          </ng-template>
-        </td>
-        <td>{{ getCurrentBranchLabel(v.currentLocationId) }}</td>
-        <td>
-          <a [routerLink]="['/home/Branches']">Edit</a>
+          <button type="button" class="link-button" (click)="openEditLocation(v, $event)">Edit</button>
         </td>
       </tr>
       <tr *ngIf="vehicles.length === 0">
@@ -40,45 +29,67 @@
   </div>
 </div>
 
-<div class="modal" *ngIf="showDeliveringConfirm">
+<div class="modal" *ngIf="showEditLocationPopup">
   <div class="modal-content">
-    <span class="close" (click)="cancelDelivering()">&times;</span>
-    <h3>Are you sure all the consignments are in the vehicle?</h3>
-    <ul *ngIf="deliveringConsignments.length; else noDeliveringConsignments">
-      <li *ngFor="let item of deliveringConsignments; let i = index">
-        {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
-        <button type="button" (click)="removeDeliveringConsignment(i)">-</button>
-      </li>
-    </ul>
-    <ng-template #noDeliveringConsignments>
-      <p>No consignments found.</p>
-    </ng-template>
-    <div class="terminal-buttons">
-      <button type="button" (click)="confirmDelivering()">OK</button>
-      <button type="button" (click)="cancelDelivering()">Cancel</button>
-    </div>
-  </div>
-</div>
+    <span class="close" (click)="closeEditLocationPopup()">&times;</span>
+    <h3>Edit Vehicle Activity</h3>
+    <p class="modal-subtitle">Vehicle: {{ editLocationVehicle?.vehicleNo || '-' }}</p>
+    <label>
+      Current Branch
+      <select [(ngModel)]="editLocationValue">
+        <option value="" disabled>Select a location</option>
+        <option *ngFor="let opt of getLocationOptions()" [value]="opt.value">
+          {{ opt.label }}
+        </option>
+      </select>
+    </label>
 
-<div class="modal" *ngIf="showCompletionConfirm">
-  <div class="modal-content">
-    <span class="close" (click)="cancelCompletion()">&times;</span>
-    <h3>Are you sure the below consignments are delivered?</h3>
-    <ul *ngIf="completionConsignments.length; else noConsignments">
-      <li *ngFor="let item of completionConsignments; let i = index">
-        {{ item.consignmentNumber }} ({{ item.shipmentStatus }})
-        <span *ngIf="getNextBranchLabelForCompletion(item)">
-          - Next: {{ getNextBranchLabelForCompletion(item) }}
-        </span>
-        <button type="button" (click)="removeCompletionConsignment(i)">-</button>
-      </li>
-    </ul>
-    <ng-template #noConsignments>
-      <p>No consignments found.</p>
-    </ng-template>
+    <div class="manifest-consignments edit-manifest-list">
+      <h4>Scheduled Manifests</h4>
+      <p *ngIf="editManifestsLoading">Loading manifests...</p>
+      <p *ngIf="!editManifestsLoading && editVehicleManifests.length === 0">No manifests found.</p>
+      <div *ngFor="let m of editVehicleManifests" class="manifest-card">
+        <div class="manifest-header">
+          <div>
+            <strong>{{ m.manifestNumber || '-' }}</strong>
+            <span class="manifest-status">{{ formatVehicleStatus(m.status) }}</span>
+          </div>
+          <div class="manifest-meta">Vehicle: {{ m.vehicleNo || '-' }}</div>
+        </div>
+        <div class="manifest-meta manifest-vehicle-select">
+          <label>
+            Change Vehicle
+            <select [ngModel]="m.vehicleNo" (ngModelChange)="onManifestVehicleChange(m, $event)" [disabled]="isUpdatingManifestVehicle">
+              <option value="" disabled>Select vehicle</option>
+              <option *ngFor="let v of getCompanyVehicleOptions()" [value]="v">{{ v }}</option>
+            </select>
+          </label>
+        </div>
+        <div class="manifest-meta">Pickup: {{ m.pickup || '-' }}</div>
+        <div class="manifest-meta">Drop: {{ m.drop || '-' }}</div>
+
+        <div class="manifest-consignments">
+          <h4>Consignments</h4>
+          <div *ngIf="!m.consignments.length" class="manifest-empty">No consignments.</div>
+          <div *ngFor="let c of m.consignments" class="consignment-row">
+            <div class="consignment-header">
+              <span>{{ c.consignmentNumber }}</span>
+              <span class="consignment-status">{{ c.shipmentStatus || '-' }}</span>
+            </div>
+            <div class="consignment-products">
+              <span *ngIf="!c.products.length">No products.</span>
+              <span *ngFor="let p of c.products" class="product-pill">
+                {{ p.name }} ({{ p.qty }})
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="terminal-buttons">
-      <button type="button" (click)="confirmCompletion()">OK</button>
-      <button type="button" (click)="cancelCompletion()">Cancel</button>
+      <button type="button" (click)="saveEditLocation()" [disabled]="!editLocationValue">Save</button>
+      <button type="button" (click)="closeEditLocationPopup()">Cancel</button>
     </div>
   </div>
 </div>

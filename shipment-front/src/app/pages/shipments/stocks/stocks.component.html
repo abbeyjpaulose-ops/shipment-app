@@ -8,11 +8,6 @@
       Stocks
     </button>
     <button
-      (click)="setActiveTab('other-branch')"
-      [class.active]="activeTab === 'other-branch'">
-      Stocks in Other branch
-    </button>
-    <button
       (click)="setActiveTab('others-in-branch')"
       [class.active]="activeTab === 'others-in-branch'">
       Others stocks in our branch
@@ -46,7 +41,7 @@
       (input)="applyFilters()" />
 
       
-      <button (click)="openManifestationPopup()" [disabled]="activeTab === 'other-branch'">Manifestation</button>
+      <button (click)="openManifestationPopup()">Manifestation</button>
       <button class="cancel-btn" (click)="openCancelPopup()" [disabled]="!hasSelectedConsignment()">Delete</button>
       <button (click)="printReceipts()">🖨️ Print Receipts</button>
        <!--<button (click)="downloadReceipts()">📄 Download Receipts</button> -->
@@ -443,6 +438,9 @@
         </select>
       </label>
     </div>
+    <p class="manifest-number" *ngIf="manifestationNumber">
+      <strong>Manifest No:</strong> {{ manifestationNumber }}
+    </p>
 
     <div *ngIf="selectedForManifestation.length > 0; else noSelection">
       <hr>

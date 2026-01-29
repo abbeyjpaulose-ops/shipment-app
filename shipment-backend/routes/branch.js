@@ -150,10 +150,12 @@ router.patch('/:id/vehicle-status', requireAuth, async (req, res) => {
     const vehicleNo = String(req.body?.vehicleNo || req.body?.vehicleNumber || '').trim();
     const vehicleStatus = String(req.body?.vehicleStatus || '').trim();
     const currentLocationRaw = req.body?.currentLocationId ?? req.body?.currentBranch;
+    const currentLocationTypeRaw = req.body?.currentLocationType ?? req.body?.currentLocationOwnerType;
     if (!vehicleNo) return res.status(400).json({ message: 'Vehicle number is required' });
     if (!vehicleStatus) return res.status(400).json({ message: 'Vehicle status is required' });
 
     let currentLocationId = null;
+    let currentLocationType = '';
     if (currentLocationRaw !== undefined && currentLocationRaw !== null) {
       const raw = String(currentLocationRaw).trim();
       if (raw) {
@@ -165,15 +167,21 @@ router.patch('/:id/vehicle-status', requireAuth, async (req, res) => {
             Hub.findOne({ GSTIN_ID: gstinId, hubName: raw }).select('_id').lean()
           ]);
           currentLocationId = branchMatch?._id || hubMatch?._id || null;
+          currentLocationType = branchMatch?._id ? 'branch' : (hubMatch?._id ? 'hub' : '');
         }
       }
+    }
+    const currentLocationTypeCandidate = String(currentLocationTypeRaw || '').trim().toLowerCase();
+    if (['branch', 'hub'].includes(currentLocationTypeCandidate)) {
+      currentLocationType = currentLocationTypeCandidate;
     }
     const update = await Branch.updateOne(
       { _id: req.params.id, GSTIN_ID: gstinId },
       {
         $set: {
           'vehicles.$[v].vehicleStatus': vehicleStatus,
-          ...(currentLocationId ? { 'vehicles.$[v].currentLocationId': currentLocationId } : {})
+          ...(currentLocationId ? { 'vehicles.$[v].currentLocationId': currentLocationId } : {}),
+          ...(currentLocationId && currentLocationType ? { 'vehicles.$[v].currentLocationType': currentLocationType } : {})
         }
       },
       { arrayFilters: [{ 'v.vehicleNo': vehicleNo }] }

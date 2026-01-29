@@ -16,7 +16,7 @@ export class StocksComponent implements OnInit, OnDestroy {
   allStocks: any[] = [];
   stocks: any[] = [];
   filteredStocks: any[] = [];
-  activeTab: 'stocks' | 'other-branch' | 'others-in-branch' = 'stocks';
+  activeTab: 'stocks' | 'others-in-branch' = 'stocks';
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
@@ -252,7 +252,7 @@ calculateFinalAmount() {
   private getBaseStocks(): any[] {
     const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
     if (branchId === 'all') {
-      if (this.activeTab === 'other-branch' || this.activeTab === 'others-in-branch') {
+      if (this.activeTab === 'others-in-branch') {
         return (this.allStocks || []).filter(stock => {
           const status = String(stock.shipmentStatus || '').trim();
           if (status !== 'DPending') return false;
@@ -266,38 +266,6 @@ calculateFinalAmount() {
       return (this.allStocks || []).filter(stock => {
         const status = String(stock.shipmentStatus || '').trim();
         return status === 'Pending';
-      });
-    }
-    if (this.activeTab === 'other-branch') {
-      if (!branchId || branchId === 'all') return [];
-      if (branchId === 'all-hubs') {
-        return (this.allStocks || []).filter(stock => {
-          const status = String(stock.shipmentStatus || '').trim();
-          if (status !== 'DPending') return false;
-          const originBranchId =
-            this.normalizeId(stock.branchId) ||
-            this.normalizeId(stock.currentLocationId || stock.currentBranchId || stock.currentBranch);
-          const currentBranchId = this.normalizeId(
-            stock.currentLocationId || stock.currentBranchId || stock.currentBranch
-          );
-          return originBranchId &&
-            currentBranchId &&
-            originBranchId !== currentBranchId &&
-            this.isHubLinkedToAssignedBranch(originBranchId);
-        });
-      }
-      return (this.allStocks || []).filter(stock => {
-        const status = String(stock.shipmentStatus || '').trim();
-        if (status !== 'DPending') return false;
-        const selectedBranchId = this.normalizeId(branchId);
-        const originBranchId = this.normalizeId(stock.branchId);
-        const currentBranchId = this.normalizeId(
-          stock.currentLocationId || stock.currentBranchId || stock.currentBranch
-        );
-        return originBranchId &&
-          selectedBranchId &&
-          originBranchId === selectedBranchId &&
-          originBranchId !== currentBranchId;
       });
     }
     if (this.activeTab === 'others-in-branch') {
@@ -371,7 +339,7 @@ calculateFinalAmount() {
     this.applyFilters();
   }
 
-  setActiveTab(tab: 'stocks' | 'other-branch' | 'others-in-branch') {
+  setActiveTab(tab: 'stocks' | 'others-in-branch') {
     if (this.activeTab === tab) return;
     this.activeTab = tab;
     this.loadStocks();
@@ -826,7 +794,7 @@ calculateFinalAmount() {
     const updates = selected.map((consignment) => {
       const shipmentId = consignment?._id ? encodeURIComponent(consignment._id) : '';
       const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
-      const payload = { ...consignment, shipmentStatus: 'Deleted' };
+      const payload = { ...consignment, shipmentStatus: 'Deleted from Stocks' };
       return this.http.put(
         `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
         payload
@@ -1695,6 +1663,129 @@ getBranchVehicles(): string[] {
     return { id: '', name: currentBranchName };
   }
 
+  private resolveManifestEntityType(entityId: string): 'branch' | 'hub' | '' {
+    if (!entityId) return '';
+    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(entityId));
+    return hub?._id ? 'hub' : 'branch';
+  }
+
+  private resolveManifestVehicleNo(): string {
+    const direct = String(this.selectedRouteVehicle || '').trim();
+    if (direct) return direct;
+    const routeVehicle = (this.shipmentRoute || []).find((p) => String(p?.vehicleNo || '').trim());
+    if (routeVehicle?.vehicleNo) return String(routeVehicle.vehicleNo).trim();
+    const fromConsignment = (this.selectedForManifestation || []).find((c) =>
+      String(c?.currentVehicleNo || '').trim()
+    );
+    return fromConsignment ? String(fromConsignment.currentVehicleNo || '').trim() : '';
+  }
+
+  private createManifestRecord(selectedConsignments: any[]) {
+    const statusValue = String(this.manifestationStatus || 'Manifested').trim();
+    const manifestStatus = statusValue === 'Manifestation' ? 'Scheduled' : statusValue;
+    const isPickup = statusValue.toLowerCase() === 'will be picked-up';
+    const nextPointName = String(this.selectedNextDeliveryPoint || '').trim();
+    const nextPointId = !isPickup && nextPointName ? this.getNextDeliveryPointId(nextPointName) : '';
+    const nextPoint = !isPickup && nextPointName ? this.getSelectedNextRoutePoint() : null;
+    const deliveryType = nextPoint?.type ? String(nextPoint.type).toLowerCase() : '';
+    const sidebarEntityId = this.normalizeId(
+      this.branchId === 'all-hubs'
+        ? (this.selectedHubFilterId || localStorage.getItem('hubId'))
+        : this.branchId
+    );
+    const entityId = sidebarEntityId;
+    const entityType = this.resolveManifestEntityType(entityId);
+    if (!entityType || !entityId) {
+      const fallbackEntityId = sidebarEntityId;
+      if (!fallbackEntityId) {
+        alert('Cannot create manifest: missing branch/hub context.');
+        return;
+      }
+      const fallbackType = this.resolveManifestEntityType(fallbackEntityId);
+      if (!fallbackType) {
+        alert('Cannot create manifest: invalid branch/hub context.');
+        return;
+      }
+      console.warn('[manifest] Missing entity for manifest creation, using fallback.', {
+        fallbackType,
+        fallbackEntityId
+      });
+      const vehicleNo = this.resolveManifestVehicleNo();
+      if (!vehicleNo && !isPickup) {
+        alert('Cannot create manifest: missing vehicle number.');
+        return;
+      }
+      const consignments = (selectedConsignments || []).map((c) => ({
+        shipmentId: c?._id || '',
+        consignmentNumber: c?.consignmentNumber || ''
+      })).filter((c) => c.shipmentId || c.consignmentNumber);
+      if (!consignments.length) return;
+      const payload = {
+        entityType: fallbackType,
+        entityId: fallbackEntityId,
+        deliveryType: deliveryType || undefined,
+        deliveryId: nextPointId || undefined,
+        vehicleNo,
+        status: manifestStatus,
+        consignments
+      };
+      this.http.post<any>('http://localhost:3000/api/manifests', payload).subscribe({
+        next: (res) => {
+          const manifestNumber = res?.manifest?.manifestNumber || '';
+          if (manifestNumber) {
+            this.manifestationNumber = manifestNumber;
+            console.log('[manifest] created', manifestNumber);
+            alert(`Manifest created: ${manifestNumber}`);
+          } else {
+            alert('Manifest created, but no number returned.');
+          }
+        },
+        error: (err) => {
+          console.error('Failed to create manifest record', err);
+          const serverMsg = String(err?.error?.message || '').trim();
+          alert(serverMsg || 'Failed to create manifest number. Please try again.');
+        }
+      });
+      return;
+    }
+    const vehicleNo = this.resolveManifestVehicleNo();
+    if (!vehicleNo && !isPickup) {
+      alert('Cannot create manifest: missing vehicle number.');
+      return;
+    }
+    const consignments = (selectedConsignments || []).map((c) => ({
+      shipmentId: c?._id || '',
+      consignmentNumber: c?.consignmentNumber || ''
+    })).filter((c) => c.shipmentId || c.consignmentNumber);
+    if (!consignments.length) return;
+    const payload = {
+      entityType,
+      entityId,
+      deliveryType: deliveryType || undefined,
+      deliveryId: nextPointId || undefined,
+      vehicleNo,
+      status: manifestStatus,
+      consignments
+    };
+    this.http.post<any>('http://localhost:3000/api/manifests', payload).subscribe({
+      next: (res) => {
+        const manifestNumber = res?.manifest?.manifestNumber || '';
+        if (manifestNumber) {
+          this.manifestationNumber = manifestNumber;
+          console.log('[manifest] created', manifestNumber);
+          alert(`Manifest created: ${manifestNumber}`);
+        } else {
+          alert('Manifest created, but no number returned.');
+        }
+      },
+      error: (err) => {
+        console.error('Failed to create manifest record', err);
+        const serverMsg = String(err?.error?.message || '').trim();
+        alert(serverMsg || 'Failed to create manifest number. Please try again.');
+      }
+    });
+  }
+
   private matchesBranchLabel(currentBranch: string, branchLabel: string): boolean {
     const current = String(currentBranch || '').trim().toLowerCase();
     const label = String(branchLabel || '').trim().toLowerCase();
@@ -1938,6 +2029,7 @@ openManifestationPopup() {
     alert('Please select a specific branch before manifesting consignments.');
     return;
   }
+  this.manifestationNumber = '';
   // Filter selected consignments
   this.selectedForManifestation = this.filteredStocks.filter(s => s.selected);
 
@@ -2005,20 +2097,10 @@ finalizeManifestation() {
     return;
   }
 
-  const requiresRoute = String(this.manifestationStatus || '').trim() !== 'Will be Picked-Up';
-  if (requiresRoute && this.shipmentRoute.some(p => !String(p.vehicleNo || '').trim())) {
-    alert('Please select a vehicle for each route point.');
-    return;
-  }
-
-  if (requiresRoute && this.routeBaskets.length && !this.buildBasketDescriptor()) {
-    alert('Please add at least one basket with a quantity.');
-    return;
-  }
-
-  const routeString = this.buildRouteString();
-  if (requiresRoute && !routeString) {
-    alert('Please add at least one route point.');
+  const requiresVehicle = String(this.manifestationStatus || '').trim() !== 'Will be Picked-Up';
+  const vehicleSelected = Boolean(String(this.selectedRouteVehicle || '').trim());
+  if (requiresVehicle && !vehicleSelected) {
+    alert('Please select a vehicle.');
     return;
   }
   if (this.manifestationStatus === 'Manifestation' && !String(this.selectedNextDeliveryPoint || '').trim()) {
@@ -2027,26 +2109,7 @@ finalizeManifestation() {
   }
 
   const updates = (this.selectedForManifestation || []).map((consignment) => {
-    const updatedEwaybills = (consignment.ewaybills || []).map((ewb: any) => (
-      routeString
-        ? (() => {
-            const existingRoutes = String(ewb?.routes || '').trim();
-            const nextRoutes = String(routeString || '').trim();
-            if (!existingRoutes) return { ...ewb, routes: nextRoutes };
-
-            const isWillBePickedUp = String(this.manifestationStatus || '').trim() === 'Will be Picked-Up';
-            if (isWillBePickedUp) {
-              return existingRoutes === nextRoutes ? { ...ewb } : { ...ewb, routes: nextRoutes };
-            }
-
-            const normalizedNext = nextRoutes.replace(/^\$\$\s*/, '');
-            if (normalizedNext && existingRoutes.includes(normalizedNext)) {
-              return { ...ewb };
-            }
-            return { ...ewb, routes: `${existingRoutes}$$${normalizedNext}` };
-          })()
-        : { ...ewb }
-    ));
+    const updatedEwaybills = (consignment.ewaybills || []).map((ewb: any) => ({ ...ewb }));
 
     const nextPointName = String(this.selectedNextDeliveryPoint || '').trim();
     const nextPointId = nextPointName ? this.getNextDeliveryPointId(nextPointName) : '';
@@ -2071,7 +2134,7 @@ finalizeManifestation() {
         nextStatus = 'D-|Will be Picked-Up';
       }
     }
-    const shouldAttachVehicle = requiresRoute &&
+    const shouldAttachVehicle = requiresVehicle &&
       vehicleNo &&
       vehicleOwnerType &&
       vehicleOwnerId &&
@@ -2103,10 +2166,10 @@ finalizeManifestation() {
 
   forkJoin(updates).subscribe({
     next: () => {
-      this.createTpartnerActivityFromManifest();
       if (this.manifestationStatus === 'Manifestation' || this.manifestationStatus === 'Out for Delivery') {
         this.updateInternalVehicleStatuses('scheduled');
       }
+      this.createManifestRecord(this.selectedForManifestation);
       this.showManifestationPopup = false;
       this.selectedForManifestation = [];
       this.filteredStocks.forEach(s => s.selected = false);
@@ -2203,39 +2266,6 @@ private buildManifestationPincodeDirections(consignments: any[]): string[] {
     if (!pickup && !delivery) return '';
     return `$$${pickup}-${delivery}`;
   }).filter(Boolean);
-}
-
-private createTpartnerActivityFromManifest() {
-  if (!this.isExternalTransport) return;
-  if (!String(this.selectedTransportPartnerId || '').trim()) return;
-  if (!String(this.selectedRouteVehicle || '').trim()) return;
-
-  const partner = this.transportPartners.find((p: any) =>
-    String(p?._id) === String(this.selectedTransportPartnerId)
-  );
-  const tpartnerName = String(partner?.partnerName || '').trim();
-  if (!tpartnerName) return;
-
-  const consignmentIds = (this.selectedForManifestation || [])
-    .map((c: any) => c?._id)
-    .filter(Boolean)
-    .map((id: any) => `$$${id}`);
-
-  const pincodeDirections = this.buildManifestationPincodeDirections(this.selectedForManifestation);
-  if (!consignmentIds.length || !pincodeDirections.length) return;
-
-  const payload = {
-    tpartnerId: this.selectedTransportPartnerId,
-    tpartnerName,
-    vehicleNumbers: [this.selectedRouteVehicle],
-    consignmentIds,
-    pincodeDirections
-  };
-
-  this.http.post('http://localhost:3000/api/tpartner-activity', payload)
-    .subscribe({
-      error: (err) => console.error('Error creating transport partner activity:', err)
-    });
 }
 
 validateManifestQty(product: any) {

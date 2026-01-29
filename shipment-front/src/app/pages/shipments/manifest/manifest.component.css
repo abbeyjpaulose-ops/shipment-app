@@ -187,8 +187,164 @@
   border-color: var(--stock-primary-strong);
 }
 
+.stocks-table button:disabled,
+.manifest-details-actions button:disabled {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+  color: #ffffff;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
 .actions {
   margin-top: 15px;
+}
+
+.manifest-table-section {
+  margin: 20px 0;
+}
+
+.manifest-table-section h3 {
+  margin: 0 0 10px;
+}
+
+.manifest-filters {
+  display: flex;
+  gap: 10px;
+  margin: 8px 0 12px;
+  flex-wrap: wrap;
+}
+
+.manifest-filters input,
+.manifest-filters select {
+  padding: 8px 10px;
+  border: 1px solid var(--stock-border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--stock-text);
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.manifest-details-content {
+  background: var(--stock-bg);
+  color: var(--stock-text);
+  width: min(720px, 92vw);
+  max-height: 85vh;
+  border-radius: 16px;
+  border: 1px solid var(--stock-border);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+}
+
+.manifest-details-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 16px;
+  background: var(--stock-card);
+  border: 1px solid var(--stock-border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.manifest-consignments {
+  margin-top: 10px;
+}
+
+.consignment-split {
+  border: 1px solid var(--stock-border);
+  border-radius: 12px;
+  padding: 10px;
+  background: var(--stock-card);
+  margin-bottom: 12px;
+}
+
+.consignment-header {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  color: var(--stock-muted);
+  font-size: 13px;
+}
+
+.consignment-pickup {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  color: var(--stock-text);
+  font-size: 12px;
+}
+
+.consignment-pickup .pickup-address {
+  flex: 1 1 100%;
+}
+
+.consignment-edit-panel {
+  margin: 12px 0 16px;
+  padding: 12px;
+  border: 1px solid var(--stock-border);
+  border-radius: 12px;
+  background: var(--stock-card);
+}
+
+.consignment-edit-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.consignment-edit-list h5 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--stock-text);
+}
+
+.consignment-edit-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--stock-text);
+  padding: 6px 8px;
+  border: 1px solid var(--stock-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  margin-bottom: 6px;
+}
+
+.consignment-edit-empty {
+  font-size: 12px;
+  color: var(--stock-muted);
+  padding: 6px 0;
+}
+
+.consignment-edit-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.consignment-edit-status {
+  font-size: 12px;
+  color: var(--stock-muted);
+}
+
+.consignment-edit-status.error {
+  color: var(--stock-danger);
+}
+
+@media (max-width: 700px) {
+  .manifest-details-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .consignment-edit-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Modal Styling */

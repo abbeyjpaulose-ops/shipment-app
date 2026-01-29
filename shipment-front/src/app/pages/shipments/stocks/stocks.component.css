@@ -578,6 +578,11 @@
   color: white;
 }
 
+.manifest-number {
+  margin: 6px 0 10px;
+  color: #9cdcfe;
+}
+
 .cancel-list {
   list-style: none;
   padding: 0;
