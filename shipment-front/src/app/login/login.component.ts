@@ -27,7 +27,7 @@ export class LoginComponent {
         const role = res.role;
         const token = res.token;
         const branches = res.branches;
-        const branchIds = res.branchIds;
+        const originLocIds = res.originLocIds;
         const branchNames = res.branchNames;
         const gstin = res.GSTIN;
         const gstinId = res.GSTIN_ID;
@@ -42,11 +42,11 @@ export class LoginComponent {
         } else if (Array.isArray(branches)) {
           localStorage.setItem('branches', JSON.stringify(branches));
         }
-        if (Array.isArray(branchIds)) {
-          localStorage.setItem('branchIds', JSON.stringify(branchIds));
+        if (Array.isArray(originLocIds)) {
+          localStorage.setItem('originLocIds', JSON.stringify(originLocIds));
         }
         localStorage.setItem('branch', 'All Branches');
-        localStorage.setItem('branchId', 'all');
+        localStorage.setItem('originLocId', 'all');
 
         console.log('✅ Login successful for user:', localStorage.getItem('companyType'));        
 

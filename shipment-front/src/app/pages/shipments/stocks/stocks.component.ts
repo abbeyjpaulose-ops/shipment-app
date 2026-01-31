@@ -55,7 +55,7 @@ consigneeTab: 'consignee' | 'guest' = 'consignee';
   username: string = '';
   isAdmin = String(localStorage.getItem('role') || '').toLowerCase() === 'admin';
   branch: string = localStorage.getItem('branch') || 'All Branches';
-  branchId: string = localStorage.getItem('branchId') || 'all';
+  originLocId: string = localStorage.getItem('originLocId') || 'all';
 consignmentNumber: string = localStorage.getItem('consignmentNumber')||'-999'; // will be loaded asynchronously
 date: string = new Date().toISOString().split('T')[0];
 ewaybillNumber: string = '';
@@ -87,7 +87,6 @@ hubs: any[] = [];
   selectedRoutePoint: any = null;
   selectedRouteVehicle: string = '';
   selectedNextDeliveryPoint: string = '';
-  routeBaskets: Array<{ labelKey: string; qty: number }> = [];
   private branchSub?: Subscription;
   private branchCheck: any;
 
@@ -159,22 +158,27 @@ calculateFinalAmount() {
 
   loadStocks() {
     const username = this.username || localStorage.getItem('username') || '';
-    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+    const originLocId = this.originLocId || localStorage.getItem('originLocId') || 'all';
     if (!username) {
       console.error('Missing username for loading stocks');
       return;
     }
-    const branchParamRaw = this.activeTab === 'stocks' ? branchId : 'all';
+    const branchParamRaw = this.activeTab === 'stocks' ? originLocId : 'all';
     const branchParam = branchParamRaw === 'all-hubs' ? 'all' : branchParamRaw;
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', {
-      params: {
-        username,
-        branchId: branchParam
-      }
-    }).subscribe({
+    const params: any = {
+      username
+    };
+    const originFilter = this.getSelectedOrigin(branchParam);
+    if (originFilter) {
+      params.originType = originFilter.originType;
+      params.originLocId = originFilter.originLocId;
+    } else {
+      params.originLocId = branchParam;
+    }
+    this.http.get<any[]>('http://localhost:3000/api/newshipments', { params }).subscribe({
       next: (res: any[]) => {
         console.log('[stocks][load]', {
-          branchId,
+          originLocId,
           branchParam,
           activeTab: this.activeTab,
           count: Array.isArray(res) ? res.length : 0
@@ -250,17 +254,17 @@ calculateFinalAmount() {
 
 
   private getBaseStocks(): any[] {
-    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
-    if (branchId === 'all') {
+    const originLocId = this.originLocId || localStorage.getItem('originLocId') || 'all';
+    if (originLocId === 'all') {
       if (this.activeTab === 'others-in-branch') {
         return (this.allStocks || []).filter(stock => {
           const status = String(stock.shipmentStatus || '').trim();
           if (status !== 'DPending') return false;
-          const originBranchId = this.normalizeId(stock.branchId);
-          const currentBranchId = this.normalizeId(
-            stock.currentLocationId || stock.currentBranchId || stock.currentBranch
+          const originoriginLocId = this.getOriginId(stock);
+          const currentoriginLocId = this.normalizeId(
+            stock.currentLocationId || stock.currentBranch
           );
-          return originBranchId && currentBranchId && originBranchId !== currentBranchId;
+          return originoriginLocId && currentoriginLocId && originoriginLocId !== currentoriginLocId;
         });
       }
       return (this.allStocks || []).filter(stock => {
@@ -269,67 +273,65 @@ calculateFinalAmount() {
       });
     }
     if (this.activeTab === 'others-in-branch') {
-      if (!branchId || branchId === 'all') return [];
-      if (branchId === 'all-hubs') {
+      if (!originLocId || originLocId === 'all') return [];
+      if (originLocId === 'all-hubs') {
         return (this.allStocks || []).filter(stock => {
           const status = String(stock.shipmentStatus || '').trim();
           if (status !== 'DPending') return false;
-          const currentBranchId = this.normalizeId(
-            stock.currentLocationId || stock.currentBranchId || stock.currentBranch
-          );
-          const originBranchId =
-            this.normalizeId(stock.branchId) ||
-            this.normalizeId(stock.currentLocationId || stock.currentBranchId || stock.currentBranch);
+        const currentoriginLocId = this.normalizeId(
+          stock.currentLocationId || stock.currentBranch
+        );
+        const originoriginLocId = this.getOriginId(stock) || currentoriginLocId;
           const selectedHubId = this.normalizeId(this.selectedHubFilterId);
           const selectedHubName = selectedHubId
             ? String((this.hubs || []).find((h) => this.normalizeId(h?._id) === selectedHubId)?.hubName || '').trim()
             : '';
           const currentBranchLabel = String(stock.currentBranch || '').trim();
           const matchesSelectedHub = Boolean(selectedHubId) && (
-            currentBranchId === selectedHubId ||
+            currentoriginLocId === selectedHubId ||
             String(currentBranchLabel).toLowerCase() === String(selectedHubName).toLowerCase() ||
             this.matchesBranchLabel(currentBranchLabel, selectedHubName)
           );
           return selectedHubId &&
-            originBranchId &&
-            originBranchId !== selectedHubId &&
+            originoriginLocId &&
+            originoriginLocId !== selectedHubId &&
             matchesSelectedHub;
         });
       }
       return (this.allStocks || []).filter(stock => {
-        const currentBranchId = this.normalizeId(
-          stock.currentLocationId || stock.currentBranchId || stock.currentBranch
+        const currentoriginLocId = this.normalizeId(
+          stock.currentLocationId || stock.currentBranch
         );
-        const originBranchId = this.normalizeId(stock.branchId);
+        const originoriginLocId = this.getOriginId(stock);
         const status = String(stock.shipmentStatus || '').trim();
         if (status !== 'DPending') return false;
-        const selectedBranchId = this.normalizeId(branchId);
-        return currentBranchId &&
-          selectedBranchId &&
-          currentBranchId === selectedBranchId &&
-          originBranchId &&
-          originBranchId !== currentBranchId;
+        const selectedoriginLocId = this.normalizeId(originLocId);
+        return currentoriginLocId &&
+          selectedoriginLocId &&
+          currentoriginLocId === selectedoriginLocId &&
+          originoriginLocId &&
+          originoriginLocId !== currentoriginLocId;
       });
     }
     return (this.allStocks || []).filter(stock => {
       const status = String(stock.shipmentStatus || '').trim();
       if (status !== 'Pending') return false;
-      if (!branchId || branchId === 'all') {
+      if (!originLocId || originLocId === 'all') {
         return true;
       }
-        if (branchId === 'all-hubs') {
+        if (originLocId === 'all-hubs') {
           const hubId =
-            this.normalizeId(stock.branchId) ||
-            this.normalizeId(stock.currentLocationId || stock.currentBranchId || stock.currentBranch);
+            this.getOriginId(stock) ||
+            this.normalizeId(stock.currentLocationId || stock.currentBranch);
           return this.isHubLinkedToAssignedBranch(hubId);
         }
-      const currentBranchId = this.normalizeId(
-        stock.currentLocationId || stock.currentBranchId || stock.currentBranch
+      const currentoriginLocId = this.normalizeId(
+        stock.currentLocationId || stock.currentBranch
       );
-      const selectedBranchId = this.normalizeId(branchId);
-      return currentBranchId &&
-        selectedBranchId &&
-        currentBranchId === selectedBranchId;
+      const selectedoriginLocId = this.normalizeId(originLocId);
+      return currentoriginLocId &&
+        selectedoriginLocId &&
+        currentoriginLocId === selectedoriginLocId;
     });
   }
 
@@ -346,9 +348,9 @@ calculateFinalAmount() {
   }
 
   applyFilters() {
-    const branchId = this.branchId || localStorage.getItem('branchId') || 'all';
+    const originLocId = this.originLocId || localStorage.getItem('originLocId') || 'all';
     const hubFilterId = this.normalizeId(this.selectedHubFilterId);
-    const useHubFilter = branchId === 'all-hubs';
+    const useHubFilter = originLocId === 'all-hubs';
     if (useHubFilter && !hubFilterId) {
       const storedHubId = this.normalizeId(localStorage.getItem('hubId'));
       const storedHubName = String(localStorage.getItem('hubName') || '').trim();
@@ -392,12 +394,12 @@ calculateFinalAmount() {
     if (!hubId) return false;
     const hasHubName = Boolean(hubName);
     if (this.activeTab === 'others-in-branch') {
-      const currentBranchId = this.normalizeId(
-        stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch
+      const currentoriginLocId = this.normalizeId(
+        stock?.currentLocationId || stock?.currentBranch
       );
       const currentBranchLabel = String(stock?.currentBranch || '').trim();
       return (
-        currentBranchId === hubId ||
+        currentoriginLocId === hubId ||
         (hasHubName && currentBranchLabel.toLowerCase() === hubName.toLowerCase()) ||
         (hasHubName && this.matchesBranchLabel(currentBranchLabel, hubName))
       );
@@ -412,17 +414,17 @@ calculateFinalAmount() {
 
   private getStockHubId(stock: any): string {
     return (
-      this.normalizeId(stock?.branchId) ||
-      this.normalizeId(stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch)
+      this.normalizeId(stock?.originLocId) ||
+      this.normalizeId(stock?.currentLocationId || stock?.currentBranch)
     );
   }
 
   private getStockCurrentHubId(stock: any): string {
-    const currentBranchId = this.normalizeId(
-      stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch
+    const currentoriginLocId = this.normalizeId(
+      stock?.currentLocationId || stock?.currentBranch
     );
-    if (!currentBranchId) return '';
-    const hubById = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentBranchId);
+    if (!currentoriginLocId) return '';
+    const hubById = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentoriginLocId);
     if (hubById?._id) return this.normalizeId(hubById._id);
     const currentName = String(stock?.currentBranch || '').trim().toLowerCase();
     if (!currentName) return '';
@@ -440,7 +442,24 @@ calculateFinalAmount() {
     return String(value);
   }
 
-  private getBranchIdByName(name: string): string {
+  private getOriginId(stock: any): string {
+    if (!stock) return '';
+    const raw = stock?.originLocId || stock?.originLocId|| stock?.originLocId || stock?.branch;
+    return this.normalizeId(raw);
+  }
+
+  private getSelectedOrigin(originLocIdOverride: string | null = null): { originType: 'branch' | 'hub'; originLocId: string } | null {
+    const originLocId = (originLocIdOverride || this.originLocId || localStorage.getItem('originLocId') || 'all').toLowerCase();
+    if (!originLocId || originLocId === 'all') return null;
+    if (originLocId === 'all-hubs') {
+      const hubId = this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'));
+      return hubId ? { originType: 'hub', originLocId: hubId } : null;
+    }
+    const normalized = this.normalizeId(originLocId);
+    return normalized ? { originType: 'branch', originLocId: normalized } : null;
+  }
+
+  private getoriginLocIdByName(name: string): string {
     const target = String(name || '').trim().toLowerCase();
     if (!target) return '';
     const branch = (this.branches || []).find((b) =>
@@ -456,23 +475,23 @@ calculateFinalAmount() {
     return branch?.branchName ? String(branch.branchName) : '';
   }
 
-  private isCurrentBranchMatch(currentBranchId: string, uiBranchId: string): boolean {
-    if (!currentBranchId || !uiBranchId) return false;
-    if (this.normalizeId(currentBranchId) === this.normalizeId(uiBranchId)) return true;
-    const uiBranchName = this.getBranchNameById(uiBranchId);
+  private isCurrentBranchMatch(currentoriginLocId: string, uioriginLocId: string): boolean {
+    if (!currentoriginLocId || !uioriginLocId) return false;
+    if (this.normalizeId(currentoriginLocId) === this.normalizeId(uioriginLocId)) return true;
+    const uiBranchName = this.getBranchNameById(uioriginLocId);
     if (
       uiBranchName &&
-      String(currentBranchId || '').trim().toLowerCase() === String(uiBranchName).trim().toLowerCase()
+      String(currentoriginLocId || '').trim().toLowerCase() === String(uiBranchName).trim().toLowerCase()
     ) {
       return true;
     }
-    if (this.matchesBranchLabel(String(currentBranchId || ''), String(uiBranchName || ''))) {
+    if (this.matchesBranchLabel(String(currentoriginLocId || ''), String(uiBranchName || ''))) {
       return true;
     }
-    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(currentBranchId));
+    const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === this.normalizeId(currentoriginLocId));
     if (!hub?.branch) return false;
-    const branchId = this.getBranchIdByName(hub.branch);
-    return branchId ? this.normalizeId(branchId) === this.normalizeId(uiBranchId) : false;
+    const originLocId = this.getoriginLocIdByName(hub.branch);
+    return originLocId ? this.normalizeId(originLocId) === this.normalizeId(uioriginLocId) : false;
   }
 
   getDeliveryDisplayName(stock: any): string {
@@ -539,13 +558,13 @@ calculateFinalAmount() {
 
   getCurrentBranchLabel(stock: any): string {
     return this.formatLocationDisplay(
-      stock?.currentLocationId || stock?.currentBranchId || stock?.currentBranch,
+      stock?.currentLocationId || stock?.currentBranch,
       stock?.currentBranch
     );
   }
 
   getOriginBranchLabel(stock: any): string {
-    return this.formatLocationDisplay(stock?.branchId || stock?.branch, stock?.branch || stock?.branchName);
+    return this.formatLocationDisplay(stock?.originLocId || stock?.branch, stock?.branch || stock?.branchName);
   }
 
   private firstNonEmpty(...values: any[]): string {
@@ -597,16 +616,16 @@ calculateFinalAmount() {
     if (this.isAdmin) {
       return Boolean(String(hubId || '').trim());
     }
-    const assignedBranchIds = this.getAssignedBranchIds();
-    if (!assignedBranchIds.length) return false;
+    const assignedoriginLocIds = this.getAssignedoriginLocIds();
+    if (!assignedoriginLocIds.length) return false;
     const hub = this.resolveHubByIdOrName(hubId, hubId);
     if (!hub) return false;
-    return assignedBranchIds.includes(this.normalizeId(hub?.branchId));
+    return assignedoriginLocIds.includes(this.normalizeId(hub?.originLocId));
   }
 
-  private getAssignedBranchIds(): string[] {
+  private getAssignedoriginLocIds(): string[] {
     try {
-      const storedIds = JSON.parse(localStorage.getItem('branchIds') || '[]');
+      const storedIds = JSON.parse(localStorage.getItem('originLocIds') || '[]');
       if (!Array.isArray(storedIds)) return [];
       return storedIds
         .map((id: any) => String(id || '').trim())
@@ -671,7 +690,7 @@ calculateFinalAmount() {
   private enrichShipmentDetails(stock: any): any {
     const enriched = { ...stock };
     const branchName = this.firstNonEmpty(stock?.branchName, stock?.branch);
-    const branch = this.resolveBranchByIdOrName(stock?.branchId, branchName);
+    const branch = this.resolveBranchByIdOrName(stock?.originLocId, branchName);
     enriched.branch = this.firstNonEmpty(branch?.branchName, branchName);
     const consignor = stock?.consignorTab === 'guest'
       ? this.resolveGuestByIdOrName(stock?.consignorId, stock?.consignor)
@@ -762,7 +781,7 @@ calculateFinalAmount() {
   showCancelPopup = false;
 
   openCancelPopup() {
-    if (String(this.branchId || '').trim().toLowerCase() === 'all') {
+    if (String(this.originLocId || '').trim().toLowerCase() === 'all') {
       alert('Please select a specific branch for canceling');
       return;
     }
@@ -1283,7 +1302,7 @@ calculateFinalAmount() {
     delete payload._id;
     delete payload.consignmentNumber;
     delete payload.GSTIN_ID;
-    delete payload.branchId;
+    delete payload.originLocId;
     delete payload.branchName;
     const cleanProduct = (prod: any) => {
       delete prod._originalAmount;
@@ -1352,8 +1371,8 @@ addRoutePoint() {
   if (!this.selectedRoutePoint) return;
   const vehicleNo = this.selectedRouteVehicle || '';
 
-  const branchId = this.normalizeId(this.branchId || localStorage.getItem('branchId'));
-  const isAllHubsSelection = branchId === 'all-hubs';
+  const originLocId = this.normalizeId(this.originLocId || localStorage.getItem('originLocId'));
+  const isAllHubsSelection = originLocId === 'all-hubs';
   const selectedHubId = isAllHubsSelection
     ? (this.normalizeId(this.selectedHubFilterId) || this.normalizeId(localStorage.getItem('hubId')))
     : '';
@@ -1417,7 +1436,7 @@ loadHubs() {
 }
 
 updateAvailableRoutePoints() {
-  const branchFilterId = this.normalizeId(this.branchId || localStorage.getItem('branchId'));
+  const branchFilterId = this.normalizeId(this.originLocId || localStorage.getItem('originLocId'));
   const isAllHubs = branchFilterId === 'all-hubs';
   const hubFilterId = this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'));
   const locationFilterId = isAllHubs ? hubFilterId : branchFilterId;
@@ -1591,16 +1610,16 @@ getTransportPartnerVehicles(): string[] {
 }
 
 getBranchVehicles(): string[] {
-  const currentBranchId = this.normalizeId(this.branchId || localStorage.getItem('branchId'));
+  const currentoriginLocId = this.normalizeId(this.originLocId || localStorage.getItem('originLocId'));
   const currentBranchName = String(this.branch || localStorage.getItem('branch') || '').trim();
   const currentBranchNameLower = currentBranchName.toLowerCase();
-  const isAllHubsSelection = currentBranchId === 'all-hubs' || currentBranchNameLower === 'all hubs';
+  const isAllHubsSelection = currentoriginLocId === 'all-hubs' || currentBranchNameLower === 'all hubs';
   const selectedHubId = isAllHubsSelection
     ? (this.normalizeId(this.selectedHubFilterId) ||
         this.normalizeId(this.getSelectedNextHub()?._id) ||
         this.normalizeId(localStorage.getItem('hubId')))
     : '';
-  const locationFilterId = isAllHubsSelection ? selectedHubId : currentBranchId;
+  const locationFilterId = isAllHubsSelection ? selectedHubId : currentoriginLocId;
   const locationFilterName = locationFilterId
     ? String(
         (this.branches || []).find((b) => this.normalizeId(b?._id) === locationFilterId)?.branchName ||
@@ -1617,7 +1636,7 @@ getBranchVehicles(): string[] {
   const seen = new Set<string>();
   return vehicles
     .filter((v: any) => {
-      const currentLocationRaw = v?.currentLocationId || v?.currentBranchId || v?.currentBranch || '';
+      const currentLocationRaw = v?.currentLocationId || v?.currentBranch || v?.currentBranch || '';
       const currentLocation = this.normalizeId(currentLocationRaw);
       if (!currentLocation) return false;
       if (this.isCurrentBranchMatch(currentLocation, locationFilterId)) return true;
@@ -1640,15 +1659,15 @@ getBranchVehicles(): string[] {
   private getManifestationTargetBranch(): { id: string; name: string } | null {
     const first = (this.selectedForManifestation || [])[0];
     if (!first) return null;
-    const currentBranchId = this.normalizeId(
-      first?.currentLocationId || first?.currentBranchId || first?.currentBranch
+    const currentoriginLocId = this.normalizeId(
+      first?.currentLocationId || first?.currentBranch || first?.currentBranch
     );
-    if (currentBranchId) {
-      const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === currentBranchId);
-      if (branch?.branchName) return { id: currentBranchId, name: String(branch.branchName).trim() };
-      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentBranchId);
-      if (hub?.hubName) return { id: currentBranchId, name: String(hub.hubName).trim() };
-      return { id: currentBranchId, name: '' };
+    if (currentoriginLocId) {
+      const branch = (this.branches || []).find((b) => this.normalizeId(b?._id) === currentoriginLocId);
+      if (branch?.branchName) return { id: currentoriginLocId, name: String(branch.branchName).trim() };
+      const hub = (this.hubs || []).find((h) => this.normalizeId(h?._id) === currentoriginLocId);
+      if (hub?.hubName) return { id: currentoriginLocId, name: String(hub.hubName).trim() };
+      return { id: currentoriginLocId, name: '' };
     }
     const currentBranchName = String(first?.currentBranch || '').trim();
     if (!currentBranchName) return null;
@@ -1689,9 +1708,9 @@ getBranchVehicles(): string[] {
     const nextPoint = !isPickup && nextPointName ? this.getSelectedNextRoutePoint() : null;
     const deliveryType = nextPoint?.type ? String(nextPoint.type).toLowerCase() : '';
     const sidebarEntityId = this.normalizeId(
-      this.branchId === 'all-hubs'
+      this.originLocId === 'all-hubs'
         ? (this.selectedHubFilterId || localStorage.getItem('hubId'))
-        : this.branchId
+        : this.originLocId
     );
     const entityId = sidebarEntityId;
     const entityType = this.resolveManifestEntityType(entityId);
@@ -1805,114 +1824,16 @@ onEditingPaymentModeChange() {
   }
 }
 
-private buildRouteString(): string {
-  if (this.manifestationStatus === 'Will be Picked-Up') {
-    return '$$|Will be Picked-Up';
-  }
-
-  if (!this.shipmentRoute.length) return '';
-
-  const hasBaskets = (this.routeBaskets || []).length > 0;
-  const prefix = hasBaskets
-    ? `$$${this.buildBasketDescriptor()}$$`
-    : '$$';
-
-  const route = prefix + this.shipmentRoute
-    .map(p => {
-      const vehicle = String(p.vehicleNo || '').trim();
-      return vehicle
-        ? `${p.name} (${p.type})|${vehicle}`
-        : `${p.name} (${p.type})`;
-    })
-    .join(' -> ');
-
-  if (this.manifestationStatus === 'Out for Delivery') {
-    return `${route}|Out for Delivery`;
-  }
-
-  return route;
-}
-
-private buildBasketDescriptor(): string {
-  return (this.routeBaskets || [])
-    .filter(b => b && String(b.labelKey || '').trim() && Number(b.qty) > 0)
-    .map(b => {
-      const key = String(b.labelKey || '').trim();
-      const parts = key.split('|');
-      const labelType = parts.shift() || '';
-      const labelValue = parts.join('|');
-      const label = labelValue ? `${labelType}:${labelValue}` : labelType;
-      return `${label}-${Number(b.qty)}`;
-    })
-    .join('|');
-}
-
-addRouteBasket() {
-  const options = this.getBasketOptions();
-  const firstKey = options.length ? options[0].key : '';
-  this.routeBaskets.push({ labelKey: firstKey, qty: 0 });
-}
-
-removeRouteBasket(index: number) {
-  if (index < 0 || index >= this.routeBaskets.length) return;
-  this.routeBaskets.splice(index, 1);
-}
-
-getBasketOptions(): Array<{ key: string; text: string }> {
-  const consignment = (this.selectedForManifestation || [])[0];
-  if (!consignment) return [];
-
-  const options: Array<{ key: string; text: string }> = [];
-  const consNum = consignment.consignmentNumber || '';
-  if (consNum) {
-    options.push({ key: `Consignment|${consNum}`, text: `Consignment: ${consNum}` });
-  }
-
-  const ewaybills = consignment.ewaybills || [];
-  if (ewaybills.length) {
-    ewaybills.forEach((ewb: any, eIdx: number) => {
-      const eNum = ewb.number || ewb.ewaybillNumber || `EWB-${eIdx + 1}`;
-      options.push({ key: `Ewaybill|${eNum}`, text: `Ewaybill: ${eNum}` });
-      (ewb.invoices || []).forEach((inv: any, iIdx: number) => {
-        const invNum = inv.number || inv.invoicenum || `INV-${iIdx + 1}`;
-        options.push({ key: `Invoice|${invNum}`, text: `Invoice: ${invNum}` });
-        (inv.products || []).forEach((prod: any, pIdx: number) => {
-          const pType = prod.type || prod.productName || `Product-${pIdx + 1}`;
-          options.push({
-            key: `Product|${invNum}:${pType}`,
-            text: `Product: ${invNum} - ${pType}`
-          });
-        });
-      });
-    });
-    return options;
-  }
-
-  (consignment.invoices || []).forEach((inv: any, iIdx: number) => {
-    const invNum = inv.number || inv.invoicenum || `INV-${iIdx + 1}`;
-    options.push({ key: `Invoice|${invNum}`, text: `Invoice: ${invNum}` });
-    (inv.products || []).forEach((prod: any, pIdx: number) => {
-      const pType = prod.type || prod.productName || `Product-${pIdx + 1}`;
-      options.push({
-        key: `Product|${invNum}:${pType}`,
-        text: `Product: ${invNum} - ${pType}`
-      });
-    });
-  });
-
-  return options;
-}
-
   ngOnInit() {
     this.email = localStorage.getItem('email') || '';
     this.username = localStorage.getItem('username') || '';
     this.branch = this.branchService.currentBranch || localStorage.getItem('branch') || 'All Branches';
-    this.branchId = localStorage.getItem('branchId') || 'all';
+    this.originLocId = localStorage.getItem('originLocId') || 'all';
 
     this.branchSub = this.branchService.branch$.subscribe(branch => {
       this.branch = branch;
-      this.branchId = localStorage.getItem('branchId') || 'all';
-      if (this.branchId !== 'all-hubs') {
+      this.originLocId = localStorage.getItem('originLocId') || 'all';
+      if (this.originLocId !== 'all-hubs') {
         this.selectedHubFilterId = null;
         this.selectedHubFilterName = '';
       }
@@ -1922,11 +1843,11 @@ getBasketOptions(): Array<{ key: string; text: string }> {
     // react to branch changes (same tab)
     this.branchCheck = setInterval(() => {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.branch || currentId !== this.branchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.branch || currentId !== this.originLocId) {
         this.branch = current;
-        this.branchId = currentId;
-        if (this.branchId !== 'all-hubs') {
+        this.originLocId = currentId;
+        if (this.originLocId !== 'all-hubs') {
           this.selectedHubFilterId = null;
           this.selectedHubFilterName = '';
         }
@@ -1962,7 +1883,18 @@ getBasketOptions(): Array<{ key: string; text: string }> {
     });
 
     // Products list
-    this.http.get<any[]>(`http://localhost:3000/api/products/productlist?branchId=${encodeURIComponent(this.branchId)}&branch=${encodeURIComponent(this.branch)}`)
+    const originFilter = this.getSelectedOrigin();
+    const productParams: any = {
+      branch: this.branch || localStorage.getItem('branch') || ''
+    };
+    if (originFilter) {
+      productParams.originType = originFilter.originType;
+      productParams.originLocId = originFilter.originLocId;
+    } else {
+      const originLocIdFallback = this.originLocId || localStorage.getItem('originLocId') || 'all';
+      productParams.originLocId = originLocIdFallback === 'all-hubs' ? 'all' : originLocIdFallback;
+    }
+    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params: productParams })
     .subscribe({
       next: data => this.productList = data,
       error: err => console.error('Error fetching product list', err),
@@ -1970,7 +1902,16 @@ getBasketOptions(): Array<{ key: string; text: string }> {
     });
 
     // Transport partners list
-    this.http.get<any>(`http://localhost:3000/api/tpartners/tpartnerslist?branchId=${encodeURIComponent(this.branchId || 'all')}`)
+    const transportParams: any = {};
+    const transportOrigin = this.getSelectedOrigin();
+    if (transportOrigin) {
+      transportParams.originType = transportOrigin.originType;
+      transportParams.originLocId = transportOrigin.originLocId;
+    } else {
+      const originLocIdFallback = this.originLocId || localStorage.getItem('originLocId') || 'all';
+      transportParams.originLocId = originLocIdFallback === 'all-hubs' ? 'all' : originLocIdFallback;
+    }
+    this.http.get<any>(`http://localhost:3000/api/tpartners/tpartnerslist`, { params: transportParams })
     .subscribe({
       next: data => this.transportPartners = Array.isArray(data) ? data : (data?.value || []),
       error: err => console.error('Error fetching transport partners', err),
@@ -1989,13 +1930,13 @@ getBasketOptions(): Array<{ key: string; text: string }> {
   }
 
   private onStorageChange = (e: StorageEvent) => {
-    if (e.key === 'branch' || e.key === 'branchId') {
+    if (e.key === 'branch' || e.key === 'originLocId') {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.branch || currentId !== this.branchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.branch || currentId !== this.originLocId) {
         this.branch = current;
-        this.branchId = currentId;
-        if (this.branchId !== 'all-hubs') {
+        this.originLocId = currentId;
+        if (this.originLocId !== 'all-hubs') {
           this.selectedHubFilterId = null;
           this.selectedHubFilterName = '';
         }
@@ -2025,7 +1966,7 @@ getBasketOptions(): Array<{ key: string; text: string }> {
   
 
 openManifestationPopup() {
-  if (this.branchId === 'all' || !this.branchId) {
+  if (this.originLocId === 'all' || !this.originLocId) {
     alert('Please select a specific branch before manifesting consignments.');
     return;
   }
@@ -2038,19 +1979,18 @@ openManifestationPopup() {
     alert('Please select at least one consignment to manifest.');
     return;
   }
-  const manifestBranchIds = new Set(
+  const manifestoriginLocIds = new Set(
     this.selectedForManifestation
-      .map((c) => this.normalizeId(c?.currentLocationId || c?.currentBranchId || c?.currentBranch))
+      .map((c) => this.normalizeId(c?.currentLocationId || c?.currentBranch || c?.currentBranch))
       .filter(Boolean)
   );
-  if (manifestBranchIds.size > 1) {
+  if (manifestoriginLocIds.size > 1) {
     alert('Selected consignments are in different branches/hubs.');
     return;
   }
 
 
   this.manifestationStatus = 'Manifestation';
-  this.routeBaskets = [];
   this.selectedNextDeliveryPoint = '';
 
   // Initialize manifestQty and eway bill fields
@@ -2203,12 +2143,12 @@ private updateInternalVehicleStatuses(status: string) {
     if (!vehicleNo) return;
     if (point.type === 'Branch') {
       const branch = this.resolveBranchByName(point.name) || this.resolveBranchByVehicle(vehicleNo);
-      const branchId = branch?._id ? String(branch._id) : '';
-      if (!branchId) return;
-      const key = `branch:${branchId}:${vehicleNo}`;
+      const originLocId = branch?._id ? String(branch._id) : '';
+      if (!originLocId) return;
+      const key = `branch:${originLocId}:${vehicleNo}`;
       if (seen.has(key)) return;
       seen.add(key);
-      calls.push(this.http.patch(`http://localhost:3000/api/branches/${branchId}/vehicle-status`, {
+      calls.push(this.http.patch(`http://localhost:3000/api/branches/${originLocId}/vehicle-status`, {
         vehicleNo,
         vehicleStatus: status
       }));
@@ -2226,11 +2166,11 @@ private updateInternalVehicleStatuses(status: string) {
     } else {
       const branch = this.resolveBranchByVehicle(vehicleNo);
       if (branch?._id) {
-        const branchId = String(branch._id);
-        const key = `branch:${branchId}:${vehicleNo}`;
+        const originLocId = String(branch._id);
+        const key = `branch:${originLocId}:${vehicleNo}`;
         if (!seen.has(key)) {
           seen.add(key);
-          calls.push(this.http.patch(`http://localhost:3000/api/branches/${branchId}/vehicle-status`, {
+          calls.push(this.http.patch(`http://localhost:3000/api/branches/${originLocId}/vehicle-status`, {
             vehicleNo,
             vehicleStatus: status
           }));

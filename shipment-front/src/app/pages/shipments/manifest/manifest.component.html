@@ -66,6 +66,20 @@
         <p><strong>Status:</strong> {{ selectedManifestDetails.manifest.status || '-' }}</p>
         <p><strong>Delivery Point:</strong> {{ selectedManifestDetails.deliveryPoint || '-' }}</p>
         <p><strong>Pickup Point:</strong> {{ selectedManifestDetails.pickupPoint || '-' }}</p>
+        <p>
+          <strong>Entity ID:</strong>
+          {{ selectedManifestDetails.manifest.entityId || '-' }}
+        </p>
+        <p *ngIf="selectedManifestDetails.manifest._id">
+          <strong>Manifest ID:</strong>
+          <a
+            [href]="getManifestUrl(selectedManifestDetails.manifest)"
+            target="_blank"
+            rel="noopener noreferrer">
+            {{ selectedManifestDetails.manifest._id }}
+          </a>
+        </p>
+        <p><strong>Linked consignments:</strong> {{ getManifestConsignments()?.length || 0 }}</p>
       </div>
       <div class="manifest-details-actions" *ngIf="selectedManifestDetails?.manifest">
         <button
@@ -77,8 +91,8 @@
       </div>
 
       <h4>Consignments</h4>
-      <div class="manifest-consignments" *ngIf="selectedManifestDetails?.consignments?.length; else noConsignments">
-        <div class="consignment-split" *ngFor="let c of selectedManifestDetails.consignments">
+      <div class="manifest-consignments" *ngIf="getManifestConsignments()?.length; else noConsignments">
+        <div class="consignment-split" *ngFor="let c of getManifestConsignments()">
           <div class="consignment-header">
             <span><strong>Consignment No.:</strong> {{ c.consignmentNumber }}</span>
             <span><strong>Status:</strong> {{ c.shipmentStatus }}</span>
@@ -129,7 +143,7 @@
         <div class="consignment-edit-grid">
           <div class="consignment-edit-list">
             <h5>Current Consignments (remove)</h5>
-            <div class="consignment-edit-item" *ngFor="let c of selectedManifestDetails?.consignments || []">
+            <div class="consignment-edit-item" *ngFor="let c of getManifestConsignments()">
               <label>
                 <input
                   type="checkbox"
@@ -137,12 +151,12 @@
                   (change)="toggleConsignmentRemove(c)" />
                 <span>
                   {{ c.consignmentNumber }}
-                  {{ getBranchNameById(c.branchId || '') || c.branchId || '-' }}
+                  {{ getBranchNameById(c.originLocId || '') || c.originLocId || '-' }}
                   ({{ c.shipmentStatus }})
                 </span>
               </label>
             </div>
-            <div class="consignment-edit-empty" *ngIf="!(selectedManifestDetails?.consignments || []).length">
+            <div class="consignment-edit-empty" *ngIf="!getManifestConsignments().length">
               No consignments in this manifest.
             </div>
           </div>
@@ -156,7 +170,7 @@
                   (change)="toggleConsignmentAdd(c)" />
                 <span>
                   {{ c.consignmentNumber }}
-                  {{ getBranchNameById(c.branchId || '') || c.branchId || '-' }}
+                  {{ getBranchNameById(c.originLocId || '') || c.originLocId || '-' }}
                   ({{ c.shipmentStatus }})
                 </span>
               </label>

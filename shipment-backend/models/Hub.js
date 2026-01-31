@@ -28,7 +28,7 @@ export const HubSchema = new mongoose.Schema(
 
     hubName: { type: String, required: true, trim: true },
     address: { type: String, required: true, trim: true },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
+    originLocId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
     city: { type: String, trim: true },
     state: { type: String, trim: true },
     pinCode: { type: String, trim: true },

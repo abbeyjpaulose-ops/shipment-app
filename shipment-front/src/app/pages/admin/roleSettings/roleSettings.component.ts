@@ -90,7 +90,7 @@ export class RoleSettingsComponent implements OnInit {
       phoneNumber: this.newUser.phoneNumber,
       password: this.newUser.password,
       role: this.newUser.role,
-      branchIds: this.newUser.branches
+      originLocIds: this.newUser.branches
     };
 
     this.http.post('http://localhost:3000/api/admin/users', payload)
@@ -115,8 +115,8 @@ export class RoleSettingsComponent implements OnInit {
   startEdit(row: any) {
     this.editId = Number(row?._id);
     this.editUser = {
-      branches: Array.isArray(row?.branchIds)
-        ? row.branchIds
+      branches: Array.isArray(row?.originLocIds)
+        ? row.originLocIds
         : this.mapBranchNamesToIds(row?.branchNames || row?.branches || []),
       email: row?.email || '',
       username: row?.username || '',
@@ -141,7 +141,7 @@ export class RoleSettingsComponent implements OnInit {
     if (this.editId === null) return;
 
     const payload: any = {
-      branchIds: this.editUser.branches,
+      originLocIds: this.editUser.branches,
       email: this.editUser.email,
       username: this.editUser.username,
       phoneNumber: this.editUser.phoneNumber,

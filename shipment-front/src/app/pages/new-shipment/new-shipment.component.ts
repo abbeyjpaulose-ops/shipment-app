@@ -40,7 +40,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     deliveryLocations: [{ address: '', city: '', state: '', pinCode: '' }],
     status: 'active',
     branch: '',
-    branchId: ''
+    originLocId: ''
   };
 
   editableClientList: any[] = [];
@@ -72,7 +72,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     hsnNum: '',
     productName: '',
     status: 'active',
-    branchId: '',
+    originLocId: '',
     rates: [
       {
         pickupLocationId: '',
@@ -214,7 +214,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.username = localStorage.getItem('username') || '';
     this.branch = localStorage.getItem('branch') || 'All Branches';
     this.newClient.branch = this.branch;
-    this.newClient.branchId = localStorage.getItem('branchId') || 'all';
+    this.newClient.originLocId = localStorage.getItem('originLocId') || 'all';
     this.deliveryBranch = this.branch;
 
     this.loadDraft(this.branch);
@@ -264,7 +264,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.selectedAllHubId = '';
     }
     this.newClient.branch = this.branch;
-    this.newClient.branchId = localStorage.getItem('branchId') || 'all';
+    this.newClient.originLocId = localStorage.getItem('originLocId') || 'all';
     this.editClient.branch = this.branch;
     if (this.deliveryType === 'branch') {
       this.deliveryBranch = this.branch;
@@ -433,16 +433,16 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   private loadLists() {
     // Client list
-    const branchId = localStorage.getItem('branchId') || 'all';
-    const productsBranchId = branchId === 'all-hubs' ? 'all' : branchId;
-    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?branchId=${encodeURIComponent(branchId)}`)
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    const productsoriginLocId = originLocId === 'all-hubs' ? 'all' : originLocId;
+    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?originLocId=${encodeURIComponent(originLocId)}`)
       .subscribe(res => {
         this.clientList = res;
         this.rebuildRateAddressOptions();
         this.syncConsignorDiscount();
           this.updatePaymentModeAvailability();
       });
-    this.http.get<any[]>('http://localhost:3000/api/clients/clientslist?branchId=all')
+    this.http.get<any[]>('http://localhost:3000/api/clients/clientslist?originLocId=all')
       .subscribe(res => {
         this.rateAddressClients = res || [];
         this.rebuildRateAddressOptions();
@@ -458,8 +458,36 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
     // Product list (defaults)
     const branch = localStorage.getItem('branch') || '';
-    this.http.get<any[]>(`http://localhost:3000/api/products/productlist?branchId=${encodeURIComponent(productsBranchId)}&branch=${encodeURIComponent(branch)}`)
+    const originFilter = this.getOriginFilterFromoriginLocId(originLocId);
+    const params: any = { branch };
+    if (originFilter) {
+      params.originType = originFilter.originType;
+      params.originLocId = originFilter.originLocId;
+    } else {
+      params.originLocId = productsoriginLocId;
+    }
+    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params })
       .subscribe(res => this.productList = res);
+  }
+
+  private getOriginFilterFromoriginLocId(originLocId: string): { originType: 'branch' | 'hub'; originLocId: string } | null {
+    if (!originLocId) return null;
+    const lower = String(originLocId).trim().toLowerCase();
+    if (!lower || lower === 'all') return null;
+    if (lower === 'all-hubs') {
+      const hubId = this.normalizeHubId(localStorage.getItem('hubId'));
+      return hubId ? { originType: 'hub', originLocId: hubId } : null;
+    }
+    const normalized = this.normalizeHubId(originLocId);
+    return normalized ? { originType: 'branch', originLocId: normalized } : null;
+  }
+
+  private normalizeHubId(value: any): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (value?._id) return String(value._id);
+    if (value?.$oid) return String(value.$oid);
+    return String(value);
   }
 
   private loadHubDetails() {
@@ -629,19 +657,19 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   // CONSIGNMENT NUMBER
   getCurrentConsignmentNumber() {
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (!this.branch || this.branch === 'All Branches' || branchId === 'all') {
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (!this.branch || this.branch === 'All Branches' || originLocId === 'all') {
       this.consignmentNumber = 'nil';
       return;
     }
-    if (this.branch === 'All Hubs' || branchId === 'all-hubs') {
+    if (this.branch === 'All Hubs' || originLocId === 'all-hubs') {
       const hubId = String(this.selectedAllHubId || '').trim();
       if (!hubId) {
         this.consignmentNumber = 'nil';
         return;
       }
       this.http.get<{ nextNumber: number, fiscalYear: string }>(
-        `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&branchId=${encodeURIComponent(hubId)}`
+        `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&originLocId=${encodeURIComponent(hubId)}&originType=hub`
       ).subscribe({
         next: (res) => {
           this.consignmentNumber = res.nextNumber.toString();
@@ -652,7 +680,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       return;
     }
     this.http.get<{ nextNumber: number, fiscalYear: string }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&branchId=${encodeURIComponent(branchId)}`
+      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&originLocId=${encodeURIComponent(originLocId)}&originType=branch`
     ).subscribe({
       next: (res) => {
         this.consignmentNumber = res.nextNumber.toString();
@@ -684,8 +712,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   private beginSaveFlow() {
     const branch = localStorage.getItem('branch') || '';
-    const branchId = localStorage.getItem('branchId') || 'all';
-    const isAllHubs = branch === 'All Hubs' || branchId === 'all-hubs';
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    const isAllHubs = branch === 'All Hubs' || originLocId === 'all-hubs';
     if (isAllHubs) {
       this.rateOverrides = [];
       this.showRateOverrideModal = false;
@@ -705,11 +733,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.isSaving = true;
     this.shipmentStatus = 'Pending';
     const branch = localStorage.getItem('branch') || '';
-    const branchId = localStorage.getItem('branchId') || 'all';
-    const isAllHubs = branch === 'All Hubs' || branchId === 'all-hubs';
-    let originHubId = '';
-    let effectiveBranchId = branchId;
-    let effectiveCurrentBranchId = branchId;
+    let originLocId = localStorage.getItem('originLocId') || 'all';
+    const isAllHubs = branch === 'All Hubs' || originLocId === 'all-hubs';
+    let effectiveoriginLocId = originLocId;
+    let effectiveCurrentoriginLocId = originLocId;
     if (isAllHubs) {
       const hub = this.getSelectedAllHub();
       if (!hub) {
@@ -717,25 +744,25 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         alert('Select at least one hub before saving.');
         return;
       }
-      originHubId = String(hub?._id || '').trim();
-      effectiveBranchId = originHubId;
-      effectiveCurrentBranchId = originHubId;
-      if (!effectiveBranchId) {
+      originLocId= String(hub?._id || '').trim();
+      effectiveoriginLocId = originLocId;
+      effectiveCurrentoriginLocId = originLocId;
+      if (!effectiveoriginLocId) {
         this.isSaving = false;
         alert('Selected hub is invalid.');
         return;
       }
     }
-    const statusDetailsBranchId =
-      effectiveCurrentBranchId && effectiveCurrentBranchId !== 'all'
-        ? `$$${effectiveCurrentBranchId}`
+    const statusDetailsoriginLocId =
+      effectiveCurrentoriginLocId && effectiveCurrentoriginLocId !== 'all'
+        ? `$$${effectiveCurrentoriginLocId}`
         : '';
     const shipmentData: any = {
       username: localStorage.getItem('username'),
       branch,
-      currentLocationId: effectiveCurrentBranchId,
+      currentLocationId: effectiveCurrentoriginLocId,
       shipmentStatus: this.shipmentStatus,
-      shipmentStatusDetails: statusDetailsBranchId,
+      shipmentStatusDetails: statusDetailsoriginLocId,
       consignmentNumber: this.consignmentNumber,
       date: this.date,
       paymentMode: this.paymentMode,
@@ -752,7 +779,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       consigneeAddress: this.consigneeAddress,
       consigneePhone: this.consigneePhone,
       consigneeId: this.consigneeId,
-      branchId: effectiveBranchId,
+      originLocId: effectiveoriginLocId,
       billingType: this.billingType,
       billingName: this.billingName,
       billingGSTIN: this.billingGSTIN,
@@ -781,7 +808,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       };
     if (isAllHubs) {
       shipmentData.allHubs = true;
-      shipmentData.originHubId = originHubId;
+      shipmentData.originLocId= originLocId;
     }
 
     if (this.consignorTab === 'guest') shipmentData.consignorGST = 'GUEST';
@@ -2094,16 +2121,16 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   getAvailableHubs(): any[] {
     const allHubs = this.hubs || [];
-    const assignedBranchIds = this.isAdmin ? [] : this.getAssignedBranchIds();
+    const assignedoriginLocIds = this.isAdmin ? [] : this.getAssignedoriginLocIds();
     const scopedHubs = this.isAdmin
       ? allHubs
-      : (assignedBranchIds.length
-          ? allHubs.filter((h) => assignedBranchIds.includes(String(h?.branchId || '').trim()))
+      : (assignedoriginLocIds.length
+          ? allHubs.filter((h) => assignedoriginLocIds.includes(String(h?.originLocId || '').trim()))
           : []);
     if (this.branch && this.branch !== 'All Branches' && this.branch !== 'All Hubs') {
-      const branchId = String(localStorage.getItem('branchId') || '').trim();
+      const originLocId = String(localStorage.getItem('originLocId') || '').trim();
       return scopedHubs.filter((h) =>
-        String(h?.branch || '') === this.branch || (branchId && String(h?.branchId || '') === branchId)
+        String(h?.branch || '') === this.branch || (originLocId && String(h?.originLocId || '') === originLocId)
       );
     }
     return scopedHubs;
@@ -2122,10 +2149,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   getAllHubsOptions(): any[] {
     if (this.isAdmin) return this.hubs || [];
-    const branchIds = this.getAssignedBranchIds();
-    if (!branchIds.length) return [];
+    const originLocIds = this.getAssignedoriginLocIds();
+    if (!originLocIds.length) return [];
     return (this.hubs || []).filter((hub: any) =>
-      branchIds.includes(String(hub?.branchId || '').trim())
+      originLocIds.includes(String(hub?.originLocId || '').trim())
     );
   }
 
@@ -2133,9 +2160,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     return this.branch === 'All Hubs' && !String(this.selectedAllHubId || '').trim();
   }
 
-  private getAssignedBranchIds(): string[] {
+  private getAssignedoriginLocIds(): string[] {
     try {
-      const storedIds = JSON.parse(localStorage.getItem('branchIds') || '[]');
+      const storedIds = JSON.parse(localStorage.getItem('originLocIds') || '[]');
       if (!Array.isArray(storedIds)) return [];
       return storedIds
         .map((id: any) => String(id || '').trim())
@@ -2152,16 +2179,16 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
           this.branches = branches || [];
           this.rebuildRateAddressOptions();
           this.branchDetails = this.branches.find(b => b.branchName === this.branch) || null;
-          const storedBranchId = localStorage.getItem('branchId') || 'all';
-          const resolvedBranchId = this.branchDetails?._id ? String(this.branchDetails._id) : '';
+          const storedoriginLocId = localStorage.getItem('originLocId') || 'all';
+          const resolvedoriginLocId = this.branchDetails?._id ? String(this.branchDetails._id) : '';
           if (
             this.branch &&
             this.branch !== 'All Branches' &&
-            resolvedBranchId &&
-            (storedBranchId === 'all' || !storedBranchId)
+            resolvedoriginLocId &&
+            (storedoriginLocId === 'all' || !storedoriginLocId)
           ) {
-            localStorage.setItem('branchId', resolvedBranchId);
-            this.newClient.branchId = resolvedBranchId;
+            localStorage.setItem('originLocId', resolvedoriginLocId);
+            this.newClient.originLocId = resolvedoriginLocId;
             this.getCurrentConsignmentNumber();
             this.loadLists();
           }
@@ -2281,10 +2308,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   private buildSuggestionKey(clientId: string | null): string {
-    const branchId = localStorage.getItem('branchId') || '';
+    const originLocId = localStorage.getItem('originLocId') || '';
     return [
       clientId || '',
-      branchId || this.branch || '',
+      originLocId || this.branch || '',
       String(this.pickupLocationId || '').trim(),
       String(this.deliveryLocationId || '').trim(),
       this.rateUnit || ''
@@ -2292,14 +2319,14 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   private loadPricingSuggestions(clientId: string | null, requestKey: string, attempt = 0) {
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (!branchId || branchId === 'all') return;
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (!originLocId || originLocId === 'all') return;
     if (!clientId) return;
     if (requestKey !== this.suggestionRequestKey) return;
     const branch = this.branch || '';
     const params = clientId
-      ? `branchId=${encodeURIComponent(branchId)}&branch=${encodeURIComponent(branch)}&clientId=${clientId}`
-      : `branchId=${encodeURIComponent(branchId)}&branch=${encodeURIComponent(branch)}`;
+      ? `originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}&clientId=${clientId}`
+      : `originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`;
     const routeParams = [
       `pickupLocationId=${encodeURIComponent(this.pickupLocationId || '')}`,
       `deliveryLocationId=${encodeURIComponent(this.deliveryLocationId || '')}`,
@@ -2397,9 +2424,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   private shouldSuppressPricingSuggestions(): boolean {
     if (this.consignorTab === 'guest') return true;
-    const branchId = String(localStorage.getItem('branchId') || '').trim();
+    const originLocId = String(localStorage.getItem('originLocId') || '').trim();
     const branchName = String(this.branch || '').trim().toLowerCase();
-    if (branchId === 'all-hubs' || branchName === 'all hubs') return true;
+    if (originLocId === 'all-hubs' || branchName === 'all hubs') return true;
     if (this.billingSource && this.billingSource.startsWith('hub:')) return true;
     return false;
   }
@@ -2426,7 +2453,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       deliveryLocations: [{ address: '', city: '', state: '', pinCode: '' }],
       status: 'active',
       branch: this.branch,
-      branchId: localStorage.getItem('branchId') || 'all'
+      originLocId: localStorage.getItem('originLocId') || 'all'
     };
     this.clientError = '';
     this.editClientError = '';
@@ -2457,9 +2484,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   private loadEditableClients(selectId?: string) {
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (!branchId || branchId === 'all') return;
-    this.http.get<any[]>(`http://localhost:3000/api/clients?branchId=${encodeURIComponent(branchId)}`)
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (!originLocId || originLocId === 'all') return;
+    this.http.get<any[]>(`http://localhost:3000/api/clients?originLocId=${encodeURIComponent(originLocId)}`)
       .subscribe({
         next: (res) => {
           this.editableClientList = res || [];
@@ -2527,8 +2554,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   // QUICK ADD PRODUCT
   openProductModal() {
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (!branchId || branchId === 'all') {
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (!originLocId || originLocId === 'all') {
       alert('Select a specific branch before adding a product.');
       return;
     }
@@ -2537,7 +2564,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       hsnNum: '',
       productName: '',
       status: 'active',
-      branchId,
+      originLocId,
       rates: [
         {
           pickupLocationId: '',
@@ -2571,8 +2598,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   saveNewProduct() {
     this.productError = '';
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (!branchId || branchId === 'all') {
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (!originLocId || originLocId === 'all') {
       this.productError = 'Select a specific branch before adding a product.';
       return;
     }
@@ -2595,7 +2622,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     });
     this.newProduct.rates = sanitizedRates;
 
-    this.newProduct.branchId = branchId;
+    this.newProduct.originLocId = originLocId;
     this.http.post('http://localhost:3000/api/products/add', this.newProduct, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
@@ -2616,18 +2643,18 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       return;
     }
     const isAllHubsSelection =
-      this.newClient.branch === 'All Hubs' || this.newClient.branchId === 'all-hubs';
-    this.newClient.branchId = localStorage.getItem('branchId') || 'all';
-    if (this.newClient.branch === 'All Hubs' || this.newClient.branchId === 'all-hubs') {
+      this.newClient.branch === 'All Hubs' || this.newClient.originLocId === 'all-hubs';
+    this.newClient.originLocId = localStorage.getItem('originLocId') || 'all';
+    if (this.newClient.branch === 'All Hubs' || this.newClient.originLocId === 'all-hubs') {
       const hub = this.getSelectedAllHub();
       if (!hub) {
         this.clientError = 'Select a hub before adding a client.';
         return;
       }
-      this.newClient.branchId = String(hub?._id || '').trim();
+      this.newClient.originLocId = String(hub?._id || '').trim();
       this.newClient.branch = String(hub?.hubName || '').trim() || this.newClient.branch;
     }
-    if (this.newClient.branch === 'All Branches' || this.newClient.branchId === 'all') {
+    if (this.newClient.branch === 'All Branches' || this.newClient.originLocId === 'all') {
       this.clientError = 'Select a specific branch before adding a client.';
       return;
     }

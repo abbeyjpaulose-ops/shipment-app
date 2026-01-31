@@ -23,7 +23,7 @@
       (input)="applyFilters()" />
 
     <select
-      *ngIf="branchId === 'all-hubs'"
+      *ngIf="originLocId === 'all-hubs'"
       [(ngModel)]="selectedHubFilterId"
       (ngModelChange)="onHubFilterChange($event)">
       <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
@@ -53,7 +53,8 @@
   </div>
 
   <!-- 📦 Stocks Table -->
-  <table class="stocks-table">
+  <div class="stocks-table-wrapper">
+    <table class="stocks-table">
     <thead>
       <tr>
         <th><input type="checkbox" (change)="toggleAllSelection($event)" /></th>
@@ -84,7 +85,8 @@
         </td>
       </tr>
     </tbody>
-  </table>
+    </table>
+  </div>
 
 
 </div>

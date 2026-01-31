@@ -18,7 +18,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   showAddPartnerPopup = false;
   showEditPartnerPopup = false;
   branch: string = localStorage.getItem('branch') || 'All Branches';
-  branchId: string = localStorage.getItem('branchId') || 'all';
+  originLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchSub?: Subscription;
 
   newPartner = {
@@ -31,7 +31,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
     vehicleNumbers: [] as { number: string; phone: string; rateType: string; rateValue: number; vehicleStatus?: string }[],
     status: 'active',
     branch: localStorage.getItem('branch') || 'All Branches',
-    branchId: localStorage.getItem('branchId') || 'all'
+    originLocId: localStorage.getItem('originLocId') || 'all'
   };
 
   newVehicle = { number: '', phone: '', rateType: 'km', rateValue: 0, vehicleStatus: 'online' };
@@ -44,12 +44,12 @@ export class TpartnerComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.branch = this.branchService.currentBranch || this.branch;
-    this.branchId = localStorage.getItem('branchId') || this.branchId;
+    this.originLocId = localStorage.getItem('originLocId') || this.originLocId;
     this.branchSub = this.branchService.branch$.subscribe(branch => {
-      const currentBranchId = localStorage.getItem('branchId') || 'all';
-      if (branch !== this.branch || currentBranchId !== this.branchId) {
+      const currentoriginLocId = localStorage.getItem('originLocId') || 'all';
+      if (branch !== this.branch || currentoriginLocId !== this.originLocId) {
         this.branch = branch;
-        this.branchId = currentBranchId;
+        this.originLocId = currentoriginLocId;
         this.loadPartners();
       }
     });
@@ -108,7 +108,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   loadPartners() {
     this.http.get<any[]>(`http://localhost:3000/api/tpartners`, {
       params: {
-        branchId: this.branchId || localStorage.getItem('branchId') || 'all'
+        originLocId: this.originLocId || localStorage.getItem('originLocId') || 'all'
       }
     })
       .subscribe(res => {
@@ -127,8 +127,8 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   // Add Partner
   addPartner() {
     this.newPartner.branch = this.branch || localStorage.getItem('branch') || 'All Branches';
-    this.newPartner.branchId = this.branchId || localStorage.getItem('branchId') || 'all';
-    if (this.newPartner.branch === 'All Branches' || this.newPartner.branchId === 'all') {
+    this.newPartner.originLocId = this.originLocId || localStorage.getItem('originLocId') || 'all';
+    if (this.newPartner.branch === 'All Branches' || this.newPartner.originLocId === 'all') {
       alert('Please select a specific branch before adding a transport partner.');
       return;
     }
@@ -156,7 +156,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
       vehicleNumbers: [],
       status: 'active',
       branch: this.branch || localStorage.getItem('branch') || 'All Branches',
-      branchId: this.branchId || localStorage.getItem('branchId') || 'all'
+      originLocId: this.originLocId || localStorage.getItem('originLocId') || 'all'
     };
     this.editingNewVehicleIndex = null;
     this.newVehicle = { number: '', phone: '', rateType: 'km', rateValue: 0, vehicleStatus: 'online' };
@@ -242,12 +242,12 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   }
 
   private onStorageChange = (e: StorageEvent) => {
-    if (e.key === 'branch' || e.key === 'branchId') {
+    if (e.key === 'branch' || e.key === 'originLocId') {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.branch || currentId !== this.branchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.branch || currentId !== this.originLocId) {
         this.branch = current;
-        this.branchId = currentId;
+        this.originLocId = currentId;
         this.loadPartners();
       }
     }

@@ -210,11 +210,11 @@ export class BranchComponent implements OnInit {
     if (currentId && currentLabel) {
       options.push({ id: currentId, label: currentLabel });
     }
-    const editingBranchId = this.normalizeId(this.editingBranch?._id);
+    const editingoriginLocId = this.normalizeId(this.editingBranch?._id);
     (this.hubs || []).forEach((hub: any) => {
-      if (!editingBranchId) return;
-      const hubBranchId = this.normalizeId(hub?.branchId);
-      if (!hubBranchId || hubBranchId !== editingBranchId) return;
+      if (!editingoriginLocId) return;
+      const huboriginLocId = this.normalizeId(hub?.originLocId);
+      if (!huboriginLocId || huboriginLocId !== editingoriginLocId) return;
       const id = this.normalizeId(hub?._id);
       const label = String(hub?.hubName || '').trim();
       if (id && label && !options.some((o) => o.id === id)) {

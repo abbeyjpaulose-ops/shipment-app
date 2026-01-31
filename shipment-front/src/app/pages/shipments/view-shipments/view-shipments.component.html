@@ -27,7 +27,7 @@
         <option value="Delivered">Delivered</option>
       </select>
       <select
-        *ngIf="branchId === 'all-hubs'"
+        *ngIf="originLocId === 'all-hubs'"
         [(ngModel)]="selectedHubFilterId"
         (ngModelChange)="onHubFilterChange($event)">
         <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
@@ -48,7 +48,6 @@
             <th>Status</th>
             <th>Branch</th>
             <th>Current Branch</th>
-            <th>Routes</th>
             <th>Consignor</th>
             <th>Delivery Address</th>
             <th>No. of Products</th>
@@ -60,7 +59,6 @@
             <td>{{ s.shipmentStatus }}</td>
             <td>{{ s.branch }}</td>
             <td>{{ getCurrentBranchDisplay(s) }}</td>
-            <td>{{ getRoutesDisplay(s) }}</td>
             <td>{{ s.consignor }}</td>
             <td>{{ s.deliveryAddress }}</td>
             <td>{{ getInvoiceAmountTotal(s.invoices) }}</td>
@@ -93,7 +91,7 @@
         <option value="Delivered">Delivered</option>
       </select>
       <select
-        *ngIf="branchId === 'all-hubs'"
+        *ngIf="originLocId === 'all-hubs'"
         [(ngModel)]="selectedHubFilterId"
         (ngModelChange)="onHubFilterChange($event)">
         <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
@@ -113,7 +111,6 @@
             <th>Consignment No.</th>
             <th>Branch</th>
             <th>Current Branch</th>
-            <th>Routes</th>
             <th>Consignor</th>
             <th>Status</th>
             <th>Delivery Address</th>
@@ -133,7 +130,6 @@
             <td>{{ s.consignmentNumber }}</td>
             <td>{{ s.branch }}</td>
             <td>{{ getCurrentBranchDisplay(s) }}</td>
-            <td>{{ getRoutesDisplay(s) }}</td>
             <td>{{ s.consignor }}</td>
             <td>{{ s.shipmentStatus }}</td>
             <td>{{ s.deliveryAddress }}</td>
@@ -191,15 +187,25 @@
     </div>
 
     <div class="shipment-details details-grid">
+      <p><strong>Shipment ID:</strong> {{ selectedShipment._id }}</p>
       <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
-      <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
-      <p><strong>Status Details:</strong> {{ selectedShipment.shipmentStatusDetails }}</p>
-      <p><strong>Branch:</strong> {{ getOriginBranchDisplay(selectedShipment) }}</p>
+        <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
+        <p><strong>Status Details:</strong> {{ selectedShipment.shipmentStatusDetails }}</p>
+        <p *ngIf="selectedShipmentManifestId">
+          <strong>Manifest:</strong>
+          <a
+            [href]="getManifestUrl(selectedShipmentManifestId)"
+            target="_blank"
+            rel="noopener noreferrer">
+            <span *ngIf="selectedShipmentManifestNumber">{{ selectedShipmentManifestNumber }} — </span>
+            {{ selectedShipmentManifestId }}
+          </a>
+        </p>
+        <p><strong>Branch:</strong> {{ getOriginBranchDisplay(selectedShipment) }}</p>
       <p><strong>Current Branch:</strong> {{ getCurrentBranchDisplay(selectedShipment) }}</p>
       <p><strong>Current Vehicle No.:</strong> {{ selectedShipment.currentVehicleNo }}</p>
       <p><strong>Current Vehicle Owner Type:</strong> {{ selectedShipment.currentVehicleOwnerType }}</p>
       <p><strong>Current Vehicle Owner ID:</strong> {{ selectedShipment.currentVehicleOwnerId }}</p>
-      <p><strong>Routes:</strong> {{ getRoutesDisplay(selectedShipment) }}</p>
       <p><strong>Consignor:</strong> {{ selectedShipment.consignor }}</p>
       <p><strong>Consignor GST:</strong> {{ selectedShipment.consignorGST }}</p>
       <p><strong>Consignor Phone:</strong> {{ selectedShipment.consignorPhone }}</p>

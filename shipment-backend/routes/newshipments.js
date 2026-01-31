@@ -20,15 +20,15 @@ import { syncPaymentsFromGeneratedInvoices } from '../services/paymentSync.js';
 
 const router = express.Router();
 
-function normalizeBranchIds(ids) {
+function normalizeoriginLocIds(ids) {
   if (!Array.isArray(ids)) return [];
   return ids.map((id) => String(id || '')).filter(Boolean);
 }
 
-function getAllowedBranchIds(req) {
+function getAllowedoriginLocIds(req) {
   const role = String(req.user?.role || '').toLowerCase();
   if (role === 'admin') return null;
-  return normalizeBranchIds(req.user?.branchIds);
+  return normalizeoriginLocIds(req.user?.originLocIds);
 }
 
 function normalizeAmount(value) {
@@ -89,6 +89,24 @@ function formatLocation(loc) {
   return parts.join(', ');
 }
 
+function normalizeOriginType(value) {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'hub') return 'hub';
+  return 'branch';
+}
+
+function ensureOriginFromExisting(shipmentData, existing) {
+  if (!existing || !shipmentData) return;
+  if (!shipmentData.originLocId) {
+    shipmentData.originLocId = existing.originLocId || existing.originLocId|| existing.originLocId;
+  }
+  if (!shipmentData.originType) {
+    shipmentData.originType = existing.originType
+      ? normalizeOriginType(existing.originType)
+      : (existing.originLocId? 'hub' : 'branch');
+  }
+}
+
 function findLocationById(locations, targetId) {
   if (!targetId) return null;
   const matchId = String(targetId);
@@ -96,6 +114,56 @@ function findLocationById(locations, targetId) {
     const locId = loc?.delivery_id || loc?._id || loc?.id;
     return locId && String(locId) === matchId;
   }) || null;
+}
+
+async function resolveOriginId(originId, gstinId, allowedoriginLocIds) {
+  if (!originId) {
+    return { error: 'Invalid originLocId' };
+  }
+  if (!mongoose.Types.ObjectId.isValid(originId)) {
+    return { error: 'Invalid originLocId' };
+  }
+  const normalizedId = new mongoose.Types.ObjectId(originId);
+  const hub = await Hub.findOne({ _id: normalizedId, GSTIN_ID: gstinId }).select('_id originLocId').lean();
+  if (hub) {
+    if (allowedoriginLocIds && !allowedoriginLocIds.includes(String(hub.originLocId || ''))) {
+      return { error: 'Branch access denied' };
+    }
+    return { originType: 'hub', originLocId: hub._id };
+  }
+  if (allowedoriginLocIds && !allowedoriginLocIds.includes(originId)) {
+    return { error: 'Branch access denied' };
+  }
+  return { originType: 'branch', originLocId: normalizedId };
+}
+
+async function assertOriginAccess(originTypeRaw, originLocIdRaw, gstinId, allowedoriginLocIds) {
+  const originType = normalizeOriginType(originTypeRaw);
+  if (!originLocIdRaw) {
+    return { error: 'originLocId is required', status: 400 };
+  }
+  if (!mongoose.Types.ObjectId.isValid(originLocIdRaw)) {
+    return { error: 'Invalid originLocId', status: 400 };
+  }
+  const normalizedId = new mongoose.Types.ObjectId(originLocIdRaw);
+  if (originType === 'hub') {
+    const hub = await Hub.findOne({ _id: normalizedId, GSTIN_ID: gstinId }).select('_id originLocId').lean();
+    if (!hub) {
+      return { error: 'Invalid originHubId', status: 400 };
+    }
+    if (allowedoriginLocIds && !allowedoriginLocIds.includes(String(hub.originLocId || ''))) {
+      return { error: 'Branch access denied', status: 403 };
+    }
+    return { originType: 'hub', originLocId: hub._id };
+  }
+  if (allowedoriginLocIds && !allowedoriginLocIds.includes(originLocIdRaw)) {
+    return { error: 'Branch access denied', status: 403 };
+  }
+  return { originType: 'branch', originLocId: normalizedId };
+}
+
+function getOriginKey(shipment) {
+  return String(shipment.originLocId || shipment.originLocId|| shipment.originLocId || '');
 }
 
 function getFiscalYearWindow(date = new Date()) {
@@ -109,6 +177,23 @@ function buildBillingKey(shipment) {
   const clientId = shipment?.billingClientId ? String(shipment.billingClientId) : '';
   const locationId = shipment?.billingLocationId ? String(shipment.billingLocationId) : '';
   return `${clientId}::${locationId}`;
+}
+
+async function buildOriginNameMap(originIds = []) {
+  const ids = Array.from(new Set((originIds || []).map((id) => String(id || '')).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const [branches, hubs] = await Promise.all([
+    Branch.find({ _id: { $in: ids }, branchName: { $exists: true } }).select('_id branchName').lean(),
+    Hub.find({ _id: { $in: ids } }).select('_id hubName').lean()
+  ]);
+  const map = new Map();
+  (branches || []).forEach((branch) => {
+    if (branch?._id) map.set(String(branch._id), branch.branchName || '');
+  });
+  (hubs || []).forEach((hub) => {
+    if (hub?._id) map.set(String(hub._id), hub.hubName || '');
+  });
+  return map;
 }
 
 function normalizeInvoiceStatus(value) {
@@ -402,22 +487,14 @@ async function updateInternalVehicleLocation(gstinId, vehicleNo, locationId, own
   await Promise.all(updates);
 }
 
-async function buildBranchNameMap(branchIds = []) {
-  const ids = Array.from(new Set((branchIds || []).map((id) => String(id || '')).filter(Boolean)));
-  if (!ids.length) return new Map();
-  const branches = await Branch.find({ _id: { $in: ids } })
-    .select('_id branchName')
-    .lean();
-  return new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
-}
-
-async function buildShipmentViews(shipments) {
+export async function buildShipmentViews(shipments) {
   const clientIds = new Set();
   const guestIds = new Set();
-  const branchIds = new Set();
+  const originIds = new Set();
   for (const shipment of shipments || []) {
-    if (shipment?.branchId) {
-      branchIds.add(String(shipment.branchId));
+    const originId = shipment?.originLocId || shipment?.originLocId|| shipment?.originLocId;
+    if (originId) {
+      originIds.add(String(originId));
     }
     if (shipment?.consignorTab === 'guest' && shipment?.consignorId) {
       guestIds.add(String(shipment.consignorId));
@@ -431,10 +508,10 @@ async function buildShipmentViews(shipments) {
     }
   }
 
-  const [clients, guests, branchNameById] = await Promise.all([
+  const [clients, guests, originNameById] = await Promise.all([
     clientIds.size ? Client.find({ _id: { $in: Array.from(clientIds) } }).lean() : [],
     guestIds.size ? Guest.find({ _id: { $in: Array.from(guestIds) } }).lean() : [],
-    buildBranchNameMap(Array.from(branchIds))
+    buildOriginNameMap(Array.from(originIds))
   ]);
 
   const clientsById = new Map((clients || []).map((c) => [String(c._id), c]));
@@ -526,7 +603,8 @@ async function buildShipmentViews(shipments) {
       }
     }
 
-    data.branchName = branchNameById.get(String(data.branchId || '')) || '';
+    const originKey = String(shipment.originLocId || shipment.originLocId|| shipment.originLocId || '');
+    data.branchName = originNameById.get(originKey) || '';
     return data;
   });
 }
@@ -625,50 +703,19 @@ router.post('/add', requireAuth, async (req, res) => {
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const username = req.user.username || shipmentData.username;
     if (!username) return res.status(400).json({ message: 'Invalid username' });
-    const wantsAllHubs = shipmentData.allHubs === true ||
-      String(shipmentData.allHubs || '').toLowerCase() === 'true';
-    if (wantsAllHubs) {
-      const hubId = String(shipmentData.originHubId || shipmentData.hubId || '').trim();
-      if (!hubId) {
-        return res.status(400).json({ message: 'originHubId is required for All Hubs consignments' });
-      }
-      if (!mongoose.Types.ObjectId.isValid(hubId)) {
-        return res.status(400).json({ message: 'Invalid originHubId' });
-      }
-      const hub = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id branchId').lean();
-      if (!hub?.branchId) {
-        return res.status(400).json({ message: 'Invalid hub selection' });
-      }
-      shipmentData.originHubId = hub._id;
-      shipmentData.branchId = hub._id;
-      shipmentData.allHubs = true;
-      if (!shipmentData.currentLocationId && !shipmentData.currentBranchId) {
-        shipmentData.currentLocationId = hub._id;
-      }
-    } else {
-      shipmentData.allHubs = false;
+    const allowedoriginLocIds = getAllowedoriginLocIds(req);
+    const originTypeRaw = shipmentData.originType || (String(shipmentData.allHubs || '').toLowerCase() === 'true' ? 'hub' : 'branch');
+    let originLocIdRaw = String(shipmentData.originLocId || shipmentData.originLocId || shipmentData.originLocId|| '').trim();
+    if (!originLocIdRaw && originTypeRaw === 'hub' && shipmentData.hubId) {
+      originLocIdRaw = String(shipmentData.hubId).trim();
     }
-    const branchId = String(shipmentData.branchId || '').trim();
-    if (!branchId || branchId === 'all') {
-      return res.status(400).json({ message: 'branchId is required and must not be "all"' });
+    const originAccess = await assertOriginAccess(originTypeRaw, originLocIdRaw, gstinId, allowedoriginLocIds);
+    if (originAccess.error) {
+      return res.status(originAccess.status || 400).json({ message: originAccess.error });
     }
-    if (!mongoose.Types.ObjectId.isValid(branchId)) {
-      return res.status(400).json({ message: 'Invalid branchId' });
-    }
-    const allowedBranchIds = getAllowedBranchIds(req);
-    if (allowedBranchIds) {
-      if (wantsAllHubs) {
-        const hub = await Hub.findOne({ _id: branchId, GSTIN_ID: gstinId })
-          .select('_id branchId')
-          .lean();
-        const hubBranchId = String(hub?.branchId || '');
-        if (!hubBranchId || !allowedBranchIds.includes(hubBranchId)) {
-          return res.status(403).json({ message: 'Branch access denied' });
-        }
-      } else if (!allowedBranchIds.includes(branchId)) {
-        return res.status(403).json({ message: 'Branch access denied' });
-      }
-    }
+    shipmentData.originType = originAccess.originType;
+    shipmentData.originLocId = originAccess.originLocId;
+    shipmentData.allHubs = originAccess.originType === 'hub';
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     if (!shipmentData.billingClientId &&
@@ -681,15 +728,15 @@ router.post('/add', requireAuth, async (req, res) => {
     shipmentData.finalAmount = totals.finalAmount;
     delete shipmentData.applyConsignorDiscount;
 
-    if (!shipmentData.currentLocationId && shipmentData.currentBranchId) {
-      shipmentData.currentLocationId = shipmentData.currentBranchId;
+    if (!shipmentData.currentLocationId && shipmentData.currentoriginLocId) {
+      shipmentData.currentLocationId = shipmentData.currentoriginLocId;
     }
-    delete shipmentData.currentBranchId;
+    delete shipmentData.currentoriginLocId;
 
     const currentLocationId =
       shipmentData.currentLocationId ||
-      shipmentData.originBranchId ||
-      shipmentData.branchId ||
+      shipmentData.originoriginLocId ||
+      shipmentData.originLocId ||
       null;
     const shipment = await Shipment.create({
       ...shipmentData,
@@ -718,7 +765,8 @@ router.post('/add', requireAuth, async (req, res) => {
         const amountPaid = Number(shipment.initialPaid) || 0;
         const balance = amountDue - amountPaid;
         const isPaid = amountDue > 0 && balance <= 0;
-        const referenceNo = `${String(shipment.branchId)}$$${String(shipment._id)}`;
+        const originReference = getOriginKey(shipment) || '';
+        const referenceNo = `${originReference}$$${String(shipment._id)}`;
         const paymentPayload = {
           entityType,
           entityId: String(paymentEntityId),
@@ -755,12 +803,15 @@ router.post('/add', requireAuth, async (req, res) => {
     }
     await replaceShipmentLines(shipment._id, ewaybills || [], { defaultInstockToAmount: true });
     if (wantsSummary) {
-      const branchNameById = await buildBranchNameMap([shipment.branchId]);
+      const originNameById = await buildOriginNameMap([
+        shipment.originLocId || shipment.originLocId|| shipment.originLocId
+      ]);
+      const originKey = String(shipment.originLocId || shipment.originLocId|| shipment.originLocId || '');
       res.status(201).json({
         _id: shipment._id,
         consignmentNumber: shipment.consignmentNumber,
-        branchId: shipment.branchId,
-        branchName: branchNameById.get(String(shipment.branchId || '')) || '',
+        originLocId: shipment.originLocId,
+        branchName: originNameById.get(originKey) || '',
         shipmentStatus: shipment.shipmentStatus,
         date: shipment.date,
         username: shipment.username,
@@ -775,57 +826,44 @@ router.post('/add', requireAuth, async (req, res) => {
   }
 });
 
-// Get next consignment number for a company/branch (reset on April 1st)
+// Get next consignment number for a company/origin (reset on April 1st)
 router.get('/nextConsignment', requireAuth, async (req, res) => {
-  const branchId = String(req.query.branchId || '').trim();
-
-  if (!branchId) {
-    return res.status(400).json({ message: 'Missing branchId in query parameters' });
-  }
-  if (branchId === 'all') {
-    return res.status(400).json({ message: 'Please select a specific branch to fetch consignment number' });
-  }
-  const allowedBranchIds = getAllowedBranchIds(req);
+  const originIdParam = String(req.query.originLocId || '').trim();
+  const originTypeParam = String(req.query.originType || '').trim().toLowerCase();
+  const originLocIdParam = String(req.query.originLocId || '').trim();
+  const allowedoriginLocIds = getAllowedoriginLocIds(req);
 
   try {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const originFilterSource = originTypeParam && originIdParam
+      ? { type: originTypeParam, id: originIdParam }
+      : (originLocIdParam ? { type: 'branch', id: originLocIdParam } : null);
+    if (!originFilterSource) {
+      return res.status(400).json({ message: 'Missing origin parameters' });
+    }
+
+    const originAccess = await assertOriginAccess(
+      originFilterSource.type,
+      originFilterSource.id,
+      gstinId,
+      allowedoriginLocIds
+    );
+    if (originAccess.error) {
+      return res.status(originAccess.status || 400).json({ message: originAccess.error });
+    }
 
     const today = new Date();
     const year = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
     const fiscalYearStart = new Date(year, 3, 1);
     const fiscalYearEnd = new Date(year + 1, 2, 31, 23, 59, 59);
 
-    let matchQuery = null;
-    if (branchId === 'all-hubs') {
-      if (allowedBranchIds && !allowedBranchIds.length) {
-        return res.status(403).json({ message: 'Branch access denied' });
-      }
-      const hubQuery = { GSTIN_ID: gstinId };
-      if (allowedBranchIds) {
-        hubQuery.branchId = { $in: allowedBranchIds };
-      }
-      const hubIds = await Hub.find(hubQuery).select('_id').lean();
-      const allowedHubIds = (hubIds || []).map((h) => String(h?._id || '')).filter(Boolean);
-      if (!allowedHubIds.length) {
-        return res.json({ nextNumber: 1, fiscalYear: `${year}-${year + 1}` });
-      }
-      matchQuery = {
-        GSTIN_ID: gstinId,
-        allHubs: true,
-        branchId: { $in: allowedHubIds }
-      };
-    } else {
-      if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
-        return res.status(403).json({ message: 'Branch access denied' });
-      }
-      matchQuery = mongoose.Types.ObjectId.isValid(branchId)
-        ? { GSTIN_ID: gstinId, branchId: new mongoose.Types.ObjectId(branchId) }
-        : null;
-    }
-    if (!matchQuery) {
-      return res.status(400).json({ message: 'Invalid branchId' });
-    }
+    const matchQuery = {
+      GSTIN_ID: gstinId,
+      originType: originAccess.originType,
+      originLocId: originAccess.originLocId
+    };
 
     const result = await Shipment.aggregate([
       {
@@ -885,7 +923,9 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
       });
     }
 
-    const branchNameById = await buildBranchNameMap(shipments.map((s) => s.branchId));
+    const originNameById = await buildOriginNameMap(
+      shipments.map((s) => s.originLocId || s.originLocId|| s.originLocId)
+    );
     const groups = new Map();
     for (const shipment of shipments) {
       const key = buildBillingKey(shipment);
@@ -945,7 +985,10 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
       });
 
       group.forEach((shipment) => {
-        const branchName = branchNameById.get(String(shipment.branchId || '')) || '';
+        const originKey = String(
+          shipment.originLocId || shipment.originLocId|| shipment.originLocId || ''
+        );
+        const branchName = originNameById.get(originKey) || '';
         updates.push({
           updateOne: {
             filter: {
@@ -1084,13 +1127,20 @@ router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
       const shipments = await Shipment.find({
         GSTIN_ID: gstinId,
         consignmentNumber: { $in: consignmentNumbers }
-      }).select('consignmentNumber branchId').lean();
+      })
+        .select('consignmentNumber originLocId originLocIdoriginLocId')
+        .lean();
 
       if (shipments.length) {
-        const branchNameById = await buildBranchNameMap(shipments.map((s) => s.branchId));
+        const originNameById = await buildOriginNameMap(
+          shipments.map((s) => s.originLocId || s.originLocId|| s.originLocId)
+        );
         await Shipment.bulkWrite(
           shipments.map((shipment) => {
-            const branchName = branchNameById.get(String(shipment.branchId || '')) || '';
+            const originKey = String(
+              shipment.originLocId || shipment.originLocId|| shipment.originLocId || ''
+            );
+            const branchName = originNameById.get(originKey) || '';
             return {
               updateOne: {
                 filter: {
@@ -1273,45 +1323,70 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
 // GET all shipments for a company/branch
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const { branchId } = req.query;
-    if (!branchId) {
-      return res.status(400).json({ message: 'branchId is required' });
+    const originId = String(req.query.originLocId || '').trim();
+    if (!originId) {
+      return res.status(400).json({ message: 'originLocId is required' });
     }
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
     const wantsSummary = String(req.query.summary || '').toLowerCase() === 'true' || req.query.summary === '1';
 
     let shipments;
-    const allowedBranchIds = getAllowedBranchIds(req);
-    if (branchId && branchId !== 'all') {
-      if (allowedBranchIds && !allowedBranchIds.includes(String(branchId))) {
-        return res.status(403).json({ message: 'Branch access denied' });
-      }
-      shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId }).sort({ createdAt: -1 });
-    } else if (branchId === 'all') {
-      if (allowedBranchIds) {
-        if (!allowedBranchIds.length) {
+    const allowedoriginLocIds = getAllowedoriginLocIds(req);
+    if (originId === 'all') {
+      if (allowedoriginLocIds) {
+        if (!allowedoriginLocIds.length) {
           return res.json([]);
         }
-        const hubs = await Hub.find({ GSTIN_ID: gstinId, branchId: { $in: allowedBranchIds } })
+        const hubs = await Hub.find({ GSTIN_ID: gstinId, originLocId: { $in: allowedoriginLocIds } })
           .select('_id')
           .lean();
         const allowedHubIds = (hubs || []).map((h) => String(h?._id || '')).filter(Boolean);
-        const allowedLocationIds = Array.from(new Set([...allowedBranchIds, ...allowedHubIds]));
-        shipments = await Shipment.find({ GSTIN_ID: gstinId, branchId: { $in: allowedLocationIds } })
-          .sort({ createdAt: -1 });
+        const allowedLocationIds = Array.from(new Set([...allowedoriginLocIds, ...allowedHubIds]));
+        shipments = await Shipment.find({
+          GSTIN_ID: gstinId,
+          originLocId: { $in: allowedLocationIds }
+        }).sort({ createdAt: -1 });
       } else {
         shipments = await Shipment.find({ GSTIN_ID: gstinId }).sort({ createdAt: -1 });
       }
+    } else if (originId === 'all-hubs') {
+      if (allowedoriginLocIds && !allowedoriginLocIds.length) {
+        return res.json([]);
+      }
+      const hubQuery = { GSTIN_ID: gstinId };
+      if (allowedoriginLocIds) {
+        hubQuery.originLocId = { $in: allowedoriginLocIds };
+      }
+      const hubs = await Hub.find(hubQuery).select('_id').lean();
+      const allowedHubIds = (hubs || []).map((h) => String(h?._id || '')).filter(Boolean);
+      if (!allowedHubIds.length) {
+        return res.json([]);
+      }
+      shipments = await Shipment.find({
+        GSTIN_ID: gstinId,
+        originType: 'hub',
+        originLocId: { $in: allowedHubIds }
+      }).sort({ createdAt: -1 });
+    } else {
+      const originResult = await resolveOriginId(originId, gstinId, allowedoriginLocIds);
+      if (originResult.error) {
+        return res.status(400).json({ message: originResult.error });
+      }
+      shipments = await Shipment.find({
+        GSTIN_ID: gstinId,
+        originType: originResult.originType,
+        originLocId: originResult.originLocId
+      }).sort({ createdAt: -1 });
     }
 
     if (wantsSummary) {
-      const branchNameById = await buildBranchNameMap(shipments.map((s) => s.branchId));
+      const originNameMap = await buildOriginNameMap(shipments.map((s) => s.originLocId));
       const summary = shipments.map((shipment) => {
         const data = shipment.toObject ? shipment.toObject() : shipment;
         return {
           ...data,
-          branchName: branchNameById.get(String(data?.branchId || '')) || ''
+          branchName: originNameMap.get(String(data?.originLocId || '')) || ''
         };
       });
       res.json(summary);
@@ -1339,19 +1414,22 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     delete shipmentData._id;
     delete shipmentData.consignmentNumber;
     delete shipmentData.GSTIN_ID;
-    delete shipmentData.branchId;
+    delete shipmentData.originLocId;
     delete shipmentData.branchName;
-    if (!shipmentData.currentLocationId && shipmentData.currentBranchId) {
-      shipmentData.currentLocationId = shipmentData.currentBranchId;
+    if (!shipmentData.currentLocationId && shipmentData.currentoriginLocId) {
+      shipmentData.currentLocationId = shipmentData.currentoriginLocId;
     }
-    delete shipmentData.currentBranchId;
+    delete shipmentData.currentoriginLocId;
       if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
         shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
       }
       const filter = shipmentId
         ? { _id: shipmentId, GSTIN_ID: gstinId }
         : { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId };
-      const existingShipment = await Shipment.findOne(filter).select('shipmentStatus').lean();
+      const existingShipment = await Shipment.findOne(filter)
+        .select('shipmentStatus originLocId originType originLocIdoriginLocId')
+        .lean();
+      ensureOriginFromExisting(shipmentData, existingShipment);
       const shipment = await Shipment.findOneAndUpdate(
         filter,
         shipmentData,
@@ -1573,10 +1651,10 @@ router.post('/updateConsignment', requireAuth, async (req, res) => {
     const { ewaybills, ...shipmentData } = updatedConsignment;
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
-    if (!shipmentData.currentLocationId && shipmentData.currentBranchId) {
-      shipmentData.currentLocationId = shipmentData.currentBranchId;
+    if (!shipmentData.currentLocationId && shipmentData.currentoriginLocId) {
+      shipmentData.currentLocationId = shipmentData.currentoriginLocId;
     }
-    delete shipmentData.currentBranchId;
+    delete shipmentData.currentoriginLocId;
     if (shipmentData.paymentMode && !shipmentData.shipmentStatus) {
       shipmentData.shipmentStatus = shipmentData.paymentMode === 'To Pay' ? 'To Pay' : 'Pending';
     }
@@ -1586,12 +1664,17 @@ router.post('/updateConsignment', requireAuth, async (req, res) => {
       shipmentData.currentVehicleOwnerType = '';
       shipmentData.currentVehicleOwnerId = null;
     }
+    const existingShipment = await Shipment.findOne({
+      consignmentNumber: updatedConsignment.consignmentNumber,
+      GSTIN_ID: gstinId
+    }).lean();
+    if (!existingShipment) return res.status(404).json({ message: 'Shipment not found' });
+    ensureOriginFromExisting(shipmentData, existingShipment);
     const shipment = await Shipment.findOneAndUpdate(
       { consignmentNumber: updatedConsignment.consignmentNumber, GSTIN_ID: gstinId },
       shipmentData,
       { new: true }
     );
-    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
     if (ewaybills) {
       await replaceShipmentLines(shipment._id, ewaybills, { defaultInstockToAmount: false });
     }

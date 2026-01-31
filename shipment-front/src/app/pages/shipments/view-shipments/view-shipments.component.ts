@@ -17,7 +17,7 @@ export class ViewShipmentsComponent implements OnInit {
   filteredReceived: any[] = [];
   branches: any[] = [];
   hubs: any[] = [];
-  branchId: string = localStorage.getItem('branchId') || 'all';
+  originLocId: string = localStorage.getItem('originLocId') || 'all';
   selectedHubFilterId: string | null = null;
   selectedHubFilterName: string = '';
   clientList: any[] = [];
@@ -31,6 +31,8 @@ export class ViewShipmentsComponent implements OnInit {
   activeTab: 'all' | 'received' = 'all';
 
   selectedShipment: any | null = null;   // ✅ for modal popup
+  selectedShipmentManifestId: string | null = null;
+  selectedShipmentManifestNumber: string | null = null;
   showReturnModal: boolean = false;
   showReturnFinalAmount: boolean = false;
 
@@ -47,13 +49,18 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   loadShipments(): void {
-    const storedBranchId = localStorage.getItem('branchId') || 'all';
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', {
-      params: {
-        username: localStorage.getItem('username') || '',
-        branchId: storedBranchId === 'all-hubs' ? 'all' : storedBranchId
-      }
-    }).subscribe({
+    const storedoriginLocId = localStorage.getItem('originLocId') || 'all';
+    const params: any = {
+      username: localStorage.getItem('username') || ''
+    };
+    const originFilter = this.getSelectedOrigin();
+    if (originFilter) {
+      params.originType = originFilter.originType;
+      params.originLocId = originFilter.originLocId;
+    } else {
+      params.originLocId = storedoriginLocId === 'all-hubs' ? 'all' : storedoriginLocId;
+    }
+    this.http.get<any[]>('http://localhost:3000/api/newshipments', { params }).subscribe({
       next: (res: any[]) => {
         const normalized = (res || []).map((shipment) => ({
           ...shipment,
@@ -71,7 +78,7 @@ export class ViewShipmentsComponent implements OnInit {
     this.http.get<any[]>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branchId: 'all'
+        originLocId: 'all'
       }
     }).subscribe({
       next: (res: any[]) => {
@@ -157,24 +164,11 @@ export class ViewShipmentsComponent implements OnInit {
     return total;
   }
 
-  getRoutesDisplay(shipment: any): string {
-    const routes = this.getRoutesForShipment(shipment);
-    return routes.length ? routes.join(', ') : '-';
-  }
-
-  private getRoutesForShipment(shipment: any): string[] {
-    const routes = (shipment?.ewaybills || [])
-      .map((ewb: any) => String(ewb?.routes || '').trim())
-      .map((route: string) => route.replace(/\$\$/g, '').trim())
-      .filter((route: string) => route);
-    return Array.from(new Set(routes));
-  }
-
   applyFilters(): void {
-    this.branchId = localStorage.getItem('branchId') || 'all';
-    const branchId = String(this.branchId || '').trim();
+    this.originLocId = localStorage.getItem('originLocId') || 'all';
+    const originLocId = String(this.originLocId || '').trim();
     const hubFilterId = this.normalizeId(this.selectedHubFilterId);
-    const useHubFilter = branchId === 'all-hubs';
+    const useHubFilter = originLocId === 'all-hubs';
 
     if (useHubFilter && !hubFilterId) {
       const storedHubId = this.normalizeId(localStorage.getItem('hubId'));
@@ -223,46 +217,29 @@ export class ViewShipmentsComponent implements OnInit {
       );
 
       const matchesBranchColumn = (() => {
-        const originId = this.normalizeId(s?.branchId || s?.branch);
+        const originId = this.getOriginId(s);
         const originLabel = String(s?.branch || '').trim();
-        if (!branchId || branchId === 'all') return true;
-        if (branchId === 'all-hubs') {
+        if (!originLocId || originLocId === 'all') return true;
+        if (originLocId === 'all-hubs') {
           if (!effectiveHubFilterId) return false;
           const hubNameLower = String(effectiveHubName || '').trim().toLowerCase();
           const originLower = originLabel.toLowerCase();
           return originId === effectiveHubFilterId ||
             (hubNameLower && (originLower === hubNameLower || this.matchesBranchLabel(originLabel, effectiveHubName)));
         }
-        const selectedBranchId = this.normalizeId(branchId);
+        const selectedoriginLocId = this.normalizeId(originLocId);
         const branchById = (this.branches || []).find(
-          (b) => this.normalizeId(b?._id) === selectedBranchId
+          (b) => this.normalizeId(b?._id) === selectedoriginLocId
         );
         const selectedBranchName = String(branchById?.branchName || storedBranchName || '').trim();
         const selectedLower = selectedBranchName.toLowerCase();
         const originLower = originLabel.toLowerCase();
-        return originId === selectedBranchId ||
+        return originId === selectedoriginLocId ||
           (selectedLower && (originLower === selectedLower || this.matchesBranchLabel(originLabel, selectedBranchName)));
       })();
 
       return matchesSearch && matchesDate && matchesStatus && matchesConsignor && matchesHub && matchesBranchColumn;
     });
-    const selectedRouteTokens = (() => {
-      const tokens: string[] = [];
-      if (branchId === 'all-hubs') {
-        if (effectiveHubFilterId) tokens.push(effectiveHubFilterId);
-        if (effectiveHubName) tokens.push(effectiveHubName);
-        return tokens.map(t => String(t).trim().toLowerCase()).filter(Boolean);
-      }
-      if (branchId && branchId !== 'all') {
-        tokens.push(this.normalizeId(branchId));
-        const branchById = (this.branches || []).find(
-          (b) => this.normalizeId(b?._id) === this.normalizeId(branchId)
-        );
-        const branchName = String(branchById?.branchName || storedBranchName || '').trim();
-        if (branchName) tokens.push(branchName);
-      }
-      return tokens.map(t => String(t).trim().toLowerCase()).filter(Boolean);
-    })();
     this.filteredReceived = this.receivedShipments.filter(s => {
       const matchesDelivery = true;
 
@@ -283,14 +260,7 @@ export class ViewShipmentsComponent implements OnInit {
         ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase())
         : true;
 
-      const matchesRoute = selectedRouteTokens.length === 0
-        ? true
-        : (s?.ewaybills || []).some((ewb: any) => {
-            const routesRaw = String(ewb?.routes || '').toLowerCase();
-            return selectedRouteTokens.some((token) => routesRaw.includes(token));
-          });
-
-      return matchesDelivery && matchesRoute && matchesSearch && matchesDate && matchesStatus && matchesConsignor;
+      return matchesDelivery && matchesSearch && matchesDate && matchesStatus && matchesConsignor;
     });
   }
   getAllHubsFilterOptions(): any[] {
@@ -322,10 +292,10 @@ export class ViewShipmentsComponent implements OnInit {
 
   private matchesHubFilterForShipment(shipment: any, hubId: string, hubName: string): boolean {
     const currentId = this.normalizeId(
-      shipment?.currentLocationId || shipment?.currentBranchId || shipment?.currentBranch
+      shipment?.currentLocationId || shipment?.currentBranch
     );
     const currentLabel = String(shipment?.currentBranch || '').trim();
-    const originId = this.normalizeId(shipment?.branchId || shipment?.branch);
+        const originId = this.getOriginId(shipment);
     const originLabel = String(shipment?.branch || '').trim();
     return (
       this.matchesHubIdOrName(currentId, currentLabel, hubId, hubName) ||
@@ -429,9 +399,26 @@ export class ViewShipmentsComponent implements OnInit {
     return String(value);
   }
 
+  private getSelectedOrigin(): { originType: 'branch' | 'hub'; originLocId: string } | null {
+    const originLocId = this.originLocId || localStorage.getItem('originLocId') || 'all';
+    if (!originLocId || originLocId === 'all') return null;
+    if (originLocId === 'all-hubs') {
+      const hubId = this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'));
+      return hubId ? { originType: 'hub', originLocId: hubId } : null;
+    }
+    const normalized = this.normalizeId(originLocId);
+    return normalized ? { originType: 'branch', originLocId: normalized } : null;
+  }
+
+  private getOriginId(shipment: any): string {
+    if (!shipment) return '';
+    const raw = shipment?.originLocId || shipment?.originLocId|| shipment?.originLocId || shipment?.branch;
+    return this.normalizeId(raw);
+  }
+
   getCurrentBranchDisplay(shipment: any): string {
     const currentLocationId = this.normalizeId(
-      shipment?.currentLocationId || shipment?.currentBranchId || shipment?.currentBranch
+      shipment?.currentLocationId || shipment?.currentBranch
     );
     if (!currentLocationId) return '-';
     const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentLocationId);
@@ -442,13 +429,13 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   getOriginBranchDisplay(shipment: any): string {
-    const originBranchId = this.normalizeId(shipment?.branchId || shipment?.branch);
-    if (!originBranchId) return '-';
-    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === originBranchId);
+    const originoriginLocId = this.getOriginId(shipment);
+    if (!originoriginLocId) return '-';
+    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === originoriginLocId);
     if (branch?.branchName) return branch.branchName;
-    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === originBranchId);
+    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === originoriginLocId);
     if (hub?.hubName) return hub.hubName;
-    return originBranchId;
+    return originoriginLocId;
   }
 
   private firstNonEmpty(...values: any[]): string {
@@ -591,9 +578,9 @@ export class ViewShipmentsComponent implements OnInit {
   private getReturnBranchName(consignment: any): string {
     const deliveryName = String(this.getDeliveryDisplayName(consignment) || '').trim();
     if (deliveryName && deliveryName !== '-') return deliveryName;
-    const currentBranchId = this.normalizeId(localStorage.getItem('branchId'));
-    if (currentBranchId && currentBranchId !== 'all') {
-      const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentBranchId);
+    const currentoriginLocId = this.normalizeId(localStorage.getItem('originLocId'));
+    if (currentoriginLocId && currentoriginLocId !== 'all') {
+      const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentoriginLocId);
       if (branch?.branchName) return branch.branchName;
     }
     return String(consignment?.branch || '').trim();
@@ -611,7 +598,7 @@ export class ViewShipmentsComponent implements OnInit {
     return [{ invoices }];
   }
 
-  private getBranchIdByName(name: string): string | null {
+  private getoriginLocIdByName(name: string): string | null {
     const match = (this.branches || []).find(b => String(b?.branchName || '').toLowerCase() === name.toLowerCase());
     return match?._id || null;
   }
@@ -651,7 +638,7 @@ export class ViewShipmentsComponent implements OnInit {
       finalDelivery.type === 'branch' ||
       finalDelivery.type === 'hub';
     const deliveryId = options.swapAddresses && isSelfPickup
-      ? this.getBranchIdByName(String(finalDelivery.name || '')) || finalDelivery.id
+      ? this.getoriginLocIdByName(String(finalDelivery.name || '')) || finalDelivery.id
       : finalDelivery.id;
 
     const rawStatusDetailsBranch = options.branchName || consignment.branch || localStorage.getItem('branch') || '';
@@ -659,7 +646,10 @@ export class ViewShipmentsComponent implements OnInit {
     const payload: any = {
       username,
       branch: options.branchName || consignment.branch,
-      branchId: this.getBranchIdByName(String(options.branchName || consignment.branch || '')) || consignment.branchId,
+      originLocId:
+        this.getOriginId(consignment) ||
+        this.getoriginLocIdByName(String(options.branchName || consignment.branch || '')) ||
+        consignment.originLocId,
       shipmentStatus: 'Pending',
       shipmentStatusDetails: statusDetailsBranch,
       consignmentNumber: options.consignmentNumber,
@@ -746,7 +736,7 @@ export class ViewShipmentsComponent implements OnInit {
     }
     const username = localStorage.getItem('username') || '';
     this.http.get<{ nextNumber: number }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(username)}&branchId=${encodeURIComponent(this.getBranchIdByName(branchName) || '')}&branch=${encodeURIComponent(branchName)}`
+      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(username)}&originLocId=${encodeURIComponent(this.getoriginLocIdByName(branchName) || '')}&branch=${encodeURIComponent(branchName)}`
     ).subscribe({
       next: (res) => {
         const payload = this.buildReturnPayload(consignment, {
@@ -770,14 +760,46 @@ export class ViewShipmentsComponent implements OnInit {
 
   // ✅ open details modal
   openShipmentDetails(shipment: any): void {
-    this.selectedShipment = this.enrichShipmentDetails(shipment);
+    const enriched = this.enrichShipmentDetails(shipment);
+    this.selectedShipment = enriched;
+    this.selectedShipmentManifestId = null;
+    this.selectedShipmentManifestNumber = null;
+    this.loadManifestForShipment(enriched?.consignmentNumber);
   }
 
   // ✅ close details modal
   closeShipmentDetails(): void {
     this.selectedShipment = null;
+    this.selectedShipmentManifestId = null;
+    this.selectedShipmentManifestNumber = null;
+  }
+
+  private loadManifestForShipment(consignmentNumber: string | null | undefined): void {
+    const key = String(consignmentNumber || '').trim();
+    if (!key) {
+      this.selectedShipmentManifestId = null;
+      this.selectedShipmentManifestNumber = null;
+      return;
+    }
+    this.http.get<any[]>('http://localhost:3000/api/manifests', {
+      params: { consignmentNumber: key }
+    }).subscribe({
+      next: (manifests: any[]) => {
+        const manifest = Array.isArray(manifests) && manifests.length ? manifests[0] : null;
+        this.selectedShipmentManifestId = manifest?._id ? String(manifest._id) : null;
+        this.selectedShipmentManifestNumber = manifest?.manifestNumber || null;
+      },
+      error: () => {
+        this.selectedShipmentManifestId = null;
+        this.selectedShipmentManifestNumber = null;
+      }
+    });
+  }
+
+  getManifestUrl(id: string | null | undefined): string {
+    const manifestId = String(id || '').trim();
+    return manifestId ? `/manifests/${manifestId}` : '#';
   }
 }
-
 
 

@@ -7,17 +7,15 @@ const ShipmentSchema = new mongoose.Schema(
 
     // User / branch scope
     username: { type: String, required: true, trim: true },
-    branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true, index: true },
+    originType: { type: String, enum: ['branch', 'hub'], default: 'branch', index: true },
+    originLocId: { type: mongoose.Schema.Types.ObjectId, index: true },
     //vehicle
     currentLocationId: { type: mongoose.Schema.Types.ObjectId, index: true },
-    currentBranchId: { type: mongoose.Schema.Types.ObjectId, index: true }, // deprecated
     currentVehicleNo: { type: String, trim: true },
     currentVehicleOwnerType: { type: String, trim: true },
     currentVehicleOwnerId: { type: mongoose.Schema.Types.ObjectId, index: true },
     //user/ branch
-    allHubs: { type: Boolean, default: false, index: true },
-    originHubId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hub' },
-
+    
     // Consignment header
     consignmentNumber: { type: String, required: true, trim: true },
     date: { type: Date, default: Date.now },
@@ -62,16 +60,10 @@ const ShipmentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Unique per company/branch (when GSTIN_ID present)
+// Unique per company/origin location (legacy entries use the same index definition)
 ShipmentSchema.index(
-  { GSTIN_ID: 1, branchId: 1, consignmentNumber: 1 },
-  { unique: true, partialFilterExpression: { GSTIN_ID: { $exists: true }, branchId: { $exists: true } } }
-);
-
-// Unique per user/branch
-ShipmentSchema.index(
-  { username: 1, branchId: 1, consignmentNumber: 1 },
-  { unique: true, partialFilterExpression: { branchId: { $exists: true } } }
+  { GSTIN_ID: 1, originLocId: 1, consignmentNumber: 1 },
+  { unique: true, partialFilterExpression: { GSTIN_ID: { $exists: true }, originLocId: { $exists: true } } }
 );
 
 export default mongoose.models.NewShipmentShipment ||

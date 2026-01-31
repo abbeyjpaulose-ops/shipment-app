@@ -26,7 +26,7 @@ export class HomeComponent implements OnInit {
 
   // Branch data
   branchOptions: Array<{ id: string; name: string }> = [];
-  selectedBranchId: string = localStorage.getItem('branchId') || '';
+  selectedoriginLocId: string = localStorage.getItem('originLocId') || '';
   selectedBranchName: string = localStorage.getItem('branch') || '';
   showLogoutModal = false;
 
@@ -48,9 +48,9 @@ export class HomeComponent implements OnInit {
         });
       if (!this.selectedBranchName) {
         this.selectedBranchName = 'All Branches';
-        this.selectedBranchId = 'all';
+        this.selectedoriginLocId = 'all';
         localStorage.setItem('branch', this.selectedBranchName);
-        localStorage.setItem('branchId', this.selectedBranchId);
+        localStorage.setItem('originLocId', this.selectedoriginLocId);
       }
       this.branchService.setBranch(this.selectedBranchName);
       return;
@@ -59,7 +59,7 @@ export class HomeComponent implements OnInit {
     // Non-admin: use branches assigned in Profile (stored at login).
     try {
       const storedNames = JSON.parse(localStorage.getItem('branches') || '[]');
-      const storedIds = JSON.parse(localStorage.getItem('branchIds') || '[]');
+      const storedIds = JSON.parse(localStorage.getItem('originLocIds') || '[]');
       if (Array.isArray(storedNames) && Array.isArray(storedIds) && storedNames.length === storedIds.length) {
         const options = storedNames.map((name: string, index: number) => ({
           id: String(storedIds[index] || ''),
@@ -87,10 +87,10 @@ export class HomeComponent implements OnInit {
 
     this.syncSelectedBranch();
     if (!this.selectedBranchName && this.branchOptions.length) {
-      this.selectedBranchId = this.branchOptions[0].id;
+      this.selectedoriginLocId = this.branchOptions[0].id;
       this.selectedBranchName = this.branchOptions[0].name;
       localStorage.setItem('branch', this.selectedBranchName);
-      localStorage.setItem('branchId', this.selectedBranchId);
+      localStorage.setItem('originLocId', this.selectedoriginLocId);
     }
   }
 
@@ -103,18 +103,18 @@ export class HomeComponent implements OnInit {
 
   private syncSelectedBranch() {
     if (!this.branchOptions.length) return;
-    if (this.selectedBranchId === 'all-hubs' || this.selectedBranchName === 'All Hubs') {
-      this.selectedBranchId = 'all-hubs';
+    if (this.selectedoriginLocId === 'all-hubs' || this.selectedBranchName === 'All Hubs') {
+      this.selectedoriginLocId = 'all-hubs';
       this.selectedBranchName = 'All Hubs';
       return;
     }
-    if (this.selectedBranchId === 'all' || this.selectedBranchName === 'All Branches') {
-      this.selectedBranchId = 'all';
+    if (this.selectedoriginLocId === 'all' || this.selectedBranchName === 'All Branches') {
+      this.selectedoriginLocId = 'all';
       this.selectedBranchName = 'All Branches';
       return;
     }
-    if (this.selectedBranchId) {
-      const match = this.branchOptions.find((b) => b.id === this.selectedBranchId);
+    if (this.selectedoriginLocId) {
+      const match = this.branchOptions.find((b) => b.id === this.selectedoriginLocId);
       if (match) {
         this.selectedBranchName = match.name;
         return;
@@ -123,26 +123,26 @@ export class HomeComponent implements OnInit {
     if (this.selectedBranchName) {
       const match = this.branchOptions.find((b) => b.name === this.selectedBranchName);
       if (match) {
-        this.selectedBranchId = match.id;
+        this.selectedoriginLocId = match.id;
         return;
       }
     }
-    this.selectedBranchId = this.branchOptions[0].id;
+    this.selectedoriginLocId = this.branchOptions[0].id;
     this.selectedBranchName = this.branchOptions[0].name;
   }
 
   onBranchChange(event: any) {
-    const branchId = String(event.target.value || '');
-    const isAll = branchId === 'all';
-    const isAllHubs = branchId === 'all-hubs';
-    const match = this.branchOptions.find((b) => b.id === branchId);
+    const originLocId = String(event.target.value || '');
+    const isAll = originLocId === 'all';
+    const isAllHubs = originLocId === 'all-hubs';
+    const match = this.branchOptions.find((b) => b.id === originLocId);
     const branchName = isAll
       ? 'All Branches'
-      : (isAllHubs ? 'All Hubs' : (match?.name || branchId));
-    this.selectedBranchId = branchId;
+      : (isAllHubs ? 'All Hubs' : (match?.name || originLocId));
+    this.selectedoriginLocId = originLocId;
     this.selectedBranchName = branchName;
     localStorage.setItem('branch', branchName);
-    localStorage.setItem('branchId', branchId);
+    localStorage.setItem('originLocId', originLocId);
     this.branchService.setBranch(branchName);
     //reload for the view shipments to reflect branch change
     const currentUrl = window.location.href;

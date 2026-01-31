@@ -11,6 +11,10 @@
 .shipments-container {
   padding: 20px;
   color: var(--text);
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 .filters {
@@ -74,6 +78,8 @@
 .table-wrapper {
   width: 100%;
   overflow-x: auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .shipments-table {
@@ -83,7 +89,9 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  table-layout: fixed;
+  table-layout: auto;
+  min-width: 0;
+  font-size: 12px;
 }
 
 .shipments-table th, .shipments-table td {
@@ -93,11 +101,14 @@
   vertical-align: top;
   word-break: break-word;
   overflow-wrap: anywhere;
+  white-space: normal;
+  min-width: 0;
 }
 
 .shipments-table th {
   background: #f8fafc;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .shipments-table tr:hover {

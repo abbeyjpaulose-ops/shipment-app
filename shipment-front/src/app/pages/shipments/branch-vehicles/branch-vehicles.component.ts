@@ -35,7 +35,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   isUpdatingManifestVehicle = false;
   isAdmin = String(localStorage.getItem('role') || '').toLowerCase() === 'admin';
   vehicles: Array<{
-    branchId: string;
+    originLocId: string;
     branchName: string;
     branchStatus: string;
     vehicleNo: string;
@@ -47,7 +47,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     sourceType: 'branch' | 'hub';
     sourceId: string;
   }> = [];
-  branchId: string = localStorage.getItem('branchId') || 'all';
+  originLocId: string = localStorage.getItem('originLocId') || 'all';
   branchName: string = localStorage.getItem('branch') || 'All Branches';
   private branchCheck: any;
   private refreshTimer: any;
@@ -63,10 +63,10 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     this.loadManifests();
     this.branchCheck = setInterval(() => {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.branchName || currentId !== this.branchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.branchName || currentId !== this.originLocId) {
         this.branchName = current;
-        this.branchId = currentId;
+        this.originLocId = currentId;
         this.loadManifests();
         this.buildVehicles();
       }
@@ -109,9 +109,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
 
   loadManifests() {
     const params: any = {};
-    if (this.branchId && this.branchId !== 'all' && this.branchId !== 'all-hubs') {
+    if (this.originLocId && this.originLocId !== 'all' && this.originLocId !== 'all-hubs') {
       params.entityType = 'branch';
-      params.entityId = this.branchId;
+      params.entityId = this.originLocId;
     }
     this.http.get<any[]>(`http://localhost:3000/api/manifests`, { params }).subscribe({
       next: (data) => {
@@ -124,19 +124,19 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   }
 
   buildVehicles() {
-    const branchId = this.branchId || 'all';
+    const originLocId = this.originLocId || 'all';
     const branchName = String(this.branchName || '').trim().toLowerCase();
-    const isAllHubs = branchId === 'all-hubs';
-    const isAllBranches = branchId === 'all';
-    const assignedBranchIds = this.isAdmin ? [] : this.getAssignedBranchIds();
+    const isAllHubs = originLocId === 'all-hubs';
+    const isAllBranches = originLocId === 'all';
+    const assignedoriginLocIds = this.isAdmin ? [] : this.getAssignedoriginLocIds();
     const filtered = this.isAdmin
       ? (this.branches || [])
-      : (assignedBranchIds.length
-          ? (this.branches || []).filter((b: any) => assignedBranchIds.includes(String(b?._id || '').trim()))
+      : (assignedoriginLocIds.length
+          ? (this.branches || []).filter((b: any) => assignedoriginLocIds.includes(String(b?._id || '').trim()))
           : []);
 
     const rows: Array<{
-      branchId: string;
+      originLocId: string;
       branchName: string;
       branchStatus: string;
       vehicleNo: string;
@@ -158,9 +158,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
           const vehicleCurrentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
           const vehicleCurrentLocationType = String(v?.currentLocationType || '').trim().toLowerCase();
           if (!vehicleNo && !driverPhone) return;
-          if (!isAllBranches && !this.matchesBranchFilter(currentLocationId, branchId, branchName)) return;
+          if (!isAllBranches && !this.matchesBranchFilter(currentLocationId, originLocId, branchName)) return;
           rows.push({
-            branchId: String(b?._id || ''),
+            originLocId: String(b?._id || ''),
             branchName: b?.branchName || '',
             branchStatus: b?.status || '',
             vehicleNo,
@@ -178,8 +178,8 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
 
     const hubs = this.isAdmin
       ? (this.hubs || [])
-      : (assignedBranchIds.length
-          ? (this.hubs || []).filter((h: any) => assignedBranchIds.includes(String(h?.branchId || '').trim()))
+      : (assignedoriginLocIds.length
+          ? (this.hubs || []).filter((h: any) => assignedoriginLocIds.includes(String(h?.originLocId || '').trim()))
           : []);
     (hubs || []).forEach((h: any) => {
       const deliveryAddresses = Array.isArray(h?.deliveryAddresses) ? h.deliveryAddresses : [];
@@ -192,9 +192,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
           const vehicleCurrentLocationId = this.normalizeId(v?.currentLocationId || v?.currentBranch);
           const vehicleCurrentLocationType = String(v?.currentLocationType || '').trim().toLowerCase();
           if (!vehicleNo && !driverPhone) return;
-          if (!isAllBranches && !isAllHubs && !this.matchesBranchFilter(currentLocationId, branchId, branchName)) return;
+          if (!isAllBranches && !isAllHubs && !this.matchesBranchFilter(currentLocationId, originLocId, branchName)) return;
           rows.push({
-            branchId: String(h?._id || ''),
+            originLocId: String(h?._id || ''),
             branchName: h?.hubName || '',
             branchStatus: h?.status || '',
             vehicleNo,
@@ -212,13 +212,13 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     this.vehicles = rows;
   }
 
-  private matchesBranchFilter(currentLocationId: string, branchId: string, branchName: string): boolean {
+  private matchesBranchFilter(currentLocationId: string, originLocId: string, branchName: string): boolean {
     const raw = String(currentLocationId || '').trim();
     if (!raw) return false;
     const targetName = String(branchName || '').trim().toLowerCase();
     const rawLower = raw.toLowerCase();
     if (rawLower === targetName) return true;
-    if (String(raw) === String(branchId)) return true;
+    if (String(raw) === String(originLocId)) return true;
     const branch = (this.branches || []).find((b: any) => String(b?._id || '') === raw);
     if (branch?.branchName && String(branch.branchName).trim().toLowerCase() === targetName) return true;
     const hub = (this.hubs || []).find((h: any) => String(h?._id || '') === raw);
@@ -237,9 +237,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   }
 
   private onStorage = (e: StorageEvent) => {
-    if (e.key === 'branch' || e.key === 'branchId') {
+    if (e.key === 'branch' || e.key === 'originLocId') {
       this.branchName = localStorage.getItem('branch') || 'All Branches';
-      this.branchId = localStorage.getItem('branchId') || 'all';
+      this.originLocId = localStorage.getItem('originLocId') || 'all';
       this.loadBranches();
       this.loadHubs();
       this.loadManifests();
@@ -254,9 +254,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     return String(value);
   }
 
-  private getAssignedBranchIds(): string[] {
+  private getAssignedoriginLocIds(): string[] {
     try {
-      const storedIds = JSON.parse(localStorage.getItem('branchIds') || '[]');
+      const storedIds = JSON.parse(localStorage.getItem('originLocIds') || '[]');
       if (!Array.isArray(storedIds)) return [];
       return storedIds
         .map((id: any) => String(id || '').trim())
@@ -266,9 +266,9 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     }
   }
 
-  toggleBranchStatus(branchId: string) {
-    if (!branchId) return;
-    this.http.patch(`http://localhost:3000/api/branches/${branchId}/status`, {}).subscribe({
+  toggleBranchStatus(originLocId: string) {
+    if (!originLocId) return;
+    this.http.patch(`http://localhost:3000/api/branches/${originLocId}/status`, {}).subscribe({
       next: () => this.loadBranches(),
       error: (err) => console.error('Error updating branch status:', err)
     });

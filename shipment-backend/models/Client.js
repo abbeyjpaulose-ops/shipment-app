@@ -69,7 +69,7 @@ const ClientSchema = new mongoose.Schema({
 
   creditType: { type: String, enum: ['credit', 'no-credit'], default: 'no-credit' },  
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },
-  branchId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true }, // branch _id
+  originLocId: { type: mongoose.Schema.Types.ObjectId, ref: 'Branch', required: true }, // branch _id
   user_id: { type: Number, required: true }, // creator (Profile _id)
 
   products: {
@@ -86,7 +86,7 @@ const ClientSchema = new mongoose.Schema({
 });
 
 // Unique client per company+branch (scoped by GSTIN_ID instead of creator email)
-ClientSchema.index({ GSTIN_ID: 1, clientName: 1, branchId: 1 }, { unique: true });
+ClientSchema.index({ GSTIN_ID: 1, clientName: 1, originLocId: 1 }, { unique: true });
 
 ClientSchema.virtual('address').get(function() {
   return this.deliveryLocations?.[0]?.address || this.deliveryLocations?.[0]?.location || '';

@@ -18,7 +18,7 @@ export class ProductComponent implements OnInit {
   private rateAddressLabelById = new Map<string, string>();
   newProduct: any = {
     productName: '',
-    branchId: localStorage.getItem('branchId') || 'all',
+    originLocId: localStorage.getItem('originLocId') || 'all',
     status: 'active',
     rates: [
       {
@@ -33,11 +33,11 @@ export class ProductComponent implements OnInit {
   editingProduct: any = null;
 
   get filteredProducts(): any[] {
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (branchId === 'all') {
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (originLocId === 'all') {
       return this.products;
     }
-    return (this.products || []).filter((product: any) => String(product?.branchId) === String(branchId));
+    return (this.products || []).filter((product: any) => String(product?.originLocId) === String(originLocId));
   }
 
   constructor(private http: HttpClient) {}
@@ -50,8 +50,8 @@ export class ProductComponent implements OnInit {
   loadProducts() {
     const email = localStorage.getItem('email');
     const branch = localStorage.getItem('branch') || '';
-    const branchId = localStorage.getItem('branchId') || 'all';
-    this.http.get<any[]>(`http://localhost:3000/api/products?email=${email}&branchId=${encodeURIComponent(branchId)}&branch=${encodeURIComponent(branch)}`)
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    this.http.get<any[]>(`http://localhost:3000/api/products?email=${email}&originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`)
       .subscribe({
         next: (data) => {
           this.products = data;
@@ -61,7 +61,7 @@ export class ProductComponent implements OnInit {
   }
 
   loadRateAddressOptions() {
-    const branchParams = '?branchId=all';
+    const branchParams = '?originLocId=all';
     forkJoin({
       branches: this.http.get<any[]>('http://localhost:3000/api/branches'),
       hubs: this.http.get<any[]>('http://localhost:3000/api/hubs'),
@@ -132,8 +132,8 @@ export class ProductComponent implements OnInit {
   }
 
   addProduct() {
-    this.newProduct.branchId = localStorage.getItem('branchId') || 'all';
-    if (this.newProduct.branchId === 'all') {
+    this.newProduct.originLocId = localStorage.getItem('originLocId') || 'all';
+    if (this.newProduct.originLocId === 'all') {
       alert('Please select a specific branch before adding a product.');
       return;
     }

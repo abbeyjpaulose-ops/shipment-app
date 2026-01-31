@@ -17,7 +17,7 @@ export class HubComponent implements OnInit, OnDestroy {
   showAddHubPopup = false;
   showEditHubPopup = false;
   private lastHubName = '';
-  private currentBranchId: string = localStorage.getItem('branchId') || 'all';
+  private currentoriginLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchCheck: any;
 
   newHub: any = {
@@ -28,7 +28,7 @@ export class HubComponent implements OnInit, OnDestroy {
     pinCode: '',
     phoneNum: '',
     perRev: '',
-    branchId: localStorage.getItem('branchId') || 'all',
+    originLocId: localStorage.getItem('originLocId') || 'all',
     deliveryAddresses: [
       {
         location: '',
@@ -46,13 +46,13 @@ export class HubComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     localStorage.setItem('branch', 'All Branches');
-    this.newHub.branchId = localStorage.getItem('branchId') || 'all';
+    this.newHub.originLocId = localStorage.getItem('originLocId') || 'all';
     this.loadHubs();
     this.loadBranches();
     this.branchCheck = setInterval(() => {
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (currentId !== this.currentBranchId) {
-        this.currentBranchId = currentId;
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (currentId !== this.currentoriginLocId) {
+        this.currentoriginLocId = currentId;
         this.loadHubs();
       }
     }, 1000);
@@ -65,10 +65,10 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
   private onStorage = (e: StorageEvent) => {
-    if (e.key === 'branchId') {
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (currentId !== this.currentBranchId) {
-        this.currentBranchId = currentId;
+    if (e.key === 'originLocId') {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (currentId !== this.currentoriginLocId) {
+        this.currentoriginLocId = currentId;
       }
       this.loadHubs();
     }
@@ -79,10 +79,7 @@ export class HubComponent implements OnInit, OnDestroy {
       .subscribe({
         next: (data) => {
           console.log("Hubs loaded:", data);
-          const branchId = String(localStorage.getItem('branchId') || 'all');
-          this.hubs = branchId && branchId !== 'all' && branchId !== 'all-hubs'
-            ? (data || []).filter((hub) => String(hub?.branchId || '') === branchId)
-            : data;
+          this.hubs = data || [];
         },
         error: (err) => console.error("Error loading hubs:", err)
       });
@@ -113,14 +110,14 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
   addHub() {
-    const branchId = localStorage.getItem('branchId') || 'all';
-    if (!branchId || branchId === 'all' || branchId === 'all-hubs') {
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    if (!originLocId || originLocId === 'all' || originLocId === 'all-hubs') {
       alert('Please select a specific branch before adding a hub.');
       return;
     }
     this.syncNewHubCurrentBranchDefaults();
     const payload = JSON.parse(JSON.stringify(this.newHub || {}));
-    payload.branchId = branchId;
+    payload.originLocId = originLocId;
     (payload.deliveryAddresses || []).forEach((addr: any) => {
       (addr?.vehicles || []).forEach((v: any) => {
         v.currentLocationId = this.normalizeLocationId(v?.currentLocationId);
@@ -151,7 +148,7 @@ export class HubComponent implements OnInit, OnDestroy {
       pinCode: '',
       phoneNum: '',
       perRev: '',
-      branchId: localStorage.getItem('branchId') || 'all',
+      originLocId: localStorage.getItem('originLocId') || 'all',
       deliveryAddresses: [
         {
           location: '',
@@ -358,13 +355,13 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
   getFilteredVehicles(vehicles: any[]): any[] {
-    const branchId = String(localStorage.getItem('branchId') || '').trim();
-    if (!branchId || branchId === 'all' || branchId === 'all-hubs') {
+    const originLocId = String(localStorage.getItem('originLocId') || '').trim();
+    if (!originLocId || originLocId === 'all' || originLocId === 'all-hubs') {
       return vehicles || [];
     }
     return (vehicles || []).filter((v: any) => {
       const currentLocationId = this.normalizeLocationId(v?.currentLocationId || v?.currentBranch);
-      return currentLocationId && currentLocationId === branchId;
+      return currentLocationId && currentLocationId === originLocId;
     });
   }
 

@@ -2,8 +2,6 @@ import express from 'express';
 import mongoose from 'mongoose';
 import Branch from '../models/Branch.js';
 import Hub from '../models/Hub.js';
-import Shipment from '../models/NewShipment/NewShipmentShipment.js';
-import Ewaybill from '../models/NewShipment/NewShipmentEwaybill.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -198,35 +196,7 @@ router.patch('/:id/vehicle-status', requireAuth, async (req, res) => {
     const updatedVehicle = (branch?.vehicles || []).find(
       (v) => String(v?.vehicleNo || '').trim() === vehicleNo
     );
-    let reverted = { matchedCount: 0, modifiedCount: 0 };
-    if (vehicleStatus === 'offline') {
-      const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const vehicleRegex = new RegExp(`\\|\\s*${escapeRegex(vehicleNo)}\\b`, 'i');
-      const ewaybills = await Ewaybill.find({
-        routes: { $regex: vehicleRegex }
-      }).select('shipmentId').lean();
-      const shipmentIds = Array.from(
-        new Set((ewaybills || []).map((e) => String(e?.shipmentId || '')).filter(Boolean))
-      );
-      if (shipmentIds.length) {
-        reverted = await Shipment.updateMany(
-          {
-            GSTIN_ID: gstinId,
-            _id: { $in: shipmentIds },
-            shipmentStatus: { $in: ['Manifestation', 'Out for Delivery', 'DManifestation', 'D-Out for Delivery'] }
-          },
-          [
-            {
-              $set: {
-                shipmentStatus: {
-                  $cond: [{ $regexMatch: { input: '$shipmentStatus', regex: /^D/ } }, 'DPending', 'Pending']
-                }
-              }
-            }
-          ]
-        );
-      }
-    }
+    const reverted = { matchedCount: 0, modifiedCount: 0 };
     res.json({
       success: true,
       update,

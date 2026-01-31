@@ -33,10 +33,6 @@ ManifestSchema.index(
   { GSTIN_ID: 1, entityType: 1, entityId: 1, fiscalYear: 1, manifestSequence: 1 },
   { unique: true }
 );
-ManifestSchema.index(
-  { GSTIN_ID: 1, entityType: 1, entityId: 1, fiscalYear: 1, manifestNumber: 1 },
-  { unique: true }
-);
 ManifestSchema.index({ GSTIN_ID: 1, vehicleNo: 1 });
 
 export default mongoose.models.Manifest || mongoose.model('Manifest', ManifestSchema);

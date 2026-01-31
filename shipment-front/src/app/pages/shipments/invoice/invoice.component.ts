@@ -24,20 +24,20 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   selectedInvoice: any = null;
   showInvoiceModal = false;
   branch: string = localStorage.getItem('branch') || 'All Branches';
-  branchId: string = localStorage.getItem('branchId') || 'all';
+  originLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchSub?: Subscription;
 
-  editingInvoice: any = null;   // âo. Track the invoice being edited
+  editingInvoice: any = null;   // ï¿½o. Track the invoice being edited
   showEditPopup: boolean = false;  showGenerateInvoicePopup: boolean = false;
   constructor(private http: HttpClient, private branchService: BranchService) {}
 
   ngOnInit() {
     this.branch = this.branchService.currentBranch || this.branch;
-    this.branchId = localStorage.getItem('branchId') || 'all';
+    this.originLocId = localStorage.getItem('originLocId') || 'all';
     this.branchSub = this.branchService.branch$.subscribe(branch => {
       if (branch !== this.branch) {
         this.branch = branch;
-        this.branchId = localStorage.getItem('branchId') || 'all';
+        this.originLocId = localStorage.getItem('originLocId') || 'all';
         this.loadInvoices();
       }
     });
@@ -53,13 +53,13 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.http.get<any>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        branchId: this.branchId || localStorage.getItem('branchId') || 'all'
+        originLocId: this.originLocId || localStorage.getItem('originLocId') || 'all'
       }
     }).subscribe({
       next: (res) => {
         const raw = Array.isArray(res) ? res : (res?.value || []);
-        // âo. Only show shipments with status 'Delivered'
-        //onsole.log('ðY"¦ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
+        // ï¿½o. Only show shipments with status 'Delivered'
+        //onsole.log('ï¿½Y"ï¿½ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
                 const normalized = (raw || []).map((s: any) => ({
           ...s,
           _normalizedStatus: this.normalizeStatus(s?.shipmentStatus)
@@ -73,17 +73,17 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         console.log('A??,f??A? Filtered Delivered consignments:', this.filteredDelivered);
         console.log('A??,f??A? Filtered Pre-Invoiced consignments:', this.filteredPreInvoiced);
       },
-      error: (err) => console.error('âO Error loading invoices:', err)
+      error: (err) => console.error('ï¿½O Error loading invoices:', err)
     });
   }
 
   private onStorageChange = (e: StorageEvent) => {
-    if (e.key === 'branch' || e.key === 'branchId') {
+    if (e.key === 'branch' || e.key === 'originLocId') {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.branch || currentId !== this.branchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.branch || currentId !== this.originLocId) {
         this.branch = current;
-        this.branchId = currentId;
+        this.originLocId = currentId;
         this.loadInvoices();
       }
     }
@@ -127,7 +127,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.selectedInvoice = null;
   }
 
-  // âo. Function to mark selected Delivered consignments as Invoiced
+  // ï¿½o. Function to mark selected Delivered consignments as Invoiced
   invoiceSelected() {
     const selectedConsignments = this.filteredDelivered.filter(i => i.selected);
 

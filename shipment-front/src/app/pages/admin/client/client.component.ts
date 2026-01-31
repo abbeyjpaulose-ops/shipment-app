@@ -22,7 +22,7 @@ export class ClientComponent implements OnInit {
   showAddClientPopup = false;
   showEditClientPopup = false;
   cbranch: string = localStorage.getItem('branch') || 'All Branches';
-  cbranchId: string = localStorage.getItem('branchId') || 'all';
+  coriginLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchCheck: any;
 
   newClient: any = {
@@ -35,7 +35,7 @@ export class ClientComponent implements OnInit {
     deliveryLocations: [{ address: '', city: '', state: '', pinCode: '' }],
     status: 'active',
     branch: localStorage.getItem('branch') || 'All Branches',
-    branchId: localStorage.getItem('branchId') || 'all',
+    originLocId: localStorage.getItem('originLocId') || 'all',
     email: localStorage.getItem('email'),
     username: localStorage.getItem('username')
   };
@@ -52,10 +52,10 @@ export class ClientComponent implements OnInit {
     // react to branch changes (same tab)
     this.branchCheck = setInterval(() => {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.cbranch || currentId !== this.cbranchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.cbranch || currentId !== this.coriginLocId) {
         this.cbranch = current;
-        this.cbranchId = currentId;
+        this.coriginLocId = currentId;
         if (current !== 'All Hubs') {
           this.selectedHubId = '';
         }
@@ -75,12 +75,12 @@ export class ClientComponent implements OnInit {
   }
 
   private onStorage = (e: StorageEvent) => {
-    if (e.key === 'branch' || e.key === 'branchId') {
+    if (e.key === 'branch' || e.key === 'originLocId') {
       const current = localStorage.getItem('branch') || 'All Branches';
-      const currentId = localStorage.getItem('branchId') || 'all';
-      if (current !== this.cbranch || currentId !== this.cbranchId) {
+      const currentId = localStorage.getItem('originLocId') || 'all';
+      if (current !== this.cbranch || currentId !== this.coriginLocId) {
         this.cbranch = current;
-        this.cbranchId = currentId;
+        this.coriginLocId = currentId;
       }
       this.loadClients();
       if (current !== 'All Hubs') {
@@ -96,11 +96,11 @@ export class ClientComponent implements OnInit {
   loadClients() {
     const email = localStorage.getItem('email');
     this.cbranch = localStorage.getItem('branch') || 'All Branches';
-    this.cbranchId = localStorage.getItem('branchId') || 'all';
-    const effectiveBranchId =
-      this.cbranch === 'All Hubs' ? 'all-hubs' : this.cbranchId;
+    this.coriginLocId = localStorage.getItem('originLocId') || 'all';
+    const effectiveoriginLocId =
+      this.cbranch === 'All Hubs' ? 'all-hubs' : this.coriginLocId;
 
-    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&branchId=${effectiveBranchId}`)
+    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&originLocId=${effectiveoriginLocId}`)
       .subscribe({
         next: (data) => {
           console.log("Clients loaded:", data);
@@ -125,8 +125,8 @@ export class ClientComponent implements OnInit {
   /** Load Products for dropdown */
   loadProducts() {
     const branch = localStorage.getItem('branch') || '';
-    const branchId = localStorage.getItem('branchId') || 'all';
-    this.http.get<any[]>(`http://localhost:3000/api/products?branchId=${encodeURIComponent(branchId)}&branch=${encodeURIComponent(branch)}`)
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    this.http.get<any[]>(`http://localhost:3000/api/products?originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`)
       .subscribe({
         next: (data) => {
           this.productOptions = data || [];
@@ -136,7 +136,7 @@ export class ClientComponent implements OnInit {
   }
 
   loadRateAddressOptions() {
-    const branchParams = '?branchId=all';
+    const branchParams = '?originLocId=all';
     forkJoin({
       branches: this.http.get<any[]>('http://localhost:3000/api/branches'),
       hubs: this.http.get<any[]>('http://localhost:3000/api/hubs'),
@@ -287,19 +287,19 @@ export class ClientComponent implements OnInit {
     console.log('📤 Sending client data:', this.newClient);
 
     this.newClient.branch = localStorage.getItem('branch') || 'All Branches';
-    this.newClient.branchId = localStorage.getItem('branchId') || 'all';
+    this.newClient.originLocId = localStorage.getItem('originLocId') || 'all';
 
-    if (this.newClient.branch === 'All Hubs' || this.newClient.branchId === 'all-hubs') {
+    if (this.newClient.branch === 'All Hubs' || this.newClient.originLocId === 'all-hubs') {
       const hub = (this.hubs || []).find((h) => String(h?._id || '') === String(this.selectedHubId || ''));
       if (!hub) {
         alert('Please select a hub before adding a client.');
         return;
       }
-      this.newClient.branchId = String(hub._id || '');
+      this.newClient.originLocId = String(hub._id || '');
       this.newClient.branch = String(hub.hubName || '').trim() || this.newClient.branch;
     }
 
-    if (this.newClient.branch === 'All Branches' || this.newClient.branchId === 'all') {
+    if (this.newClient.branch === 'All Branches' || this.newClient.originLocId === 'all') {
       alert('Please select a specific branch before adding a client.');
       return;
     }

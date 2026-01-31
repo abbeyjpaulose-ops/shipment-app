@@ -6,12 +6,12 @@ import Branch from '../models/Branch.js';
 
 const router = express.Router();
 
-const normalizeBranchIds = (ids) =>
+const normalizeoriginLocIds = (ids) =>
   Array.isArray(ids) ? ids.map((id) => String(id || '')).filter(Boolean) : [];
-const getAllowedBranchIds = (req) => {
+const getAllowedoriginLocIds = (req) => {
   const role = String(req.user?.role || '').toLowerCase();
   if (role === 'admin') return null;
-  return normalizeBranchIds(req.user?.branchIds);
+  return normalizeoriginLocIds(req.user?.originLocIds);
 };
 
 const normalizeId = (value) => String(value || '').trim();
@@ -52,12 +52,12 @@ router.get('/suggestions', requireAuth, async (req, res) => {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
-    const branchId = normalizeId(req.query.branchId);
-    if (!branchId || branchId === 'all') {
-      return res.status(400).json({ message: 'branchId is required and must not be "all"' });
+    const originLocId = normalizeId(req.query.originLocId);
+    if (!originLocId || originLocId === 'all') {
+      return res.status(400).json({ message: 'originLocId is required and must not be "all"' });
     }
-    const allowedBranchIds = getAllowedBranchIds(req);
-    if (allowedBranchIds && !allowedBranchIds.includes(branchId)) {
+    const allowedoriginLocIds = getAllowedoriginLocIds(req);
+    if (allowedoriginLocIds && !allowedoriginLocIds.includes(originLocId)) {
       return res.status(403).json({ message: 'Branch access denied' });
     }
 
@@ -68,8 +68,8 @@ router.get('/suggestions', requireAuth, async (req, res) => {
 
     // Company defaults
     const branchFilters = [];
-    if (branchId && branchId !== 'all') {
-      branchFilters.push({ branchId });
+    if (originLocId && originLocId !== 'all') {
+      branchFilters.push({ originLocId });
     }
     const defaults = await Product.find({
       GSTIN_ID: gstinId,
@@ -114,9 +114,9 @@ router.get('/suggestions', requireAuth, async (req, res) => {
 
     const merged = Array.from(map.values());
 
-    const branch = await Branch.findById(branchId).select('branchName').lean();
+    const branch = await Branch.findById(originLocId).select('branchName').lean();
     res.json({
-      branchId: branchId || '',
+      originLocId: originLocId || '',
       branchName: branch?.branchName || '',
       clientId: clientId || null,
       count: merged.length,

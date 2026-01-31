@@ -12,16 +12,16 @@ const normalizeUsername = (value) => String(value || '').toLowerCase().trim();
 
 async function withBranchNames(records = []) {
   const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
-  const branchIds = Array.from(
+  const originLocIds = Array.from(
     new Set(
       data
-        .flatMap((rec) => [rec?.branchId, ...(rec?.branchIds || [])])
+        .flatMap((rec) => [rec?.originLocId, ...(rec?.originLocIds || [])])
         .map((id) => String(id || ''))
         .filter(Boolean)
     )
   );
-  const branches = branchIds.length
-    ? await Branch.find({ _id: { $in: branchIds } }).select('_id branchName').lean()
+  const branches = originLocIds.length
+    ? await Branch.find({ _id: { $in: originLocIds } }).select('_id branchName').lean()
     : [];
   const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
 
@@ -30,8 +30,8 @@ async function withBranchNames(records = []) {
     if (isAdmin) {
       return { ...rec, branchName: 'All Branches', branchNames: ['All Branches'] };
     }
-    const branchName = branchNameById.get(String(rec?.branchId || '')) || '';
-    const branchNames = (rec?.branchIds || [])
+    const branchName = branchNameById.get(String(rec?.originLocId || '')) || '';
+    const branchNames = (rec?.originLocIds || [])
       .map((id) => branchNameById.get(String(id)) || '')
       .filter(Boolean);
     return { ...rec, branchName, branchNames };
@@ -65,8 +65,8 @@ router.post('/', async (req, res) => {
     const password = String(req.body.password || '');
     const role = normalizeText(req.body.role) || 'user';
     const phoneNumber = normalizeText(req.body.phoneNumber);
-    const branchIdInput = normalizeText(req.body.branchId);
-    const branchIdsInput = Array.isArray(req.body.branchIds) ? req.body.branchIds : null;
+    const originLocIdInput = normalizeText(req.body.originLocId);
+    const originLocIdsInput = Array.isArray(req.body.originLocIds) ? req.body.originLocIds : null;
 
     if (!email || !username || !password) {
       return res.status(400).json({ message: 'email, username, and password are required' });
@@ -77,22 +77,22 @@ router.post('/', async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 10);
 
-    let branchIds =
-      branchIdsInput?.map((b) => normalizeText(b)).filter(Boolean) ||
-      (branchIdInput ? [branchIdInput] : []);
+    let originLocIds =
+      originLocIdsInput?.map((b) => normalizeText(b)).filter(Boolean) ||
+      (originLocIdInput ? [originLocIdInput] : []);
 
     if (String(role).toLowerCase() === 'admin') {
-      branchIds = [];
+      originLocIds = [];
     }
 
-    if (!branchIds.length && String(role).toLowerCase() !== 'admin') {
-      return res.status(400).json({ message: 'branchIds is required' });
+    if (!originLocIds.length && String(role).toLowerCase() !== 'admin') {
+      return res.status(400).json({ message: 'originLocIds is required' });
     }
 
     const profile = await Profile.create({
       GSTIN_ID: gstinId,
-      branchIds,
-      branchId: branchIds[0],
+      originLocIds,
+      originLocId: originLocIds[0],
       email,
       username,
       passwordHash,
@@ -125,19 +125,19 @@ router.put('/:id', async (req, res) => {
     const role = update.role;
     const isAdminRole = String(role || '').toLowerCase() === 'admin';
 
-    if (req.body.branchIds !== undefined) {
-      const branchIdsInput = Array.isArray(req.body.branchIds) ? req.body.branchIds : [];
-      update.branchIds = branchIdsInput.map((b) => normalizeText(b)).filter(Boolean);
-    } else if (req.body.branchId !== undefined) {
-      update.branchIds = [normalizeText(req.body.branchId)].filter(Boolean);
+    if (req.body.originLocIds !== undefined) {
+      const originLocIdsInput = Array.isArray(req.body.originLocIds) ? req.body.originLocIds : [];
+      update.originLocIds = originLocIdsInput.map((b) => normalizeText(b)).filter(Boolean);
+    } else if (req.body.originLocId !== undefined) {
+      update.originLocIds = [normalizeText(req.body.originLocId)].filter(Boolean);
     }
 
     if (isAdminRole) {
-      update.branchIds = [];
-      update.branchId = null;
+      update.originLocIds = [];
+      update.originLocId = null;
     } else {
-      if (update.branchIds && update.branchIds.length) {
-        update.branchId = update.branchIds[0];
+      if (update.originLocIds && update.originLocIds.length) {
+        update.originLocId = update.originLocIds[0];
       }
     }
 

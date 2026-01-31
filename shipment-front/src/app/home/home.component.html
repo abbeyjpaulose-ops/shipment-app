@@ -5,7 +5,7 @@
  
       <!-- Branch Dropdown --> 
       <select
-        [(ngModel)]="selectedBranchId"
+        [(ngModel)]="selectedoriginLocId"
         (change)="onBranchChange($event)"
         [disabled]="!isAdmin && branchOptions.length <= 1"
       > 

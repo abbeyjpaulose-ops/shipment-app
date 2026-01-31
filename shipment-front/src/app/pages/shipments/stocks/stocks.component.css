@@ -1,6 +1,10 @@
 .stocks-container {
   padding: 20px;
   color: var(--stock-text);
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 :host {
@@ -80,7 +84,13 @@
   color: var(--stock-primary-strong);
 }
 
+.stocks-table-wrapper {
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
 .stocks-table {
+  table-layout: fixed;
   width: 100%;
   border-collapse: collapse;
   background: var(--stock-card);
@@ -91,13 +101,16 @@
 
 .stocks-table th, .stocks-table td {
   border: 1px solid var(--stock-border);
-  padding: 8px;
+  padding: 4px 6px;
   text-align: left;
+  font-size: 12px;
+  word-wrap: break-word;
 }
 
 .stocks-table th {
   background: #f8fafc;
   font-weight: 600;
+  font-size: 12px;
 }
 
 .stocks-table tr:hover {

@@ -39,19 +39,19 @@ router.post('/login', async (req, res) => {
     // Always set `id` to GSTIN_ID (company id) so company-scoped APIs work for all users.
     const gstinId = accountType === 'profile' ? account.GSTIN_ID : account._id;
     const isAdmin = String(account.role || '').toLowerCase() === 'admin';
-    const branchId =
+    const originLocId =
       isAdmin
         ? 'all'
         : accountType === 'profile'
-          ? account.branchId
+          ? account.originLocId
           : 'all';
-    const branchIds =
+    const originLocIds =
       isAdmin
         ? ['all']
         : accountType === 'profile'
-          ? (Array.isArray(account.branchIds) && account.branchIds.length
-            ? account.branchIds
-            : (account.branchId ? [account.branchId] : []))
+          ? (Array.isArray(account.originLocIds) && account.originLocIds.length
+            ? account.originLocIds
+            : (account.originLocId ? [account.originLocId] : []))
           : ['all'];
 
     let gstin = accountType === 'user' ? account.GSTIN : null;
@@ -68,7 +68,7 @@ router.post('/login', async (req, res) => {
         role: account.role,
         email: account.email,
         accountType,
-        branchIds
+        originLocIds
       },
       process.env.JWT_SECRET || 'secret',
       { expiresIn: '1h' }
@@ -95,15 +95,15 @@ router.post('/login', async (req, res) => {
 
     let branchName = '';
     let branchNames = [];
-    if (branchId === 'all') {
+    if (originLocId === 'all') {
       branchName = 'All Branches';
       branchNames = ['All Branches'];
-    } else if (branchId) {
-      const ids = Array.from(new Set([branchId, ...(branchIds || [])].map((id) => String(id))));
+    } else if (originLocId) {
+      const ids = Array.from(new Set([originLocId, ...(originLocIds || [])].map((id) => String(id))));
       const branches = await Branch.find({ _id: { $in: ids } }).select('_id branchName').lean();
       const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
-      branchName = branchNameById.get(String(branchId)) || '';
-      branchNames = (branchIds || [])
+      branchName = branchNameById.get(String(originLocId)) || '';
+      branchNames = (originLocIds || [])
         .map((id) => branchNameById.get(String(id)) || '')
         .filter(Boolean);
     }
@@ -114,8 +114,8 @@ router.post('/login', async (req, res) => {
       role: account.role,
       email: account.email,
       accountType,
-      branchId,
-      branchIds,
+      originLocId,
+      originLocIds,
       branchName,
       branchNames,
       GSTIN_ID: gstinId,

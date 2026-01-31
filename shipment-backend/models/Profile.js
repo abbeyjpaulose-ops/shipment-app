@@ -16,9 +16,9 @@ const ProfileSchema = new mongoose.Schema(
     GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
 
     // Allowed branch ids for this user. Admins get all branches.
-    branchIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
+    originLocIds: { type: [mongoose.Schema.Types.ObjectId], default: [] },
     // Default/selected branch id.
-    branchId: { type: mongoose.Schema.Types.ObjectId },
+    originLocId: { type: mongoose.Schema.Types.ObjectId },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     username: { type: String, required: true, trim: true },
     passwordHash: { type: String, required: true },
@@ -31,31 +31,31 @@ const ProfileSchema = new mongoose.Schema(
 
 ProfileSchema.pre('validate', function (next) {
   if (String(this.role || '').toLowerCase() === 'admin') {
-    this.branchIds = [];
-    this.branchId = null;
+    this.originLocIds = [];
+    this.originLocId = null;
     return next();
   }
 
-  // Normalize branch ids; support legacy single-branch writes via `branchId`.
-  const normalizedBranchIds = (Array.isArray(this.branchIds) ? this.branchIds : [])
+  // Normalize branch ids; support legacy single-branch writes via `originLocId`.
+  const normalizedoriginLocIds = (Array.isArray(this.originLocIds) ? this.originLocIds : [])
     .map((b) => String(b || '').trim())
     .filter(Boolean);
 
-  if (normalizedBranchIds.length === 0 && this.branchId) {
-    normalizedBranchIds.push(String(this.branchId).trim());
+  if (normalizedoriginLocIds.length === 0 && this.originLocId) {
+    normalizedoriginLocIds.push(String(this.originLocId).trim());
   }
 
   // Deduplicate while preserving order
   const seen = new Set();
-  this.branchIds = normalizedBranchIds.filter((b) => {
+  this.originLocIds = normalizedoriginLocIds.filter((b) => {
     const key = b.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 
-  if (!this.branchIds.length) return next(new Error('branchIds is required'));
-  if (!this.branchId) this.branchId = this.branchIds[0];
+  if (!this.originLocIds.length) return next(new Error('originLocIds is required'));
+  if (!this.originLocId) this.originLocId = this.originLocIds[0];
   next();
 });
 
