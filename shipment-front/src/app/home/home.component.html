@@ -9,7 +9,7 @@
         (change)="onBranchChange($event)"
         [disabled]="!isAdmin && branchOptions.length <= 1"
       > 
-        <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.name }}</option>
+        <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.label }}</option>
       </select>
  
     </div>

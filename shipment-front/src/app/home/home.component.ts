@@ -25,7 +25,7 @@ export class HomeComponent implements OnInit {
   showProfile = false;
 
   // Branch data
-  branchOptions: Array<{ id: string; name: string }> = [];
+  branchOptions: Array<{ id: string; name: string; label: string }> = [];
   selectedoriginLocId: string = localStorage.getItem('originLocId') || '';
   selectedBranchName: string = localStorage.getItem('branch') || '';
   showLogoutModal = false;
@@ -37,14 +37,19 @@ export class HomeComponent implements OnInit {
       this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${this.username}`)
         .subscribe(data => {
           const options = (data || [])
-            .map((b: any) => ({ id: String(b?._id || ''), name: String(b?.branchName || '') }))
+            .map((b: any) => ({
+              id: String(b?._id || ''),
+              name: String(b?.branchName || ''),
+              label: this.getBranchOptionLabel(b)
+            }))
             .filter((b: any) => b.name);
           this.branchOptions = [
-            { id: 'all', name: 'All Branches' },
-            { id: 'all-hubs', name: 'All Hubs' },
+            { id: 'all', name: 'All Branches', label: 'All Branches' },
+            { id: 'all-hubs', name: 'All Hubs', label: 'All Hubs' },
             ...options.filter((b: any) => b.name !== 'All Branches' && b.name !== 'All Hubs')
           ];
           this.syncSelectedBranch();
+          this.enrichBranchOptionLabels();
         });
       if (!this.selectedBranchName) {
         this.selectedBranchName = 'All Branches';
@@ -63,21 +68,23 @@ export class HomeComponent implements OnInit {
       if (Array.isArray(storedNames) && Array.isArray(storedIds) && storedNames.length === storedIds.length) {
         const options = storedNames.map((name: string, index: number) => ({
           id: String(storedIds[index] || ''),
-          name: String(name || '')
+          name: String(name || ''),
+          label: String(name || '')
         }));
         this.branchOptions = [
-          { id: 'all', name: 'All Branches' },
-          { id: 'all-hubs', name: 'All Hubs' },
+          { id: 'all', name: 'All Branches', label: 'All Branches' },
+          { id: 'all-hubs', name: 'All Hubs', label: 'All Hubs' },
           ...options.filter((b: any) => b.name && b.name !== 'All Branches' && b.name !== 'All Hubs')
         ];
       } else if (Array.isArray(storedNames)) {
         const options = storedNames.map((name: string) => ({
           id: String(name || ''),
-          name: String(name || '')
+          name: String(name || ''),
+          label: String(name || '')
         }));
         this.branchOptions = [
-          { id: 'all', name: 'All Branches' },
-          { id: 'all-hubs', name: 'All Hubs' },
+          { id: 'all', name: 'All Branches', label: 'All Branches' },
+          { id: 'all-hubs', name: 'All Hubs', label: 'All Hubs' },
           ...options.filter((b: any) => b.name && b.name !== 'All Branches' && b.name !== 'All Hubs')
         ];
       }
@@ -92,6 +99,7 @@ export class HomeComponent implements OnInit {
       localStorage.setItem('branch', this.selectedBranchName);
       localStorage.setItem('originLocId', this.selectedoriginLocId);
     }
+    this.enrichBranchOptionLabels();
   }
 
   toggleMenu(menu: string) {
@@ -121,14 +129,54 @@ export class HomeComponent implements OnInit {
       }
     }
     if (this.selectedBranchName) {
-      const match = this.branchOptions.find((b) => b.name === this.selectedBranchName);
+      const match = this.branchOptions.find(
+        (b) => b.name === this.selectedBranchName || b.label === this.selectedBranchName
+      );
       if (match) {
         this.selectedoriginLocId = match.id;
+        this.selectedBranchName = match.name;
         return;
       }
     }
     this.selectedoriginLocId = this.branchOptions[0].id;
     this.selectedBranchName = this.branchOptions[0].name;
+  }
+
+  private getBranchOptionLabel(branch: any): string {
+    const prefix = String(branch?.prefix || '').trim();
+    if (prefix) return prefix;
+    return String(branch?.branchName || '').trim();
+  }
+
+  private enrichBranchOptionLabels() {
+    if (!this.branchOptions.length) return;
+
+    this.http.get<any[]>(`http://localhost:3000/api/branches`).subscribe({
+      next: (branches) => {
+        const byId = new Map(
+          (branches || []).map((b: any) => [String(b?._id || ''), this.getBranchOptionLabel(b)])
+        );
+        const byName = new Map(
+          (branches || []).map((b: any) => [
+            String(b?.branchName || '').trim().toLowerCase(),
+            this.getBranchOptionLabel(b)
+          ])
+        );
+
+        this.branchOptions = (this.branchOptions || []).map((option) => {
+          if (option.id === 'all' || option.id === 'all-hubs') {
+            return option;
+          }
+          const idLabel = byId.get(option.id);
+          const nameLabel = byName.get(String(option.name || '').trim().toLowerCase());
+          const label = idLabel || nameLabel || option.label || option.name;
+          return { ...option, label };
+        });
+      },
+      error: () => {
+        // Keep existing labels if branch metadata can't be loaded.
+      }
+    });
   }
 
   onBranchChange(event: any) {

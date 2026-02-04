@@ -30,6 +30,16 @@ export const BranchSchema = new mongoose.Schema(
     GSTIN_ID: { type: Number, ref: 'User', required: true, index: true },
 
     branchName: { type: String, required: true, trim: true },
+    prefix: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      maxlength: 3,
+      match: [
+        /^[A-Z0-9]{1,3}$/,
+        'Prefix must be 1-3 letters or numbers'
+      ]
+    },
     address: { type: String, required: true, trim: true },
     city: { type: String, trim: true },
     state: { type: String, trim: true },

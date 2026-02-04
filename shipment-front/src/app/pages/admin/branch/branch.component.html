@@ -11,6 +11,14 @@
       <h3>Add Branch</h3>
       <div class="add-branch-form">
         <input [(ngModel)]="newBranch.branchName" (ngModelChange)="handleHeadingBranchChange()" placeholder="Branch Name" required>
+        <input
+          [(ngModel)]="newBranch.prefix"
+          placeholder="Prefix (1-3 letters/numbers)"
+          maxlength="3"
+          pattern="[A-Za-z0-9]{0,3}"
+          title="Up to 3 letters or numbers"
+          style="text-transform: uppercase;"
+        >
         <input [(ngModel)]="newBranch.address" placeholder="Address" required>
         <input [(ngModel)]="newBranch.city" placeholder="City">
         <input [(ngModel)]="newBranch.state" placeholder="State">
@@ -49,6 +57,14 @@
       <h3>Edit Branch</h3>
       <div class="add-branch-form">
         <input [(ngModel)]="editingBranch.branchName" placeholder="Branch Name" required>
+        <input
+          [(ngModel)]="editingBranch.prefix"
+          placeholder="Prefix (1-3 letters/numbers)"
+          maxlength="3"
+          pattern="[A-Za-z0-9]{0,3}"
+          title="Up to 3 letters or numbers"
+          style="text-transform: uppercase;"
+        >
         <input [(ngModel)]="editingBranch.address" placeholder="Address" required>
         <input [(ngModel)]="editingBranch.city" placeholder="City">
         <input [(ngModel)]="editingBranch.state" placeholder="State">

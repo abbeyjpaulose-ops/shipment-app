@@ -19,6 +19,7 @@ export class BranchComponent implements OnInit {
 
   newBranch: any = {
     branchName: '',
+    prefix: '',
     address: '',
     city: '',
     state: '',
@@ -142,8 +143,10 @@ export class BranchComponent implements OnInit {
           }))
       : [];
 
-    const payload = {
+    const normalizedNewPrefix = this.normalizePrefix(this.newBranch.prefix);
+    const payload: any = {
       branchName: this.newBranch.branchName,
+      ...(normalizedNewPrefix ? { prefix: normalizedNewPrefix } : {}),
       address: this.newBranch.address,
       city: this.newBranch.city,
       state: this.newBranch.state,
@@ -192,7 +195,7 @@ export class BranchComponent implements OnInit {
     const options: Array<{ id: string; label: string }> = [];
     (this.branches || []).forEach((branch: any) => {
       const id = this.normalizeId(branch?._id);
-      const label = String(branch?.branchName || '').trim();
+      const label = this.getBranchLabel(branch);
       if (id && label) options.push({ id, label });
     });
     (this.hubs || []).forEach((hub: any) => {
@@ -223,7 +226,7 @@ export class BranchComponent implements OnInit {
     });
     (this.branches || []).forEach((branch: any) => {
       const id = this.normalizeId(branch?._id);
-      const label = String(branch?.branchName || '').trim();
+      const label = this.getBranchLabel(branch);
       if (id && label && !options.some((o) => o.id === id)) {
         options.push({ id, label });
       }
@@ -235,10 +238,18 @@ export class BranchComponent implements OnInit {
     const raw = String(value || '').trim();
     if (!raw) return '';
     const branch = (this.branches || []).find((b: any) => this.normalizeId(b?._id) === raw);
-    if (branch?.branchName) return branch.branchName;
+    const branchLabel = this.getBranchLabel(branch);
+    if (branchLabel) return branchLabel;
     const hub = (this.hubs || []).find((h: any) => this.normalizeId(h?._id) === raw);
     if (hub?.hubName) return hub.hubName;
     return raw;
+  }
+
+  private getBranchLabel(branch: any): string {
+    const prefix = String(branch?.prefix || '').trim();
+    if (prefix) return prefix;
+    const branchName = String(branch?.branchName || '').trim();
+    return branchName;
   }
 
   private normalizeLocationId(value: any): string {
@@ -256,6 +267,12 @@ export class BranchComponent implements OnInit {
     return '';
   }
 
+  private normalizePrefix(value: any): string | undefined {
+    const raw = String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!raw) return undefined;
+    return raw.slice(0, 3);
+  }
+
   private normalizeId(value: any): string {
     if (!value) return '';
     if (typeof value === 'string') return value;
@@ -268,6 +285,7 @@ export class BranchComponent implements OnInit {
   resetNewBranch() {
     this.newBranch = {
       branchName: '',
+      prefix: '',
       address: '',
       city: '',
       state: '',
@@ -296,6 +314,12 @@ export class BranchComponent implements OnInit {
   // Save Edited Branch
   saveEdit() {
     const payload = JSON.parse(JSON.stringify(this.editingBranch || {}));
+    const normalizedPrefix = this.normalizePrefix(payload?.prefix);
+    if (normalizedPrefix) {
+      payload.prefix = normalizedPrefix;
+    } else {
+      delete payload.prefix;
+    }
     if (Array.isArray(payload?.vehicles)) {
       payload.vehicles.forEach((vehicle: any) => {
         vehicle.currentLocationId = this.normalizeLocationId(vehicle.currentLocationId);

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "create-user": "node create-user.js"
+    "create-user": "node create-user.js",
+    "migrate-prefix": "node scripts/migrate-branch-prefix.js"
   },
   "dependencies": {
     "@ng-select/ng-select": "^20.2.2",
