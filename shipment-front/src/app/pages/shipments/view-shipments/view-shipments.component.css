@@ -24,6 +24,31 @@
   flex-wrap: wrap;
 }
 
+.filters .print-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--primary);
+  color: #ffffff;
+  cursor: pointer;
+}
+
+.filters .print-btn:disabled {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
+}
+
+
+.select-column {
+  width: 70px;
+  text-align: center;
+}
+
+.checkbox-cell {
+  text-align: center;
+}
+
 .filters input,
 .filters select {
   padding: 8px 10px;

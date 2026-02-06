@@ -35,6 +35,9 @@ export class ViewShipmentsComponent implements OnInit {
   selectedShipmentManifestNumber: string | null = null;
   showReturnModal: boolean = false;
   showReturnFinalAmount: boolean = false;
+  // selection for print
+  private selectedShipmentIds: Set<string> = new Set();
+  isAllViewShipmentsSelected = false;
 
   constructor(private http: HttpClient) {}
 
@@ -317,6 +320,78 @@ export class ViewShipmentsComponent implements OnInit {
     return (this.filteredReceived || []).some(s => s._returnSelected);
   }
 
+  // --- View Shipments selection helpers (print) ---
+  private getShipmentKey(shipment: any): string {
+    if (!shipment) return '';
+    const byId = shipment._id || shipment.id || shipment.consignmentNumber;
+    return String(byId || '').trim();
+  }
+
+  isViewShipmentSelected(shipment: any): boolean {
+    const key = this.getShipmentKey(shipment);
+    return key ? this.selectedShipmentIds.has(key) : false;
+  }
+
+  toggleShipmentSelection(shipment: any): void {
+    const key = this.getShipmentKey(shipment);
+    if (!key) return;
+    if (this.selectedShipmentIds.has(key)) {
+      this.selectedShipmentIds.delete(key);
+    } else {
+      this.selectedShipmentIds.add(key);
+    }
+    this.isAllViewShipmentsSelected =
+      !!this.filteredShipments.length &&
+      this.filteredShipments.every((s) => this.isViewShipmentSelected(s));
+  }
+
+  toggleSelectAllShipments(event: any): void {
+    const checked = Boolean(event?.target?.checked);
+    this.isAllViewShipmentsSelected = checked;
+    this.selectedShipmentIds.clear();
+    if (checked) {
+      (this.filteredShipments || []).forEach((s) => {
+        const key = this.getShipmentKey(s);
+        if (key) this.selectedShipmentIds.add(key);
+      });
+    }
+  }
+
+  get isPrintEnabled(): boolean {
+    return this.selectedShipmentIds.size > 0;
+  }
+
+  printSelectedShipments(): void {
+    const selected = (this.filteredShipments || []).filter((s) => this.isViewShipmentSelected(s));
+    const baseSelection = selected.length ? selected : (this.filteredShipments || []).slice(0, 1);
+    if (!baseSelection.length) return;
+    const toPrint = baseSelection.map((s) => this.enrichShipmentDetails(s));
+    const html = this.buildPrintDocument(toPrint);
+    // Use hidden iframe to avoid popup blockers and blank prints.
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.srcdoc = html;
+    document.body.appendChild(iframe);
+    const onLoad = () => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        setTimeout(() => iframe.remove(), 500);
+      }
+    };
+    if (iframe.contentWindow?.document?.readyState === 'complete') {
+      setTimeout(onLoad, 25);
+    } else {
+      iframe.onload = onLoad;
+    }
+  }
+
   getSelectedReceived(): any[] {
     return (this.filteredReceived || []).filter(s => s._returnSelected);
   }
@@ -517,10 +592,22 @@ export class ViewShipmentsComponent implements OnInit {
       enriched.billingAddress = this.firstNonEmpty(enriched.billingAddress, enriched.consignorAddress);
     } else {
       const billingClient = this.resolveClientByIdOrName(shipment?.billingClientId, shipment?.billingName);
+      const billingLocation = this.resolveClientLocation(billingClient, shipment?.billingLocationId);
       enriched.billingName = this.firstNonEmpty(enriched.billingName, billingClient?.clientName);
       enriched.billingGSTIN = this.firstNonEmpty(enriched.billingGSTIN, billingClient?.GSTIN);
-      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, billingClient?.phoneNum);
-      enriched.billingAddress = this.firstNonEmpty(enriched.billingAddress, billingClient?.address);
+      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, billingLocation?.phoneNum, billingClient?.phoneNum);
+      // Prefer resolved billing location address; fall back to id text, then client address
+      const billingLocationIdText = this.safeText(
+        billingLocation?.delivery_id ??
+        billingLocation?._id ??
+        shipment?.billingLocationId
+      );
+      enriched.billingAddress = this.firstNonEmpty(
+        enriched.billingAddress,
+        billingLocation?.address,
+        billingLocationIdText,
+        billingClient?.address
+      );
     }
 
     if (shipment?.pickupType === 'branch') {
@@ -772,6 +859,217 @@ export class ViewShipmentsComponent implements OnInit {
     this.selectedShipment = null;
     this.selectedShipmentManifestId = null;
     this.selectedShipmentManifestNumber = null;
+  }
+
+  // --- Print helpers ---
+  private safeText(value: any): string {
+    const text = String(value ?? '').trim();
+    return text || '-';
+  }
+
+  private formatCurrency(value: any): string {
+    const num = Number(value ?? 0);
+    return `₹${num.toFixed(2)}`;
+  }
+
+  private getBranchAddress(branchName: string): string {
+    const branch = (this.branches || []).find(
+      (b) => String(b?.branchName || '').trim().toLowerCase() === String(branchName || '').trim().toLowerCase()
+    );
+    return branch?.address || '-';
+  }
+
+  private getBranchPhone(branchName: string): string {
+    const branch = (this.branches || []).find(
+      (b) => String(b?.branchName || '').trim().toLowerCase() === String(branchName || '').trim().toLowerCase()
+    );
+    return branch?.phoneNum || '';
+  }
+
+  private buildChargeRows(charges: any, goodsValue: number): { label: string; value: string; bold?: boolean }[] {
+    const c = charges || {};
+    const rows = [
+      { label: 'LR Charge', value: this.formatCurrency(c.lrCharge ?? 0) },
+      { label: 'Loading/Unloading Charges', value: this.formatCurrency(c.loadingUnloadingCharges ?? c.loadingCharges ?? 0) },
+      { label: 'Freight', value: this.formatCurrency(c.freight ?? 0) },
+      { label: 'Extra Charge', value: this.formatCurrency(c.extraCharge ?? 0) },
+      { label: 'Taxable Value', value: this.formatCurrency(c.taxableValue ?? goodsValue) },
+      { label: 'CGST(6%)', value: this.formatCurrency(c.cgst ?? c.cgst6 ?? 0) },
+      { label: 'SGST(6%)', value: this.formatCurrency(c.sgst ?? c.sgst6 ?? 0) },
+      { label: 'IGST(12%)', value: this.formatCurrency(c.igst ?? c.igst12 ?? 0) },
+      { label: 'Net Total', value: this.formatCurrency(c.netTotal ?? c.total ?? goodsValue), bold: true },
+      { label: 'Balance', value: this.formatCurrency(c.balance ?? 0) }
+    ];
+    return rows;
+  }
+
+  private buildItemsTable(shipment: any): string {
+    const items = (shipment?.invoices || []).flatMap((inv: any) => inv.products || []);
+    if (!items.length) {
+      return `
+        <tr><td>1</td><td>-</td><td>-</td></tr>
+      `;
+    }
+    return items
+      .map((prod: any, idx: number) => {
+        const size = this.safeText(prod.type || prod.description || prod.name);
+        const qty = this.safeText(prod.qty ?? prod.quantity ?? prod.instock ?? prod.amount);
+        return `<tr><td>${idx + 1}</td><td>${size}</td><td>${qty}</td></tr>`;
+      })
+      .join('\n');
+  }
+
+  private buildSlip(shipment: any): string {
+    const goodsValue = this.getInvoiceAmountTotal(shipment?.invoices || []);
+    const charges = this.buildChargeRows(shipment?.charges, goodsValue);
+    const branchName = this.safeText(shipment?.branch);
+    const branchAddress = this.safeText(this.getBranchAddress(branchName));
+    const branchPhone = this.safeText(this.getBranchPhone(branchName));
+    const billingAddressDisplay = this.safeText(
+      shipment?.billingAddress || shipment?.billingLocationId
+    );
+    const billingPhoneDisplay = this.safeText(shipment?.billingPhone);
+    return `
+    <div class="slip">
+      <div class="header-grid">
+        <div class="cell">
+          <div class="label">Branch:</div>
+          <div class="value">${branchName}</div>
+          <div class="label">Branch Address:</div>
+          <div class="value">${branchAddress}</div>
+        </div>
+        <div class="cell center">
+          <div class="title">Booking Slip</div>
+          <div class="label">Booking Date:</div>
+          <div class="value">${this.safeText(shipment?.date ? new Date(shipment.date).toLocaleString() : '')}</div>
+        </div>
+        <div class="cell">
+          <div><strong>Consignment No.:</strong> ${this.safeText(shipment?.consignmentNumber)}</div>
+          <div><strong>Eway Bill:</strong> ${this.safeText(shipment?.ewayBill || '-')}</div>
+        </div>
+      </div>
+
+      <div class="header-grid">
+        <div class="cell">
+          <div class="label">FROM:</div>
+          <div class="value">${this.safeText(shipment?.pickupName)}</div>
+          <div class="value">${this.safeText(shipment?.pickupAddress)}</div>
+          <div class="value">PH: ${this.safeText(shipment?.pickupPhone)}</div>
+        </div>
+        <div class="cell">
+          <div class="label">TO:</div>
+          <div class="value">${this.safeText(shipment?.deliveryAddress)}</div>
+          <div class="value">PH: ${this.safeText(shipment?.deliveryPhone)}</div>
+        </div>
+        <div class="cell">
+          <div class="label">Billing:</div>
+          <div class="value">${this.safeText(shipment?.billingName)}</div>
+          <div class="value">${billingAddressDisplay}</div>
+          <div class="value">PH: ${billingPhoneDisplay}</div>
+        </div>
+      </div>
+
+      <div class="header-grid">
+        <div class="cell">
+          <div class="label">Consignor:</div>
+          <div class="value">${this.safeText(shipment?.consignor)}</div>
+          <div class="value">GST: ${this.safeText(shipment?.consignorGST)}</div>
+          <div class="value">PH: ${this.safeText(shipment?.consignorPhone)}</div>
+        </div>
+        <div class="cell">
+          <div class="label">Consignee:</div>
+          <div class="value">${this.safeText(shipment?.consignee)}</div>
+          <div class="value">GST: ${this.safeText(shipment?.consigneeGST)}</div>
+          <div class="value">PH: ${this.safeText(shipment?.consigneePhone)}</div>
+        </div>
+        <div class="cell center">
+          <div class="label">Payment Mode</div>
+          <div class="value">${this.safeText(shipment?.paymentMode)}</div>
+        </div>
+      </div>
+
+        <div class="items-charges">
+          <div class="items">
+            <table class="items-table">
+              <thead>
+                <tr><th>Items</th><th>Size</th><th>Qty</th></tr>
+              </thead>
+            <tbody>
+              ${this.buildItemsTable(shipment)}
+            </tbody>
+          </table>
+        </div>
+        <div class="charges">
+          ${charges
+            .map((row) => `<div class="charge-row${row.bold ? ' bold' : ''}"><span>${row.label}</span><span>${row.value}</span></div>`)
+            .join('')}
+        </div>
+      </div>
+
+      <div class="footer-grid">
+        <div class="cell">Delivery Mode: ${this.safeText(shipment?.deliveryType || 'Out for Delivery')}</div>
+        <div class="cell">Goods Value: ${this.formatCurrency(goodsValue)}</div>
+        <div class="cell">Bill Invoice: ${this.safeText(shipment?.billingName)}</div>
+        <div class="cell center">No. of Items: ${this.safeText((shipment?.invoices || []).reduce((acc: number, inv: any) => acc + (inv.products?.length || 0), 0))}</div>
+      </div>
+
+      <div class="terms-grid">
+        <div>
+          <div class="label">Terms & Conditions</div>
+          <div class="value small">Consignments will be carried under OWNER's risk. Details are true to the best of our knowledge.</div>
+        </div>
+        <div>
+          <div class="label">Received Goods in Good Condition</div>
+          <div class="value small">
+            Name: ______________________<br/>
+            Date: ______________________<br/>
+            Mobile: _____________________<br/>
+            Signature &amp; Seal
+          </div>
+        </div>
+      </div>
+    </div>
+    `;
+  }
+
+  private buildPrintDocument(selected: any[]): string {
+    const slips = selected.map((s) => this.buildSlip(s)).join('<div class="page-break"></div>');
+    const styles = `
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, sans-serif; margin: 16px; }
+        .slip { border: 1px solid #000; padding: 12px; margin-bottom: 24px; page-break-inside: avoid; }
+        .header-grid { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #000; border-bottom: none; }
+        .header-grid .cell { border-bottom: 1px solid #000; border-right: 1px solid #000; padding: 8px; font-size: 12px; }
+        .header-grid .cell:last-child { border-right: 0; }
+        .header-grid .title { font-weight: 700; font-size: 14px; }
+        .header-grid .label { font-weight: 700; }
+        .header-grid .center { text-align: center; }
+        .items-charges { display: grid; grid-template-columns: 2fr 1fr; border: 1px solid #000; border-top: none; }
+        .items { border-right: 1px solid #000; }
+        .items-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .items-table th, .items-table td { border: 1px solid #000; padding: 6px; text-align: center; }
+        .charges { padding: 8px; font-size: 12px; }
+        .charge-row { display: flex; justify-content: space-between; border-bottom: 1px solid #000; padding: 4px 0; }
+        .charge-row:last-child { border-bottom: 0; }
+        .charge-row.bold { font-weight: 700; }
+        .footer-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #000; border-top: none; }
+        .footer-grid .cell { border-right: 1px solid #000; padding: 6px; font-size: 12px; }
+        .footer-grid .cell:last-child { border-right: 0; }
+        .footer-grid .center { text-align: center; font-weight: 700; }
+        .terms-grid { display: grid; grid-template-columns: 2fr 1fr; border: 1px solid #000; border-top: none; padding: 8px; font-size: 12px; }
+        .terms-grid .label { font-weight: 700; margin-bottom: 4px; }
+        .terms-grid .small { font-size: 11px; }
+        .page-break { page-break-after: always; }
+      </style>
+    `;
+    return `
+      <!doctype html>
+      <html>
+        <head><title>Print LR</title>${styles}</head>
+        <body>${slips}</body>
+      </html>
+    `;
   }
 
   private loadManifestForShipment(consignmentNumber: string | null | undefined): void {

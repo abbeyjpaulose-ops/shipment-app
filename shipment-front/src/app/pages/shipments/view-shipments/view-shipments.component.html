@@ -26,17 +26,19 @@
         <option value="Manifested">Manifested</option>
         <option value="Delivered">Delivered</option>
       </select>
+      <button
+        type="button"
+        class="print-btn"
+        (click)="printSelectedShipments()"
+        [disabled]="!isPrintEnabled">
+        Print LR
+      </button>
       <select
         *ngIf="originLocId === 'all-hubs'"
         [(ngModel)]="selectedHubFilterId"
         (ngModelChange)="onHubFilterChange($event)">
         <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
       </select>
-      <input
-        type="text"
-        placeholder="Filter by consignor"
-        [(ngModel)]="filterConsignor"
-        (input)="applyFilters()" />
     </div>
 
     <!-- dY"Žř Shipments Table -->
@@ -44,6 +46,12 @@
       <table class="shipments-table">
         <thead>
           <tr>
+            <th class="select-column">
+              <input
+                type="checkbox"
+                [checked]="isAllViewShipmentsSelected"
+                (change)="toggleSelectAllShipments($event)" />
+            </th>
             <th>Consignment No.</th>
             <th>Status</th>
             <th>Branch</th>
@@ -55,6 +63,13 @@
         </thead>
         <tbody>
           <tr *ngFor="let s of filteredShipments" (click)="openShipmentDetails(s)">
+            <td class="checkbox-cell">
+              <input
+                type="checkbox"
+                [checked]="isViewShipmentSelected(s)"
+                (change)="toggleShipmentSelection(s)"
+                (click)="$event.stopPropagation()" />
+            </td>
             <td>{{ s.consignmentNumber }}</td>
             <td>{{ s.shipmentStatus }}</td>
             <td>{{ s.branch }}</td>
