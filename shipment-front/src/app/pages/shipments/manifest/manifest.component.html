@@ -3,6 +3,13 @@
 
   <div class="manifest-table-section">
     <div class="manifest-filters">
+      <button
+        type="button"
+        class="print-btn"
+        (click)="printSelectedManifests()"
+        [disabled]="!isManifestPrintEnabled">
+        Print Selected
+      </button>
       <input
         type="text"
         placeholder="Search manifest no."
@@ -21,6 +28,7 @@
     <table class="stocks-table">
       <thead>
         <tr>
+          <th class="select-column">Select</th>
           <th>Manifest No.</th>
           <th>Date</th>
           <th>Status</th>
@@ -32,6 +40,13 @@
       </thead>
       <tbody>
         <tr *ngFor="let m of filterManifests(manifests)" (click)="openManifestDetails(m)">
+          <td class="checkbox-cell">
+            <input
+              type="checkbox"
+              [checked]="isManifestSelected(m)"
+              (change)="toggleManifestSelection(m)"
+              (click)="$event.stopPropagation()" />
+          </td>
           <td>{{ m.manifestNumber }}</td>
           <td>{{ m.createdAt | date:'short' }}</td>
           <td>{{ m.status || '-' }}</td>
@@ -44,7 +59,7 @@
           </td>
         </tr>
         <tr *ngIf="!filterManifests(manifests).length">
-          <td colspan="7">No manifests found.</td>
+          <td colspan="8">No manifests found.</td>
         </tr>
       </tbody>
     </table>

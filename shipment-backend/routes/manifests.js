@@ -195,7 +195,7 @@ router.post('/', requireAuth, async (req, res) => {
     for (const c of consignments) {
       const shipmentId = String(c?.shipmentId || '').trim();
       const consignmentNumber = String(c?.consignmentNumber || '').trim();
-      const status = String(c?.status || 'Manifested').trim();
+      const itemStatus = String(c?.status || status || 'Manifested').trim();
       const deliveredAt = c?.deliveredAt ? new Date(c.deliveredAt) : null;
       let shipment = null;
       if (shipmentId) shipment = shipmentById.get(shipmentId);
@@ -204,7 +204,7 @@ router.post('/', requireAuth, async (req, res) => {
       items.push({
         shipmentId: shipment._id,
         consignmentNumber: shipment.consignmentNumber || consignmentNumber || '',
-        status,
+        status: itemStatus,
         deliveredAt
       });
     }

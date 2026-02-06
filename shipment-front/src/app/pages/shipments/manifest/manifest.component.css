@@ -208,11 +208,36 @@
   margin: 0 0 10px;
 }
 
+.select-column {
+  width: 70px;
+  text-align: center;
+}
+
+.checkbox-cell {
+  text-align: center;
+}
+
 .manifest-filters {
   display: flex;
   gap: 10px;
   margin: 8px 0 12px;
   flex-wrap: wrap;
+}
+
+.manifest-filters .print-btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--stock-primary);
+  background: var(--stock-primary);
+  color: #ffffff;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+.manifest-filters .print-btn:disabled {
+  background: #e5e7eb;
+  border-color: #e5e7eb;
+  cursor: not-allowed;
 }
 
 .manifest-filters input,

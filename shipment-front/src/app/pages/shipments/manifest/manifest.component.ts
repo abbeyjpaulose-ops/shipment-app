@@ -25,6 +25,11 @@ export class ManifestComponent implements OnInit, OnDestroy {
   selectedStock: any = null;
   editingStock: any = null;   // G?? track which stock is being edited
   manifests: any[] = [];
+  selectedManifestIds = new Set<string>();
+
+  get isManifestPrintEnabled(): boolean {
+    return this.selectedManifestIds.size > 0;
+  }
   manifestSearchText = '';
   manifestStatusFilter = '';
   manifestVehicleFilter = '';
@@ -941,6 +946,7 @@ calculateFinalAmount() {
     this.http.get<any[]>('http://localhost:3000/api/manifests', { params }).subscribe({
       next: (res: any[]) => {
         this.manifests = Array.isArray(res) ? res : [];
+        this.selectedManifestIds = new Set();
       },
       error: (err: any) => console.error('Error loading manifests:', err)
     });
@@ -2275,72 +2281,123 @@ validateManifestQty(product: any) {
   }
 }
 
-printReceipts() {
-  const selected = this.filteredStocks?.filter(s => s.selected) || [];
-
-  if (selected.length === 0) {
-    alert('No consignments selected.');
+printSelectedManifests() {
+  const selected = this.getSelectedManifests();
+  if (!selected.length) {
+    alert('Select at least one manifest to print.');
     return;
   }
 
+  const html = this.buildManifestPrintHtml(selected);
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
 
-  fetch('assets/receipt-template.html')
-    .then(res => res.text())
-    .then(template => {
-      let fullHtml = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 20px; }
-              h2 { margin-bottom: 0; }
-              table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-              th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-              th { background-color: #f2f2f2; }
-              .page-break { page-break-after: always; }
-            </style>
-          </head>
-          <body>
-      `;
+isManifestSelected(manifest: any): boolean {
+  const id = this.normalizeId(manifest?._id);
+  return Boolean(id && this.selectedManifestIds.has(id));
+}
 
-      selected.forEach((consignment, index) => {
-        const rows = consignment.invoices.flatMap((inv: any) =>
-          inv.products.map((p: any) => `
+toggleManifestSelection(manifest: any): void {
+  const id = this.normalizeId(manifest?._id);
+  if (!id) return;
+  const updated = new Set(this.selectedManifestIds);
+  if (updated.has(id)) {
+    updated.delete(id);
+  } else {
+    updated.add(id);
+  }
+  this.selectedManifestIds = updated;
+}
+
+private getSelectedManifests(): any[] {
+  if (!this.selectedManifestIds.size) return [];
+  return (this.manifests || []).filter((manifest) =>
+    this.selectedManifestIds.has(this.normalizeId(manifest?._id))
+  );
+}
+
+private buildManifestPrintHtml(manifests: any[]): string {
+    const sections = manifests.map((manifest, index) => {
+      const items = Array.isArray(manifest?.items) ? manifest.items : [];
+      const manifestStatusNormalized = String(manifest?.status || '').trim().toLowerCase();
+      const filteredForCancelled = manifestStatusNormalized === 'cancelled'
+        ? items.filter((item: any) => String(item?.status || '').trim().toLowerCase() === 'cancelled')
+        : items;
+      const sectionItems = filteredForCancelled.length ? filteredForCancelled : items;
+      const rows = sectionItems.length
+        ? sectionItems.map((item: any) => {
+        const consignmentNumber = String(item?.consignmentNumber || '').trim() || '-';
+        const status = String(item?.status || item?.shipmentStatus || '-');
+        const shipmentId = String(item?.shipmentId || '').trim() || '-';
+        return `
+          <tr>
+            <td>${consignmentNumber}</td>
+            <td>${status}</td>
+            <td>${shipmentId}</td>
+          </tr>
+        `;
+      }).join('')
+      : `<tr><td colspan="3">No consignments recorded.</td></tr>`;
+
+    const entityName = this.getManifestEntityName(manifest);
+    const createdAt = manifest?.createdAt ? new Date(manifest.createdAt).toLocaleString() : '-';
+    const sectionStatusLabel = manifestStatusNormalized === 'cancelled'
+      ? 'Cancelled consignments'
+      : manifest?.status || '-';
+
+    return `
+      <section class="manifest-print-section">
+        <h2>${manifest?.manifestNumber || 'Manifest'}</h2>
+        <p class="manifest-print-meta">
+          <span><strong>Status:</strong> ${sectionStatusLabel}</span>
+          <span><strong>Vehicle:</strong> ${manifest?.vehicleNo || '-'}</span>
+          <span><strong>Entity:</strong> ${entityName}</span>
+          <span><strong>Created:</strong> ${createdAt}</span>
+        </p>
+        <table class="manifest-print-table">
+          <thead>
             <tr>
-              <td>${inv.number}</td>
-              <td>${p.type}</td>
-              <td>${p.instock}</td>
-              <td>${p.manifestQty}</td>
-              <td>${p.amount}</td>
+              <th>Consignment</th>
+              <th>Manifest Status</th>
+              <th>Shipment ID</th>
             </tr>
-          `)
-        ).join('');
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      </section>
+      ${index < manifests.length - 1 ? '<div class="page-break"></div>' : ''}
+    `;
+  });
 
-        const htmlContent = template
-          .replace('{{consignmentNumber}}', consignment.consignmentNumber)
-          .replace('{{consignor}}', consignment.consignor)
-          .replace('{{rows}}', rows);
-
-        fullHtml += htmlContent;
-
-        // Add page break after each consignment except the last one
-        if (index < selected.length - 1) {
-          fullHtml += `<div class="page-break"></div>`;
-        }
-      });
-
-      fullHtml += `</body></html>`;
-
-      const printWindow = window.open('', '_blank');
-
-      if (printWindow) {
-
-        printWindow.document.open();
-        printWindow.document.write(fullHtml);  // use write instead of body.innerHTML
-        printWindow.document.close();
-        printWindow.print();
-      }
-
-    });
+  return `
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <title>Manifest Print</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; background: #fff; color: #0f172a; }
+          .manifest-print-section { border: 1px solid #d1d5db; border-radius: 12px; padding: 18px; margin-bottom: 24px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08); }
+          .manifest-print-section h2 { margin: 0 0 6px; font-size: 20px; }
+          .manifest-print-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; font-size: 14px; }
+          .manifest-print-table { width: 100%; border-collapse: collapse; margin-top: 4px; }
+          .manifest-print-table th, .manifest-print-table td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; font-size: 13px; }
+          .manifest-print-table th { background: #f8fafc; }
+          .page-break { page-break-after: always; }
+        </style>
+      </head>
+      <body>
+        ${sections.join('')}
+      </body>
+    </html>
+  `;
 }
 
 }
