@@ -177,7 +177,7 @@
 }
 
 .details-content {
-  background: var(--page-bg);
+  background: var(--card);
   color: var(--text);
   width: min(860px, 92vw);
   max-height: 85vh;
@@ -247,11 +247,13 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 12px;
+  color: var(--text);
 }
 
 .details-invoice-title {
   font-weight: 600;
   margin-bottom: 8px;
+  color: var(--text);
 }
 
 .details-product-list {
@@ -277,11 +279,19 @@
 
 .product-name {
   font-weight: 600;
+  color: var(--text);
 }
 
 .product-meta {
   color: var(--muted);
   font-size: 13px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px;
 }
 
 .return-modal {

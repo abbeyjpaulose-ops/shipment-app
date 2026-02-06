@@ -193,15 +193,15 @@
 <div class="modal details-modal" *ngIf="selectedShipment">
   <div class="modal-content details-content">
     <button class="details-close" type="button" (click)="closeShipmentDetails()">&times;</button>
-    <div class="details-header">
+    <div class="details-header accent">
       <div>
         <h2>Shipment Details</h2>
         <p class="details-sub">Consignment {{ selectedShipment.consignmentNumber }}</p>
       </div>
-      <span class="details-status">{{ selectedShipment.shipmentStatus }}</span>
+      <span class="details-status pill">{{ selectedShipment.shipmentStatus }}</span>
     </div>
 
-    <div class="shipment-details details-grid">
+    <div class="shipment-details details-grid card">
       <p><strong>Shipment ID:</strong> {{ selectedShipment._id }}</p>
       <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
         <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
@@ -235,7 +235,7 @@
       <p><strong>Billing Name:</strong> {{ selectedShipment.billingName }}</p>
       <p><strong>Billing GSTIN:</strong> {{ selectedShipment.billingGSTIN }}</p>
       <p><strong>Billing Phone:</strong> {{ selectedShipment.billingPhone }}</p>
-      <p><strong>Billing Address:</strong> {{ selectedShipment.billingAddress }}</p>
+      <p><strong>Billing Address:</strong> {{ selectedShipment.billingAddress || selectedShipment.billingLocationId || '-' }}</p>
       <p><strong>Pickup Type:</strong> {{ selectedShipment.pickupType }}</p>
       <p><strong>Pickup Name:</strong> {{ selectedShipment.pickupName }}</p>
       <p><strong>Pickup Phone:</strong> {{ selectedShipment.pickupPhone }}</p>
@@ -259,7 +259,7 @@
     </div>
 
     <h3>Products</h3>
-    <div class="details-products">
+    <div class="details-products card">
       <div class="details-invoice" *ngFor="let invoice of selectedShipment.invoices">
         <div class="details-invoice-title">Invoice #{{ invoice.number }}</div>
         <ul class="details-product-list">

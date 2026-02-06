@@ -563,7 +563,11 @@ export class ViewShipmentsComponent implements OnInit {
     const normId = this.normalizeId(locationId);
     const locations = client?.deliveryLocations || [];
     if (!normId) return locations[0] || null;
-    return locations.find((loc: any) => this.normalizeId(loc?.delivery_id) === normId) || null;
+    return locations.find((loc: any) => {
+      const byDeliveryId = this.normalizeId(loc?.delivery_id);
+      const byAltId = this.normalizeId(loc?.deliveryLocationId);
+      return byDeliveryId === normId || byAltId === normId;
+    }) || null;
   }
 
   private enrichShipmentDetails(shipment: any): any {
@@ -571,6 +575,20 @@ export class ViewShipmentsComponent implements OnInit {
     const consignor = shipment?.consignorTab === 'guest'
       ? this.resolveGuestByIdOrName(shipment?.consignorId, shipment?.consignor)
       : this.resolveClientByIdOrName(shipment?.consignorId, shipment?.consignor);
+    const consignorPrimaryLoc = this.resolveClientLocation(
+      consignor,
+      shipment?.pickupLocationId || shipment?.billingLocationId || shipment?.deliveryLocationId
+    );
+    const consignorLocAddress = (() => {
+      if (!consignorPrimaryLoc) return '';
+      const parts = [
+        consignorPrimaryLoc.address || consignorPrimaryLoc.location,
+        consignorPrimaryLoc.city,
+        consignorPrimaryLoc.state,
+        consignorPrimaryLoc.pinCode
+      ].filter(Boolean);
+      return parts.join(', ');
+    })();
     const consignee = shipment?.consigneeTab === 'guest'
       ? this.resolveGuestByIdOrName(shipment?.consigneeId, shipment?.consignee)
       : this.resolveClientByIdOrName(shipment?.consigneeId, shipment?.consignee);
@@ -578,7 +596,14 @@ export class ViewShipmentsComponent implements OnInit {
     enriched.consignor = this.firstNonEmpty(enriched.consignor, consignor?.clientName, consignor?.guestName);
     enriched.consignorGST = this.firstNonEmpty(enriched.consignorGST, consignor?.GSTIN, shipment?.consignorTab === 'guest' ? 'GUEST' : '');
     enriched.consignorPhone = this.firstNonEmpty(enriched.consignorPhone, consignor?.phoneNum);
-    enriched.consignorAddress = this.firstNonEmpty(enriched.consignorAddress, consignor?.address);
+    enriched.consignorAddress = this.firstNonEmpty(
+      enriched.consignorAddress,
+      consignorLocAddress,
+      consignor?.address,
+      enriched.billingAddress,
+      enriched.deliveryAddress,
+      enriched.pickupAddress
+    );
 
     enriched.consignee = this.firstNonEmpty(enriched.consignee, consignee?.clientName, consignee?.guestName);
     enriched.consigneeGST = this.firstNonEmpty(enriched.consigneeGST, consignee?.GSTIN, shipment?.consigneeTab === 'guest' ? 'GUEST' : '');
@@ -586,28 +611,64 @@ export class ViewShipmentsComponent implements OnInit {
     enriched.consigneeAddress = this.firstNonEmpty(enriched.consigneeAddress, consignee?.address);
 
     if (shipment?.billingType === 'consignor') {
+      const consignorClient = this.resolveClientByIdOrName(shipment?.consignorId, shipment?.consignor);
+      const consignorLoc = this.resolveClientLocation(
+        consignorClient,
+        shipment?.billingLocationId || shipment?.deliveryLocationId || shipment?.pickupLocationId
+      );
+      const consignorLocAddress = (() => {
+        if (!consignorLoc) return '';
+        const parts = [
+          consignorLoc.address || consignorLoc.location,
+          consignorLoc.city,
+          consignorLoc.state,
+          consignorLoc.pinCode
+        ].filter(Boolean);
+        return parts.join(', ');
+      })();
+      const consignorLocIdText = this.safeText(consignorLoc?.delivery_id ?? shipment?.billingLocationId);
+
       enriched.billingName = this.firstNonEmpty(enriched.billingName, enriched.consignor);
       enriched.billingGSTIN = this.firstNonEmpty(enriched.billingGSTIN, enriched.consignorGST);
-      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, enriched.consignorPhone);
-      enriched.billingAddress = this.firstNonEmpty(enriched.billingAddress, enriched.consignorAddress);
+      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, consignorLoc?.phoneNum, enriched.consignorPhone);
+      enriched.billingAddress = this.firstNonEmpty(
+        enriched.billingAddress,
+        consignorLocAddress,
+        enriched.consignorAddress,
+        enriched.deliveryAddress,
+        enriched.pickupAddress,
+        consignorLocIdText
+      );
+      enriched.billingLocationId = this.firstNonEmpty(enriched.billingLocationId, consignorLoc?.delivery_id, shipment?.billingLocationId);
     } else {
       const billingClient = this.resolveClientByIdOrName(shipment?.billingClientId, shipment?.billingName);
       const billingLocation = this.resolveClientLocation(billingClient, shipment?.billingLocationId);
       enriched.billingName = this.firstNonEmpty(enriched.billingName, billingClient?.clientName);
       enriched.billingGSTIN = this.firstNonEmpty(enriched.billingGSTIN, billingClient?.GSTIN);
-      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, billingLocation?.phoneNum, billingClient?.phoneNum);
-      // Prefer resolved billing location address; fall back to id text, then client address
-      const billingLocationIdText = this.safeText(
-        billingLocation?.delivery_id ??
-        billingLocation?._id ??
-        shipment?.billingLocationId
-      );
+      enriched.billingPhone = this.firstNonEmpty(enriched.billingPhone, billingClient?.phoneNum);
+      const loc = billingLocation || (billingClient?.deliveryLocations || [])[0];
+      const billingLocationIdText = this.safeText(loc?.delivery_id ?? shipment?.billingLocationId);
+      const billingLocationAddress = (() => {
+        if (!loc) return '';
+        const parts = [
+          loc.address || loc.location,
+          loc.city,
+          loc.state,
+          loc.pinCode
+        ].filter(Boolean);
+        return parts.join(', ');
+      })();
+      // Prefer resolved billing location full address; then billing client's primary address; then other fallbacks; then id text
       enriched.billingAddress = this.firstNonEmpty(
         enriched.billingAddress,
-        billingLocation?.address,
-        billingLocationIdText,
-        billingClient?.address
+        billingLocationAddress,
+        billingClient?.address,
+        shipment?.deliveryAddress,
+        shipment?.consignorAddress,
+        billingLocationIdText
       );
+      // Always keep the resolved id handy for display fallbacks
+      enriched.billingLocationId = this.firstNonEmpty(enriched.billingLocationId, loc?.delivery_id, shipment?.billingLocationId);
     }
 
     if (shipment?.pickupType === 'branch') {
@@ -925,9 +986,9 @@ export class ViewShipmentsComponent implements OnInit {
     const branchName = this.safeText(shipment?.branch);
     const branchAddress = this.safeText(this.getBranchAddress(branchName));
     const branchPhone = this.safeText(this.getBranchPhone(branchName));
-    const billingAddressDisplay = this.safeText(
-      shipment?.billingAddress || shipment?.billingLocationId
-    );
+    const billingIdText = this.safeText(shipment?.billingLocationId);
+    const billingAddrText = this.safeText(shipment?.billingAddress);
+    const billingAddressDisplay = billingAddrText !== '-' ? billingAddrText : billingIdText;
     const billingPhoneDisplay = this.safeText(shipment?.billingPhone);
     return `
     <div class="slip">
