@@ -41,12 +41,6 @@
           <td>
             <button *ngIf="canDeliverManifest(m)" (click)="deliverManifest(m); $event.stopPropagation()">Deliver</button>
             <button *ngIf="canCancelManifest(m)" (click)="cancelManifest(m); $event.stopPropagation()">Cancel</button>
-            <button
-              *ngIf="isCancelledManifest(m)"
-              [disabled]="!canUncancelManifest(m)"
-              (click)="uncancelManifest(m); $event.stopPropagation()">
-              Uncancel
-            </button>
           </td>
         </tr>
         <tr *ngIf="!filterManifests(manifests).length">
@@ -81,15 +75,6 @@
         </p>
         <p><strong>Linked consignments:</strong> {{ getManifestConsignments()?.length || 0 }}</p>
       </div>
-      <div class="manifest-details-actions" *ngIf="selectedManifestDetails?.manifest">
-        <button
-          *ngIf="isCancelledManifest(selectedManifestDetails.manifest)"
-          [disabled]="!canUncancelManifest(selectedManifestDetails.manifest)"
-          (click)="uncancelManifest(selectedManifestDetails.manifest)">
-          Uncancel
-        </button>
-      </div>
-
       <h4>Consignments</h4>
       <div class="manifest-consignments" *ngIf="getManifestConsignments()?.length; else noConsignments">
         <div class="consignment-split" *ngFor="let c of getManifestConsignments()">

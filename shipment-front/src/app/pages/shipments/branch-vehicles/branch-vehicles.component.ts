@@ -468,8 +468,17 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
+  private hasManifestationConsignments(manifest: any): boolean {
+    const items = Array.isArray(manifest?.items) ? manifest.items : [];
+    return items.some((item: any) => {
+      const status = String(item?.shipmentStatus || '').trim().toLowerCase();
+      return status === 'manifestation' || status === 'dmanifestation';
+    });
+  }
+
   private buildScheduledVehicleSet() {
     const latestByVehicle = new Map<string, { status: string; ts: number }>();
+    const scheduled = new Set<string>();
     (this.manifests || []).forEach((m: any) => {
       const vehicleNo = String(m?.vehicleNo || '').trim().toLowerCase();
       if (!vehicleNo) return;
@@ -480,11 +489,12 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       if (!existing || ts >= existing.ts) {
         latestByVehicle.set(vehicleNo, { status, ts });
       }
+      if (this.hasManifestationConsignments(m)) {
+        scheduled.add(vehicleNo);
+      }
     });
-    const scheduled = new Set<string>();
     const latestStatus = new Map<string, string>();
     latestByVehicle.forEach((info, vehicleNo) => {
-      if (info.status === 'scheduled') scheduled.add(vehicleNo);
       latestStatus.set(vehicleNo, info.status);
     });
     this.scheduledVehicleSet = scheduled;
@@ -496,9 +506,10 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     if (!key) return String(fallback || 'online');
     if (this.scheduledVehicleSet.has(key)) return 'scheduled';
     const latest = this.latestManifestStatusByVehicle.get(key);
-    if (!latest) return 'completed';
     if (latest === 'completed') return 'completed';
-    return String(fallback || 'online');
+    const fallbackValue = String(fallback || '').trim().toLowerCase();
+    if (fallbackValue === 'offline') return 'offline';
+    return 'online';
   }
 
   private resolveManifestPickup(manifest: any): string {

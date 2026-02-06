@@ -1751,10 +1751,13 @@ getBranchVehicles(): string[] {
       this.http.post<any>('http://localhost:3000/api/manifests', payload).subscribe({
         next: (res) => {
           const manifestNumber = res?.manifest?.manifestNumber || '';
+          const reusedManifest = Boolean(res?.reused);
           if (manifestNumber) {
             this.manifestationNumber = manifestNumber;
-            console.log('[manifest] created', manifestNumber);
-            alert(`Manifest created: ${manifestNumber}`);
+            console.log('[manifest]', reusedManifest ? 'reused' : 'created', manifestNumber);
+            alert(reusedManifest
+              ? `Added to existing manifest: ${manifestNumber}`
+              : `Manifest created: ${manifestNumber}`);
           } else {
             alert('Manifest created, but no number returned.');
           }
@@ -1789,10 +1792,13 @@ getBranchVehicles(): string[] {
     this.http.post<any>('http://localhost:3000/api/manifests', payload).subscribe({
       next: (res) => {
         const manifestNumber = res?.manifest?.manifestNumber || '';
+        const reusedManifest = Boolean(res?.reused);
         if (manifestNumber) {
           this.manifestationNumber = manifestNumber;
-          console.log('[manifest] created', manifestNumber);
-          alert(`Manifest created: ${manifestNumber}`);
+          console.log('[manifest]', reusedManifest ? 'reused' : 'created', manifestNumber);
+          alert(reusedManifest
+            ? `Added to existing manifest: ${manifestNumber}`
+            : `Manifest created: ${manifestNumber}`);
         } else {
           alert('Manifest created, but no number returned.');
         }

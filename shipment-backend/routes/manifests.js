@@ -63,6 +63,15 @@ function buildManifestNumber(sequence) {
   return `MF${padded}`;
 }
 
+function isDuplicateKeyError(err) {
+  if (!err) return false;
+  if (err?.code === 11000) return true;
+  if (Array.isArray(err?.writeErrors) && err.writeErrors.length) {
+    return err.writeErrors.every((writeErr) => writeErr?.code === 11000);
+  }
+  return false;
+}
+
 async function updateVehicleCurrentLocation(gstinId, vehicleNo, locationId, locationType) {
   const vehicle = String(vehicleNo || '').trim();
   const location = String(locationId || '').trim();
@@ -204,6 +213,75 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'No valid consignments found' });
     }
 
+    const uniqueItems = [];
+    const seenShipmentIds = new Set();
+    for (const item of items) {
+      const shipmentId = String(item?.shipmentId || '').trim();
+      if (!shipmentId || seenShipmentIds.has(shipmentId)) continue;
+      seenShipmentIds.add(shipmentId);
+      uniqueItems.push(item);
+    }
+    if (!uniqueItems.length) {
+      return res.status(400).json({ message: 'No valid consignments found' });
+    }
+
+    const normalizedStatus = String(status || '').trim().toLowerCase();
+    const shouldReuseActiveManifest = normalizedStatus === 'scheduled' &&
+      Boolean(vehicleNo && deliveryIdRaw);
+    if (shouldReuseActiveManifest) {
+      const now = new Date();
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const endOfDay = new Date(startOfDay);
+      endOfDay.setDate(endOfDay.getDate() + 1);
+      const activeManifest = await Manifest.findOne({
+        GSTIN_ID: gstinId,
+        entityType: entityTypeRaw,
+        entityId: entityIdRaw,
+        deliveryId: deliveryIdRaw,
+        ...(deliveryTypeRaw ? { deliveryType: deliveryTypeRaw } : {}),
+        vehicleNo,
+        // Keep reuse constrained to MF00* manifests requested by manifestation flow.
+        manifestNumber: /^MF00/i,
+        createdAt: { $gte: startOfDay, $lt: endOfDay },
+        status: { $nin: ['Completed', 'Cancelled', 'completed', 'cancelled'] }
+      })
+        .sort({ updatedAt: -1, manifestSequence: -1 })
+        .lean();
+
+      if (activeManifest?._id) {
+        const manifestId = activeManifest._id;
+        const existingItems = await ManifestItem.find({ manifestId })
+          .select('shipmentId')
+          .lean();
+        const existingShipmentIds = new Set(
+          (existingItems || []).map((item) => String(item?.shipmentId || '')).filter(Boolean)
+        );
+        const itemDocs = uniqueItems
+          .filter((item) => !existingShipmentIds.has(String(item?.shipmentId || '').trim()))
+          .map((item) => ({
+            ...item,
+            manifestId
+          }));
+
+        if (itemDocs.length) {
+          try {
+            await ManifestItem.insertMany(itemDocs, { ordered: false });
+          } catch (err) {
+            if (!isDuplicateKeyError(err)) throw err;
+          }
+        }
+
+        const mergedItems = await ManifestItem.find({ manifestId }).lean();
+        const latestManifest = await Manifest.findOne({ _id: manifestId, GSTIN_ID: gstinId }).lean();
+        return res.status(200).json({
+          manifest: latestManifest || activeManifest,
+          items: mergedItems,
+          reused: true,
+          addedCount: Math.max(0, mergedItems.length - existingItems.length)
+        });
+      }
+    }
+
     const { label: fiscalYear, start: fiscalYearStart } = getFiscalYearWindow();
     let createdManifest = null;
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -230,7 +308,7 @@ router.post('/', requireAuth, async (req, res) => {
         });
         break;
       } catch (err) {
-        if (err?.code !== 11000) throw err;
+        if (!isDuplicateKeyError(err)) throw err;
       }
     }
 
@@ -238,7 +316,7 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(409).json({ message: 'Failed to allocate manifest number. Please retry.' });
     }
 
-    const itemDocs = items.map((item) => ({
+    const itemDocs = uniqueItems.map((item) => ({
       ...item,
       manifestId: createdManifest._id
     }));
@@ -432,15 +510,22 @@ router.get('/', requireAuth, async (req, res) => {
 
     const payload = manifests.map((m) => {
       const manifestItems = itemsByManifest.get(String(m._id)) || [];
-      const hasDelivered = manifestItems.some((item) => {
+      const itemsWithStatus = manifestItems.map((item) => {
         const shipmentId = String(item?.shipmentId || '').trim();
         const consignmentNumber = String(item?.consignmentNumber || '').trim();
-        const status = shipmentId
+        const shipmentStatus = shipmentId
           ? shipmentStatusById.get(shipmentId)
           : shipmentStatusByConsignment.get(consignmentNumber);
-        return String(status || '').trim().toLowerCase() === 'delivered';
+        return {
+          ...item,
+          shipmentStatus
+        };
       });
-      const hasOtherScheduled = manifestItems.some((item) => {
+      const hasDelivered = itemsWithStatus.some((item) => {
+        const status = String(item?.shipmentStatus || '').trim().toLowerCase();
+        return status === 'delivered';
+      });
+      const hasOtherScheduled = itemsWithStatus.some((item) => {
         const shipmentId = String(item?.shipmentId || '').trim();
         const consignmentNumber = String(item?.consignmentNumber || '').trim();
         const key = shipmentId || consignmentNumber;
@@ -456,7 +541,7 @@ router.get('/', requireAuth, async (req, res) => {
         !hasOtherScheduled;
       return {
         ...m,
-        items: manifestItems,
+        items: itemsWithStatus,
         canUncancel
       };
     });
