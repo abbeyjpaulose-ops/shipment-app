@@ -1350,12 +1350,12 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
     const primaryLocation = locations[0];
     this.billingAddress = primaryLocation ? this.formatLocation(primaryLocation) : (client.address || '');
-      this.billingLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
-      this.billingLocationIndex = '';
-      this.billingClientId = client._id || null;
-      this.updatePaymentModeAvailability();
-      this.refreshPricingSuggestions();
-    }
+    this.billingLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
+    this.billingLocationIndex = locations.length ? 'consignor:0' : '';
+    this.billingClientId = client._id || null;
+    this.updatePaymentModeAvailability();
+    this.refreshPricingSuggestions();
+  }
 
   private updateDeliveryFromConsignee() {
     if (this.consigneeTab === 'guest') {
@@ -1665,8 +1665,21 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   onBillingLocationSelect(index: string) {
     this.billingLocationIndex = index;
-    const locations = this.getConsignorLocations();
-    const loc = locations[Number(index)];
+    const raw = String(index || '').trim();
+    if (!raw) return;
+    let kind: 'consignor' | 'consignee' = 'consignor';
+    let indexText = raw;
+    if (raw.includes(':')) {
+      const [prefix, idx] = raw.split(':');
+      if (prefix === 'consignee') {
+        kind = 'consignee';
+      }
+      indexText = idx;
+    }
+    const parsedIndex = Number(indexText);
+    if (Number.isNaN(parsedIndex)) return;
+    const locations = kind === 'consignee' ? this.getConsigneeLocations() : this.getConsignorLocations();
+    const loc = locations[parsedIndex];
     if (!loc) return;
     this.billingAddress = this.formatLocation(loc);
     this.billingLocationId = this.getLocationId(loc);
@@ -1674,6 +1687,25 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (this.pickupType === 'consignor' && this.pickupSource.startsWith('consignor:')) {
       this.updatePickupFromConsignor();
     }
+  }
+
+  private applyBillingAddressDefaultForPaymentMode(): boolean {
+    if (this.billingType !== 'consignor') return false;
+    if (this.isToPayMode() && this.consigneeTab === 'consignee') {
+      const consigneeLocations = this.getConsigneeLocations();
+      if (consigneeLocations.length) {
+        this.billingLocationIndex = 'consignee:0';
+        this.onBillingLocationSelect(this.billingLocationIndex);
+        return true;
+      }
+    }
+    const consignorLocations = this.getConsignorLocations();
+    if (consignorLocations.length) {
+      this.billingLocationIndex = 'consignor:0';
+      this.onBillingLocationSelect(this.billingLocationIndex);
+      return true;
+    }
+    return false;
   }
 
   onBillingPreviousSenderSelect(name: string) {
@@ -1839,8 +1871,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         this.updateBillingFromConsignor();
       } else {
         this.billingLocationId = null;
+        this.billingLocationIndex = '';
       }
-      this.billingLocationIndex = '';
       this.pickupLocationIndex = '';
       this.refreshPricingSuggestions();
     }
@@ -1865,6 +1897,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
     this.lastConsigneeName = name || '';
     this.updateReceiverCreditAvailability();
+    this.applyBillingAddressDefaultForPaymentMode();
   }
 
   onConsignorGuestSelect(name: string) {
@@ -1914,11 +1947,13 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   onPaymentModeChange() {
     if (this.isToPayMode()) {
       this.shipmentStatus = 'To Pay';
+      this.applyBillingAddressDefaultForPaymentMode();
       return;
     }
     if (this.shipmentStatus === 'To Pay') {
       this.shipmentStatus = 'Pending';
     }
+    this.applyBillingAddressDefaultForPaymentMode();
   }
 
   onRouteChange() {
@@ -1956,6 +1991,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
     this.lastConsigneeName = '';
     this.updateReceiverCreditAvailability();
+    this.applyBillingAddressDefaultForPaymentMode();
   }
 
   onPackageList(name: string) {

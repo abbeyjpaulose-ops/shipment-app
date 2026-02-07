@@ -626,6 +626,17 @@ export class ViewShipmentsComponent implements OnInit {
     const consignee = shipment?.consigneeTab === 'guest'
       ? this.resolveGuestByIdOrName(shipment?.consigneeId, shipment?.consignee)
       : this.resolveClientByIdOrName(shipment?.consigneeId, shipment?.consignee);
+    const consigneePrimaryLoc = this.resolveClientLocation(consignee, shipment?.deliveryLocationId);
+    const consigneeLocAddress = (() => {
+      if (!consigneePrimaryLoc) return '';
+      const parts = [
+        consigneePrimaryLoc.address || consigneePrimaryLoc.location,
+        consigneePrimaryLoc.city,
+        consigneePrimaryLoc.state,
+        consigneePrimaryLoc.pinCode
+      ].filter(Boolean);
+      return parts.join(', ');
+    })();
 
     enriched.consignor = this.firstNonEmpty(enriched.consignor, consignor?.clientName, consignor?.guestName);
     enriched.consignorGST = this.firstNonEmpty(enriched.consignorGST, consignor?.GSTIN, shipment?.consignorTab === 'guest' ? 'GUEST' : '');
@@ -642,7 +653,12 @@ export class ViewShipmentsComponent implements OnInit {
     enriched.consignee = this.firstNonEmpty(enriched.consignee, consignee?.clientName, consignee?.guestName);
     enriched.consigneeGST = this.firstNonEmpty(enriched.consigneeGST, consignee?.GSTIN, shipment?.consigneeTab === 'guest' ? 'GUEST' : '');
     enriched.consigneePhone = this.firstNonEmpty(enriched.consigneePhone, consignee?.phoneNum);
-    enriched.consigneeAddress = this.firstNonEmpty(enriched.consigneeAddress, consignee?.address);
+    enriched.consigneeAddress = this.firstNonEmpty(
+      enriched.consigneeAddress,
+      consigneeLocAddress,
+      consignee?.address,
+      shipment?.deliveryAddress
+    );
 
     if (shipment?.billingType === 'consignor') {
       const consignorClient = this.resolveClientByIdOrName(shipment?.consignorId, shipment?.consignor);

@@ -246,7 +246,7 @@
             <div class="panel-head">
               <h4>Billing</h4>
               <div class="tab-buttons ghost">
-                <button (click)="setBillingType('consignor')" [class.active]="billingType==='consignor'">Use Consignor</button>
+                <button (click)="setBillingType('consignor')" [class.active]="billingType==='consignor'">Consignor/ Consignee</button>
                 <button (click)="setBillingType('different')" [class.active]="billingType==='different'">Different</button>
               </div>
           <div class="panel soft span-2">
@@ -258,6 +258,7 @@
                     <option *ngIf="allowReceiverCredit">To Pay with account credit</option>
                     <option *ngIf="allowAccountCredit">Account Credit</option>
                     <option>Paid</option>
+                    <option>Partially Paid</option>
                   </select>
                 </label>
 
@@ -306,12 +307,19 @@
               </div>
             </div>
             <div *ngIf="billingType==='consignor' && consignorTab==='consignor'" class="panel-body">
-              <label>Consignor Address
+              <label>Address
                 <select [(ngModel)]="billingLocationIndex" (change)="onBillingLocationSelect(billingLocationIndex)">
-                  <option value="">Primary address</option>
-                  <option *ngFor="let loc of getConsignorLocations(); let i = index" [value]="i">
-                    {{ formatLocation(loc) }}
-                  </option>
+                  <option *ngIf="!getConsignorLocations().length" value="">{{ consignorAddress || '' }}</option>
+                  <optgroup *ngIf="getConsignorLocations().length" label="Consignor">
+                    <option *ngFor="let loc of getConsignorLocations(); let i = index" [value]="'consignor:' + i">
+                      {{ formatLocation(loc) }}
+                    </option>
+                  </optgroup>
+                  <optgroup *ngIf="consigneeTab==='consignee' && getConsigneeLocations().length" label="Consignee">
+                    <option *ngFor="let loc of getConsigneeLocations(); let i = index" [value]="'consignee:' + i">
+                      {{ formatLocation(loc) }}
+                    </option>
+                  </optgroup>
                 </select>
               </label>
             </div>
