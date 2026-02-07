@@ -2033,6 +2033,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.lastConsigneeName = name || '';
     this.updateReceiverCreditAvailability();
     this.applyBillingAddressDefaultForPaymentMode();
+    this.recomputeTaxFromCurrentBase();
   }
 
   onConsignorGuestSelect(name: string) {
@@ -2126,12 +2127,14 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (this.isToPayMode()) {
       this.shipmentStatus = 'To Pay';
       this.applyBillingAddressDefaultForPaymentMode();
+      this.recomputeTaxFromCurrentBase();
       return;
     }
     if (this.shipmentStatus === 'To Pay') {
       this.shipmentStatus = 'Pending';
     }
     this.applyBillingAddressDefaultForPaymentMode();
+    this.recomputeTaxFromCurrentBase();
   }
 
   onRouteChange() {
@@ -2170,6 +2173,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.lastConsigneeName = '';
     this.updateReceiverCreditAvailability();
     this.applyBillingAddressDefaultForPaymentMode();
+    this.recomputeTaxFromCurrentBase();
   }
 
   onPackageList(name: string) {
@@ -2926,4 +2930,38 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         this.showGuestModal = false;
       },
       error: (err) => {
-        this.guestE
+        this.guestError = err?.error?.message || 'Failed to save guest.';
+      }
+    });
+  }
+
+  closeModals() {
+    this.showClientModal = false;
+    this.showGuestModal = false;
+  }
+
+  addClientProduct() {
+    this.newClient.products.push({
+      hsnNum: '',
+      productName: '',
+      ratePerNum: 0,
+      ratePerVolume: 0,
+      ratePerKg: 0
+    });
+  }
+
+  removeClientProduct(index: number) {
+    this.newClient.products.splice(index, 1);
+  }
+
+  addDeliveryLocation() {
+    this.newClient.deliveryLocations.push({ address: '', city: '', state: '', pinCode: '' });
+  }
+
+  removeDeliveryLocation(index: number) {
+    this.newClient.deliveryLocations.splice(index, 1);
+  }
+}
+
+
+
