@@ -306,25 +306,24 @@
                 <span class="value">{{ billingPhone || '-' }}</span>
               </div>
             </div>
-            <div *ngIf="billingType==='consignor' && consignorTab==='consignor'" class="panel-body">
+            <div *ngIf="billingType==='consignor'" class="panel-body">
               <label>Address
                 <select [(ngModel)]="billingLocationIndex" (change)="onBillingLocationSelect(billingLocationIndex)">
-                  <option *ngIf="!getConsignorLocations().length" value="">{{ consignorAddress || '' }}</option>
-                  <optgroup *ngIf="getConsignorLocations().length" label="Consignor">
-                    <option *ngFor="let loc of getConsignorLocations(); let i = index" [value]="'consignor:' + i">
+                  <option *ngIf="!getBillingConsignorLocations().length && !getBillingConsigneeLocations().length" value="">
+                    Select address
+                  </option>
+                  <optgroup *ngIf="getBillingConsignorLocations().length" label="Consignor">
+                    <option *ngFor="let loc of getBillingConsignorLocations(); let i = index" [value]="'consignor:' + i">
                       {{ formatLocation(loc) }}
                     </option>
                   </optgroup>
-                  <optgroup *ngIf="consigneeTab==='consignee' && getConsigneeLocations().length" label="Consignee">
-                    <option *ngFor="let loc of getConsigneeLocations(); let i = index" [value]="'consignee:' + i">
+                  <optgroup *ngIf="getBillingConsigneeLocations().length" label="Consignee">
+                    <option *ngFor="let loc of getBillingConsigneeLocations(); let i = index" [value]="'consignee:' + i">
                       {{ formatLocation(loc) }}
                     </option>
                   </optgroup>
                 </select>
               </label>
-            </div>
-            <div *ngIf="billingType==='consignor' && consignorTab==='guest'" class="muted small-text">
-              Using guest consignor details
             </div>
           </div>
 
@@ -442,7 +441,7 @@
           <label>CCC <input type="number" [(ngModel)]="charges.ccc" (ngModelChange)="scheduleQuote()"></label>
           <label>
             <div class="discount-label">
-              <span>Discount (Consignor)</span>
+              <span>Discount</span>
               <label class="toggle-inline">
                 <input type="checkbox" [(ngModel)]="applyConsignorDiscount" (change)="scheduleQuote()">
                 <span class="toggle-track">
@@ -451,13 +450,19 @@
               </label>
             </div>
             <div class="discount-row">
-              <input type="number" [(ngModel)]="charges.consignorDiscount" placeholder="% Discount"
+              <input type="number" step="0.01" [(ngModel)]="charges.consignorDiscount" placeholder="% Discount"
+                [class.over-limit]="isDiscountOverLimit()"
                 [disabled]="!applyConsignorDiscount"
                 (change)="onConsignorDiscountChange(charges.consignorDiscount)">
+              <span class="error" *ngIf="isDiscountOverLimit()">
+                Allowed: {{ maxConsignorDiscount | number:'1.0-2' }}%
+              </span>
             </div>
           </label>
           <label>Initial Paid <input type="number" [(ngModel)]="initialPaid"></label>
-          <label>Final Amount <input type="number" [(ngModel)]="finalAmount"></label>
+          <label>Taxable Value <input type="number" [ngModel]="taxableValue" readonly></label>
+          <label>IGST ({{ igstPercent || 0 }}%) <input type="number" [ngModel]="igstAmount" readonly></label>
+          <label>Final Amount <input type="number" [(ngModel)]="finalAmount" (ngModelChange)="onFinalAmountChange($event)"></label>
         </div>
       </div>
     </div>

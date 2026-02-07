@@ -726,6 +726,10 @@ router.post('/add', requireAuth, async (req, res) => {
 
     const totals = calculateFinalAmount(ewaybills, shipmentData.charges, shipmentData.applyConsignorDiscount !== false);
     shipmentData.finalAmount = totals.finalAmount;
+    const taxableValue = Number(shipmentData.taxableValue);
+    shipmentData.taxableValue = Number.isFinite(taxableValue) ? taxableValue : totals.finalAmount;
+    const igstPercent = Number(shipmentData.igstPercent);
+    shipmentData.igstPercent = Number.isFinite(igstPercent) ? igstPercent : 0;
     delete shipmentData.applyConsignorDiscount;
 
     if (!shipmentData.currentLocationId && shipmentData.currentoriginLocId) {

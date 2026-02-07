@@ -164,6 +164,11 @@ input, select, textarea {
   background: #fff;
 }
 
+input.over-limit {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, 0.12);
+}
+
 textarea {
   min-height: 70px;
   resize: vertical;

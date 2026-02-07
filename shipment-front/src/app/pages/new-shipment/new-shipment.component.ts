@@ -162,6 +162,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   isQuoteLoading = false;
   private quoteTimer: any = null;
   private quoteRequestId = 0;
+  private quoteSubtotal = 0;
   showRateOverrideModal = false;
   private suggestionRequestKey = '';
   private suggestionRetryHandle: any = null;
@@ -197,6 +198,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   applyConsignorDiscount = true;
   maxConsignorDiscount = 0;
   finalAmount: number = 0;
+  taxableValue: number = 0;
+  igstPercent: number = 0;
+  igstAmount: number = 0;
   initialPaid: number = 0;
   showFinalAmountModal: boolean = false;
 
@@ -216,6 +220,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.newClient.branch = this.branch;
     this.newClient.originLocId = localStorage.getItem('originLocId') || 'all';
     this.deliveryBranch = this.branch;
+    this.igstPercent = this.getCompanyTaxPercent();
+    if (!localStorage.getItem('companyType')) {
+      this.loadCompanyTypeFromProfile();
+    }
 
     this.loadDraft(this.branch);
     this.getCurrentConsignmentNumber();
@@ -252,7 +260,30 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (e.key === 'branch' && e.newValue) {
       this.handleBranchChange(e.newValue, e.oldValue || this.branch);
     }
+    if (e.key === 'companyType') {
+      this.igstPercent = this.getCompanyTaxPercent();
+      this.applyTaxToAmount(this.taxableValue);
+    }
   };
+
+  private loadCompanyTypeFromProfile() {
+    const email = localStorage.getItem('email') || '';
+    const username = localStorage.getItem('username') || '';
+    if (!email && !username) return;
+    this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+      .subscribe({
+        next: (data) => {
+          const profile = Array.isArray(data) ? data[0] : data;
+          const raw = profile?.businessType;
+          if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+            localStorage.setItem('companyType', String(raw));
+            this.igstPercent = this.getCompanyTaxPercent();
+            this.applyTaxToAmount(this.taxableValue);
+          }
+        },
+        error: () => {}
+      });
+  }
 
   private handleBranchChange(newBranch: string, oldBranch: string) {
     // Save draft for the previous branch
@@ -439,8 +470,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       .subscribe(res => {
         this.clientList = res;
         this.rebuildRateAddressOptions();
-        this.syncConsignorDiscount();
-          this.updatePaymentModeAvailability();
+        this.syncBillingDiscount();
+        this.updatePaymentModeAvailability();
       });
     this.http.get<any[]>('http://localhost:3000/api/clients/clientslist?originLocId=all')
       .subscribe(res => {
@@ -566,11 +597,16 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       charges: this.charges,
       applyConsignorDiscount: this.applyConsignorDiscount
     };
-    this.http.post<{ finalAmount: number }>('http://localhost:3000/api/newshipments/quote', payload)
+    this.http.post<{ finalAmount: number; subtotal?: number; discountAmount?: number }>(
+      'http://localhost:3000/api/newshipments/quote',
+      payload
+    )
       .subscribe({
         next: (res) => {
           if (requestId !== this.quoteRequestId) return;
-          this.finalAmount = Number(res?.finalAmount) || 0;
+          const baseAmount = Number(res?.finalAmount) || 0;
+          this.quoteSubtotal = Number(res?.subtotal) || 0;
+          this.applyTaxToAmount(baseAmount);
           this.isQuoteLoading = false;
         },
         error: () => {
@@ -578,6 +614,60 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
           this.isQuoteLoading = false;
         }
       });
+  }
+
+  private applyTaxToAmount(baseAmount: number) {
+    const safeBase = Number.isFinite(baseAmount) ? baseAmount : 0;
+    this.taxableValue = this.roundCurrency(safeBase);
+    this.igstPercent = this.getCompanyTaxPercent();
+    const effectiveRate = this.getEffectiveIgstPercent();
+    this.igstAmount = this.roundCurrency(this.taxableValue * effectiveRate / 100);
+    this.finalAmount = this.roundCurrency(this.taxableValue + this.igstAmount);
+  }
+
+  private getCompanyTaxPercent(): number {
+    const raw = localStorage.getItem('companyType');
+    const value = Number(raw);
+    return Number.isFinite(value) ? value : 0;
+  }
+
+  private isBillingClient(): boolean {
+    if (this.billingType === 'consignor') {
+      return this.consignorTab === 'consignor';
+    }
+    const source = String(this.billingSource || '');
+    if (source.startsWith('client:')) return true;
+    if (source.startsWith('hub:')) return false;
+    return Boolean(this.billingClientId);
+  }
+
+  private shouldGtaExempt(): boolean {
+    if (this.isToPayMode()) {
+      return this.consigneeTab === 'consignee';
+    }
+    return this.isBillingClient();
+  }
+
+  private getEffectiveIgstPercent(): number {
+    const base = Number(this.igstPercent) || 0;
+    if (base === 5 && this.shouldGtaExempt()) {
+      return 0;
+    }
+    return base;
+  }
+
+  private recomputeTaxFromCurrentBase() {
+    const effectiveRate = this.getEffectiveIgstPercent();
+    let base = Number(this.taxableValue) || 0;
+    if (!base && Number(this.finalAmount) > 0) {
+      const multiplier = 1 + effectiveRate / 100;
+      base = multiplier > 0 ? (Number(this.finalAmount) / multiplier) : Number(this.finalAmount);
+    }
+    this.applyTaxToAmount(base);
+  }
+
+  private roundCurrency(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
   resetForm() {
@@ -648,6 +738,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.applyConsignorDiscount = true;
       this.maxConsignorDiscount = 0;
       this.finalAmount = 0;
+      this.taxableValue = 0;
+      this.igstAmount = 0;
+      this.igstPercent = this.getCompanyTaxPercent();
       this.initialPaid = 0;
       this.suggestedRates = {};
       this.saveDraft(this.branch);
@@ -767,6 +860,8 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       date: this.date,
       paymentMode: this.paymentMode,
       externalRefId: this.externalRefId,
+      taxableValue: this.taxableValue,
+      igstPercent: this.igstPercent,
       consignorTab: this.consignorTab,
       consignor: this.consignor,
       consignorGST: this.consignorGST,
@@ -1211,8 +1306,12 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   getBillingConsignorLocations(): any[] {
-    const client = this.getBillingConsignorClient();
-    return Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+    if (this.consignorTab === 'guest') {
+      const guest = this.guestList.find(x => x.guestName === this.consignor);
+      return this.buildFallbackLocation(guest);
+    }
+    const client = this.clientList.find(x => x.clientName === this.consignor);
+    return this.buildClientLocations(client);
   }
 
   getPickupConsignorLocations(): any[] {
@@ -1267,6 +1366,32 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   getConsigneeLocations(): any[] {
     return this.getClientLocationsByName(this.consignee);
+  }
+
+  getBillingConsigneeLocations(): any[] {
+    if (this.consigneeTab === 'guest') {
+      const guest = this.guestList.find(x => x.guestName === this.consignee);
+      return this.buildFallbackLocation(guest);
+    }
+    const client = this.clientList.find(x => x.clientName === this.consignee);
+    return this.buildClientLocations(client);
+  }
+
+  private buildClientLocations(client: any): any[] {
+    if (!client) return [];
+    const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+    if (locations.length) return locations;
+    return this.buildFallbackLocation(client);
+  }
+
+  private buildFallbackLocation(entity: any): any[] {
+    if (!entity) return [];
+    const address = entity?.address || entity?.location || '';
+    const city = entity?.city || '';
+    const state = entity?.state || '';
+    const pinCode = entity?.pinCode ?? entity?.pincode ?? entity?.pin ?? '';
+    if (!address && !city && !state && !pinCode) return [];
+    return [{ address, city, state, pinCode }];
   }
 
   formatLocation(loc: any): string {
@@ -1334,11 +1459,14 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.billingName = guest.guestName || '';
       this.billingGSTIN = 'GUEST';
       this.billingPhone = guest.phoneNum || '';
-      this.billingAddress = guest.address || '';
-      this.billingLocationId = null;
-      this.billingLocationIndex = '';
+      const locations = this.getBillingConsignorLocations();
+      const primaryLocation = locations[0];
+      this.billingAddress = primaryLocation ? this.formatLocation(primaryLocation) : (guest.address || '');
+      this.billingLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
+      this.billingLocationIndex = locations.length ? 'consignor:0' : '';
       this.billingClientId = null;
       this.updatePaymentModeAvailability();
+      this.syncBillingDiscount();
       return;
     }
 
@@ -1347,13 +1475,14 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.billingName = client.clientName || '';
     this.billingGSTIN = client.GSTIN || '';
     this.billingPhone = client.phoneNum || '';
-    const locations = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations : [];
+    const locations = this.getBillingConsignorLocations();
     const primaryLocation = locations[0];
     this.billingAddress = primaryLocation ? this.formatLocation(primaryLocation) : (client.address || '');
     this.billingLocationId = primaryLocation ? this.getLocationId(primaryLocation) : null;
     this.billingLocationIndex = locations.length ? 'consignor:0' : '';
     this.billingClientId = client._id || null;
     this.updatePaymentModeAvailability();
+    this.syncBillingDiscount();
     this.refreshPricingSuggestions();
   }
 
@@ -1453,6 +1582,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.billingPhone = '';
       this.billingAddress = '';
       this.updatePaymentModeAvailability();
+      this.syncBillingDiscount();
     }
 
   onDeliverySelfPickupToggle(event: any) {
@@ -1632,7 +1762,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.billingAddress = '';
       this.updatePaymentModeAvailability();
     }
-    if (!resolved) return;
+    if (!resolved) {
+      this.syncBillingDiscount();
+      return;
+    }
       if (resolved.kind === 'client') {
         this.billingName = resolved.entity.clientName || '';
         this.billingGSTIN = resolved.entity.GSTIN || '';
@@ -1640,6 +1773,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         this.billingClientId = resolved.entity._id || null;
         this.billingPreviousSender = resolved.entity.clientName || '';
         this.updatePaymentModeAvailability();
+        this.syncBillingDiscount();
         return;
       }
       if (resolved.kind === 'hub') {
@@ -1649,6 +1783,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         this.billingClientId = resolved.entity._id || null;
         this.billingPreviousSender = resolved.entity.hubName || '';
         this.updatePaymentModeAvailability();
+        this.syncBillingDiscount();
       }
   }
 
@@ -1678,11 +1813,12 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     }
     const parsedIndex = Number(indexText);
     if (Number.isNaN(parsedIndex)) return;
-    const locations = kind === 'consignee' ? this.getConsigneeLocations() : this.getConsignorLocations();
+    const locations = kind === 'consignee' ? this.getBillingConsigneeLocations() : this.getBillingConsignorLocations();
     const loc = locations[parsedIndex];
     if (!loc) return;
     this.billingAddress = this.formatLocation(loc);
     this.billingLocationId = this.getLocationId(loc);
+    this.syncBillingDiscount();
     this.refreshPricingSuggestions();
     if (this.pickupType === 'consignor' && this.pickupSource.startsWith('consignor:')) {
       this.updatePickupFromConsignor();
@@ -1691,15 +1827,15 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
 
   private applyBillingAddressDefaultForPaymentMode(): boolean {
     if (this.billingType !== 'consignor') return false;
-    if (this.isToPayMode() && this.consigneeTab === 'consignee') {
-      const consigneeLocations = this.getConsigneeLocations();
+    if (this.isToPayMode()) {
+      const consigneeLocations = this.getBillingConsigneeLocations();
       if (consigneeLocations.length) {
         this.billingLocationIndex = 'consignee:0';
         this.onBillingLocationSelect(this.billingLocationIndex);
         return true;
       }
     }
-    const consignorLocations = this.getConsignorLocations();
+    const consignorLocations = this.getBillingConsignorLocations();
     if (consignorLocations.length) {
       this.billingLocationIndex = 'consignor:0';
       this.onBillingLocationSelect(this.billingLocationIndex);
@@ -1721,6 +1857,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.billingClientId = selected._id || null;
     this.billingLocationIndex = '';
     this.updatePaymentModeAvailability();
+    this.syncBillingDiscount();
     this.refreshPricingSuggestions();
     if (this.pickupType === 'consignor' && this.pickupSource.startsWith('consignor:')) {
       this.updatePickupFromConsignor();
@@ -1860,8 +1997,6 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.consignorGST = c.GSTIN;
       this.consignorAddress = c.address;
       this.consignorPhone = c.phoneNum;
-      this.maxConsignorDiscount = Number(c.perDis) || 0;
-      this.charges.consignorDiscount = this.maxConsignorDiscount;
       this.selectedConsignorId = c._id;
       this.consignorId = c._id;
       if (this.pickupType === 'consignor') {
@@ -1906,8 +2041,6 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.consignorGST = 'GUEST';
       this.consignorAddress = g.address;
       this.consignorPhone = g.phoneNum;
-      this.charges.consignorDiscount = 0;
-      this.maxConsignorDiscount = 0;
       this.selectedConsignorId = null;
       this.consignorId = g._id || null;
       if (this.pickupType === 'consignor') {
@@ -1925,19 +2058,64 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.updatePaymentModeAvailability();
   }
 
-  private syncConsignorDiscount() {
-    const name = (this.consignor || '').trim();
-    if (!name || this.consignorTab !== 'consignor') return;
-    const client = this.clientList.find(x => x.clientName === name);
-    this.maxConsignorDiscount = Number(client?.perDis) || 0;
-    this.charges.consignorDiscount = this.maxConsignorDiscount;
+  private syncBillingDiscount() {
+    const locationClientId = this.getClientIdByLocationId(this.billingLocationId);
+    const billingClientId = String(this.billingClientId || '').trim();
+    let client: any | null = null;
+    if (locationClientId) {
+      client = this.clientList.find(x => String(x?._id) === String(locationClientId)) || null;
+    }
+    if (!client && billingClientId) {
+      client = this.clientList.find(x => String(x?._id) === billingClientId) || null;
+    }
+    if (!client && this.billingType === 'consignor' && this.consignorTab === 'consignor') {
+      const name = (this.consignor || '').trim();
+      if (name) {
+        client = this.clientList.find(x => x.clientName === name) || null;
+      }
+    }
+    const percent = this.roundCurrency(Number(client?.perDis) || 0);
+    this.maxConsignorDiscount = percent;
+    if (this.finalAmount > 0 && this.quoteSubtotal > 0) {
+      this.syncDiscountFromFinalAmount();
+    } else {
+      this.charges.consignorDiscount = percent;
+    }
   }
 
   onConsignorDiscountChange(value: any) {
     const raw = Number(value);
     const clamped = Math.max(0, Math.min(Number.isFinite(raw) ? raw : 0, this.maxConsignorDiscount));
-    this.charges.consignorDiscount = clamped;
+    this.charges.consignorDiscount = this.roundCurrency(clamped);
     this.scheduleQuote();
+  }
+
+  isDiscountOverLimit(): boolean {
+    const current = Number(this.charges?.consignorDiscount) || 0;
+    const limit = Number(this.maxConsignorDiscount) || 0;
+    return current > limit + 1e-6;
+  }
+
+  onFinalAmountChange(value: any) {
+    const raw = Number(value);
+    const finalAmount = Number.isFinite(raw) ? raw : 0;
+    this.finalAmount = this.roundCurrency(finalAmount);
+    this.syncDiscountFromFinalAmount();
+  }
+
+  private syncDiscountFromFinalAmount() {
+    if (this.quoteSubtotal <= 0) return;
+    let rate = Number(this.igstPercent) || 0;
+    if (rate === 5 && this.isBillingClient()) {
+      rate = 0;
+    }
+    const multiplier = 1 + rate / 100;
+    const taxable = multiplier > 0 ? this.finalAmount / multiplier : this.finalAmount;
+    this.taxableValue = this.roundCurrency(taxable);
+    this.igstAmount = this.roundCurrency(this.finalAmount - this.taxableValue);
+    const discountPercent = ((this.quoteSubtotal - this.taxableValue) / this.quoteSubtotal) * 100;
+    const safePercent = Number.isFinite(discountPercent) ? discountPercent : 0;
+    this.charges.consignorDiscount = this.roundCurrency(Math.max(0, safePercent));
   }
 
   onRateUnitChange() {
@@ -2299,7 +2477,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   isPaymentModeEnabled(): boolean {
-    return Boolean(String(this.billingClientId || '').trim());
+    const hasConsignor = Boolean(String(this.consignor || '').trim());
+    const hasConsignee = Boolean(String(this.consignee || '').trim());
+    return hasConsignor && hasConsignee;
   }
 
   private getReceiverCreditClient(): any | null {
@@ -2746,38 +2926,4 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         this.showGuestModal = false;
       },
       error: (err) => {
-        this.guestError = err?.error?.message || 'Failed to save guest.';
-      }
-    });
-  }
-
-  closeModals() {
-    this.showClientModal = false;
-    this.showGuestModal = false;
-  }
-
-  addClientProduct() {
-    this.newClient.products.push({
-      hsnNum: '',
-      productName: '',
-      ratePerNum: 0,
-      ratePerVolume: 0,
-      ratePerKg: 0
-    });
-  }
-
-  removeClientProduct(index: number) {
-    this.newClient.products.splice(index, 1);
-  }
-
-  addDeliveryLocation() {
-    this.newClient.deliveryLocations.push({ address: '', city: '', state: '', pinCode: '' });
-  }
-
-  removeDeliveryLocation(index: number) {
-    this.newClient.deliveryLocations.splice(index, 1);
-  }
-}
-
-
-
+        this.guestE

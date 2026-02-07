@@ -6,7 +6,7 @@ import { HttpClient } from '@angular/common/http';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule], // ✅ Removed HttpClientModule
+  imports: [CommonModule, FormsModule], // Removed HttpClientModule
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css']
 })
@@ -48,19 +48,37 @@ export class LoginComponent {
         localStorage.setItem('branch', 'All Branches');
         localStorage.setItem('originLocId', 'all');
 
-        console.log('✅ Login successful for user:', localStorage.getItem('companyType'));        
-
-        this.http.get<any[]>(`http://localhost:3000/api/branches`)
-          .subscribe({
-            next: (branches) => {
-              if (!branches || branches.length === 0) {
+        let didProceed = false;
+        const proceedOnce = () => {
+          if (didProceed) return;
+          didProceed = true;
+          this.http.get<any[]>(`http://localhost:3000/api/branches`)
+            .subscribe({
+              next: (branches) => {
+                if (!branches || branches.length === 0) {
+                  window.location.href = '/home/Branches';
+                } else {
+                  window.location.href = '/home/dashboard';
+                }
+              },
+              error: () => {
                 window.location.href = '/home/Branches';
-              } else {
-                window.location.href = '/home/dashboard';
               }
+            });
+        };
+
+        this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+          .subscribe({
+            next: (data) => {
+              const profile = Array.isArray(data) ? data[0] : data;
+              const businessType = profile?.businessType;
+              if (businessType !== undefined && businessType !== null && String(businessType).trim() !== '') {
+                localStorage.setItem('companyType', String(businessType));
+              }
+              proceedOnce();
             },
             error: () => {
-              window.location.href = '/home/Branches';
+              proceedOnce();
             }
           });
       },

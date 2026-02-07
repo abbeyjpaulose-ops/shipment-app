@@ -55,6 +55,8 @@ const ShipmentSchema = new mongoose.Schema(
       consignorDiscount: { type: Number, default: 0 }
     },
     finalAmount: { type: Number, default: 0 },
+    taxableValue: { type: Number, default: 0 },
+    igstPercent: { type: Number, default: 0 },
     initialPaid: { type: Number, default: 0 }
   },
   { timestamps: true }
