@@ -13,6 +13,14 @@ const PaymentEntitySummarySchema = new mongoose.Schema(
     },
     entityId: { type: String, required: true, trim: true },
 
+    direction: {
+      type: String,
+      required: true,
+      trim: true,
+      enum: ['receivable', 'payable'],
+      default: 'receivable'
+    },
+
     totalDue: { type: Number, default: 0 },
     totalPaid: { type: Number, default: 0 },
     totalBalance: { type: Number, default: 0 },
@@ -22,7 +30,7 @@ const PaymentEntitySummarySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-PaymentEntitySummarySchema.index({ entityType: 1, entityId: 1 }, { unique: true });
+PaymentEntitySummarySchema.index({ entityType: 1, entityId: 1, direction: 1 }, { unique: true });
 PaymentEntitySummarySchema.index({ status: 1 });
 
 export default mongoose.models.PaymentEntitySummary ||

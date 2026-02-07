@@ -12,7 +12,7 @@
   <!-- Delivered Table -->
 <div class="invoice-sections">
 <div class="invoice-section">
-  <h3>Delivered</h3>
+  <h3>Consignments</h3>
   <div class="action-bar">
     <button (click)="invoiceSelected()">Generate Pre-Invoice</button>
     <button class="delete-btn" (click)="deleteDelivered()">Delete</button>
@@ -38,7 +38,7 @@
           />
         </td>
         <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
-        <td>{{ inv.shipmentStatus }}</td>
+        <td>{{ getDisplayStatus(inv.shipmentStatus) }}</td>
         <td>{{ inv.consignor }}</td>
                         <td>
           <button class="edit-btn" (click)="editInvoice(inv)">fo?<,? Edit</button>
@@ -76,7 +76,7 @@
           />
         </td>
         <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
-        <td>{{ inv.shipmentStatus }}</td>
+        <td>{{ getDisplayStatus(inv.shipmentStatus) }}</td>
         <td>{{ inv.consignor }}</td>
                         <td>
           <button class="edit-btn" (click)="editInvoice(inv)">fo?<,? Edit</button>
@@ -95,7 +95,7 @@
           <h2>Consignment Details</h2>
           <p class="details-sub">Consignment #{{ selectedInvoice?.consignmentNumber }}</p>
         </div>
-        <span class="details-status">{{ selectedInvoice?.shipmentStatus }}</span>
+        <span class="details-status">{{ getDisplayStatus(selectedInvoice?.shipmentStatus) }}</span>
       </div>
 
       <div class="details-grid">
@@ -213,7 +213,7 @@
         </div>
         <div class="details-item">
           <div class="details-label">Status</div>
-          <div class="details-value">{{ selectedInvoice?.shipmentStatus }}</div>
+          <div class="details-value">{{ getDisplayStatus(selectedInvoice?.shipmentStatus) }}</div>
         </div>
         <div class="details-item">
           <div class="details-label">Final Amount</div>

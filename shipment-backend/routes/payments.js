@@ -20,6 +20,18 @@ const ENTITY_CONFIG = {
 };
 
 const ENTITY_TYPES = Object.keys(ENTITY_CONFIG);
+const DIRECTION_TYPES = ['receivable', 'payable'];
+
+function normalizeDirection(raw) {
+  const direction = String(raw || '').trim().toLowerCase();
+  if (!direction) return null;
+  return DIRECTION_TYPES.includes(direction) ? direction : null;
+}
+
+function buildDirectionFilter(direction, includeMissing = false) {
+  if (!direction) return null;
+  return includeMissing ? { $in: [direction, null] } : direction;
+}
 
 function buildNameMap(records, nameField) {
   const map = new Map();
@@ -44,9 +56,16 @@ router.get('/summary', requireAuth, async (req, res) => {
       return res.status(400).json({ message: 'Invalid entityType' });
     }
 
+    const requestedDirection = normalizeDirection(req.query.direction);
+    if (req.query.direction && !requestedDirection) {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
+
+    const directionFilter = buildDirectionFilter(requestedDirection, true);
     const summaries = await PaymentEntitySummary.find({
       GSTIN_ID: gstinId,
-      entityType: { $in: validTypes }
+      entityType: { $in: validTypes },
+      ...(directionFilter ? { direction: directionFilter } : {})
     }).lean();
 
     const response = {
@@ -70,6 +89,7 @@ router.get('/summary', requireAuth, async (req, res) => {
         .map((s) => ({
           entityId: String(s.entityId || ''),
           name: names.get(String(s.entityId || '')) || String(s.entityId || ''),
+          direction: s.direction || requestedDirection || 'receivable',
           totalDue: s.totalDue || 0,
           totalPaid: s.totalPaid || 0,
           totalBalance: s.totalBalance || 0,
@@ -113,12 +133,41 @@ router.get('/:entityType/:entityId/transactions', requireAuth, async (req, res) 
     }
     if (!entityId) return res.status(400).json({ message: 'Missing entityId' });
 
-    const payment = await Payment.findOne({ GSTIN_ID: gstinId, entityType, entityId }).lean();
+    const requestedDirection = normalizeDirection(req.query.direction);
+    if (req.query.direction && !requestedDirection) {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
+
+    const baseFilter = { GSTIN_ID: gstinId, entityType, entityId };
+    let payment = null;
+    let resolvedDirection = requestedDirection || null;
+
+    if (requestedDirection) {
+      payment = await Payment.findOne({
+        ...baseFilter,
+        direction: buildDirectionFilter(requestedDirection, true)
+      }).lean();
+    } else {
+      payment = await Payment.findOne({
+        ...baseFilter,
+        direction: buildDirectionFilter('receivable', true)
+      }).lean();
+      if (!payment) {
+        payment = await Payment.findOne({ ...baseFilter, direction: 'payable' }).lean();
+      }
+    }
+
+    if (!resolvedDirection) {
+      resolvedDirection = payment?.direction || 'receivable';
+    }
+
     const summary = await PaymentEntitySummary.findOne({
-      GSTIN_ID: gstinId,
-      entityType,
-      entityId
+      ...baseFilter,
+      direction: buildDirectionFilter(resolvedDirection, true)
     }).lean();
+
+    if (payment && !payment.direction) payment.direction = resolvedDirection;
+    if (summary && !summary.direction) summary.direction = resolvedDirection;
 
     const transactions = payment
       ? await PaymentTransaction.find({ paymentId: payment._id })
@@ -148,6 +197,13 @@ router.post('/:entityType/:entityId/summary/due', requireAuth, async (req, res) 
     }
     if (!entityId) return res.status(400).json({ message: 'Missing entityId' });
 
+    const requestedDirection = normalizeDirection(req.body?.direction ?? req.query?.direction);
+    if ((req.body?.direction || req.query?.direction) && !requestedDirection) {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
+    const direction = requestedDirection || 'receivable';
+    const directionFilter = buildDirectionFilter(direction, true);
+
     const totalDue = Number(req.body?.totalDue);
     if (!Number.isFinite(totalDue) || totalDue < 0) {
       return res.status(400).json({ message: 'Invalid totalDue' });
@@ -156,13 +212,15 @@ router.post('/:entityType/:entityId/summary/due', requireAuth, async (req, res) 
     let summary = await PaymentEntitySummary.findOne({
       GSTIN_ID: gstinId,
       entityType,
-      entityId
+      entityId,
+      direction: directionFilter
     });
     if (!summary) {
       summary = await PaymentEntitySummary.create({
         GSTIN_ID: gstinId,
         entityType,
         entityId,
+        direction,
         totalDue,
         totalPaid: 0,
         totalBalance: totalDue,
@@ -174,15 +232,22 @@ router.post('/:entityType/:entityId/summary/due', requireAuth, async (req, res) 
       summary.totalDue = totalDue;
       summary.totalBalance = balance;
       summary.status = balance <= 0 ? 'Paid' : 'Pending';
+      summary.direction = direction;
       await summary.save();
     }
 
-    let payment = await Payment.findOne({ GSTIN_ID: gstinId, entityType, entityId });
+    let payment = await Payment.findOne({
+      GSTIN_ID: gstinId,
+      entityType,
+      entityId,
+      direction: directionFilter
+    });
     if (!payment) {
       payment = await Payment.create({
         GSTIN_ID: gstinId,
         entityType,
         entityId,
+        direction,
         amountDue: summary.totalDue || 0,
         amountPaid: summary.totalPaid || 0,
         balance: summary.totalBalance || 0,
@@ -193,6 +258,7 @@ router.post('/:entityType/:entityId/summary/due', requireAuth, async (req, res) 
       payment.amountPaid = summary.totalPaid || 0;
       payment.balance = summary.totalBalance || 0;
       payment.status = summary.status || 'Pending';
+      payment.direction = direction;
       await payment.save();
     }
 
@@ -214,6 +280,13 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     }
     if (!entityId) return res.status(400).json({ message: 'Missing entityId' });
 
+    const requestedDirection = normalizeDirection(req.body?.direction ?? req.query?.direction);
+    if ((req.body?.direction || req.query?.direction) && !requestedDirection) {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
+    const direction = requestedDirection || 'receivable';
+    const directionFilter = buildDirectionFilter(direction, true);
+
     const amount = Number(req.body?.amount || 0);
     const method = String(req.body?.method || '').trim();
     const referenceNo = String(req.body?.referenceNo || '').trim();
@@ -231,7 +304,8 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     let summary = await PaymentEntitySummary.findOne({
       GSTIN_ID: gstinId,
       entityType,
-      entityId
+      entityId,
+      direction: directionFilter
     });
 
     if (!summary) {
@@ -239,6 +313,7 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
         GSTIN_ID: gstinId,
         entityType,
         entityId,
+        direction,
         totalDue: 0,
         totalPaid: 0,
         totalBalance: 0,
@@ -246,12 +321,18 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
       });
     }
 
-    let payment = await Payment.findOne({ GSTIN_ID: gstinId, entityType, entityId });
+    let payment = await Payment.findOne({
+      GSTIN_ID: gstinId,
+      entityType,
+      entityId,
+      direction: directionFilter
+    });
     if (!payment) {
       payment = await Payment.create({
         GSTIN_ID: gstinId,
         entityType,
         entityId,
+        direction,
         amountDue: summary.totalDue || 0,
         amountPaid: summary.totalPaid || 0,
         balance: summary.totalBalance || 0,
@@ -269,12 +350,14 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     payment.status = status;
     payment.paymentMethod = method;
     payment.paymentDate = transactionDate;
+    payment.direction = direction;
     if (referenceNo) payment.referenceNo = referenceNo;
     if (notes) payment.notes = notes;
     await payment.save();
 
     const transaction = await PaymentTransaction.create({
       paymentId: payment._id,
+      direction: payment.direction || direction,
       amount,
       transactionDate,
       method,
@@ -291,6 +374,7 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     summary.totalBalance = summaryBalance;
     summary.lastPaymentDate = transactionDate;
     summary.status = summaryBalance <= 0 ? 'Paid' : 'Pending';
+    summary.direction = direction;
     await summary.save();
 
     res.status(201).json({
@@ -317,21 +401,24 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
     if (!entityId) return res.status(400).json({ message: 'Missing entityId' });
     if (!transactionId) return res.status(400).json({ message: 'Missing transactionId' });
 
-    const payment = await Payment.findOne({ GSTIN_ID: gstinId, entityType, entityId });
-    if (!payment) return res.status(404).json({ message: 'Payment not found' });
-
-    const transaction = await PaymentTransaction.findOne({
-      _id: transactionId,
-      paymentId: payment._id
-    });
+    const transaction = await PaymentTransaction.findOne({ _id: transactionId });
     if (!transaction) return res.status(404).json({ message: 'Transaction not found' });
     if (String(transaction.status || '') === 'voided') {
       return res.status(400).json({ message: 'Transaction already voided' });
     }
 
+    const payment = await Payment.findOne({
+      _id: transaction.paymentId,
+      GSTIN_ID: gstinId,
+      entityType,
+      entityId
+    });
+    if (!payment) return res.status(404).json({ message: 'Payment not found' });
+
     const voidReason = String(req.body?.voidReason || '').trim();
     transaction.status = 'voided';
     transaction.voidedAt = new Date();
+    if (!transaction.direction && payment.direction) transaction.direction = payment.direction;
     if (voidReason) transaction.voidReason = voidReason;
     await transaction.save();
 
@@ -350,10 +437,12 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
     payment.paymentDate = lastPosted?.transactionDate || null;
     await payment.save();
 
+    const direction = payment.direction || 'receivable';
     const summary = await PaymentEntitySummary.findOne({
       GSTIN_ID: gstinId,
       entityType,
-      entityId
+      entityId,
+      direction: buildDirectionFilter(direction, true)
     });
     if (summary) {
       const summaryPaid = Math.max(Number(summary.totalPaid || 0) - amount, 0);
@@ -363,6 +452,7 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
       summary.totalBalance = summaryBalance;
       summary.lastPaymentDate = lastPosted?.transactionDate || null;
       summary.status = summaryBalance <= 0 ? 'Paid' : 'Pending';
+      summary.direction = direction;
       await summary.save();
     }
 

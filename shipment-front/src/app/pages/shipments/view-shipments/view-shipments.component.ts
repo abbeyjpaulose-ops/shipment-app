@@ -466,12 +466,27 @@ export class ViewShipmentsComponent implements OnInit {
     return status === 'cancelled' || status === 'returned';
   }
 
+  private splitCompositeLocation(value: any): { id: string; label: string } {
+    if (!value) return { id: '', label: '' };
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) return { id: '', label: '' };
+      const parts = trimmed.split('$$');
+      if (parts.length === 1) {
+        return { id: trimmed, label: trimmed };
+      }
+      const id = String(parts[parts.length - 1] || '').trim();
+      const label = parts.slice(0, -1).join('$$').trim();
+      return { id, label };
+    }
+    if (value?._id) return { id: String(value._id), label: '' };
+    if (value?.$oid) return { id: String(value.$oid), label: '' };
+    return { id: String(value), label: '' };
+  }
+
   private normalizeId(value: any): string {
-    if (!value) return '';
-    if (typeof value === 'string') return value;
-    if (value?._id) return String(value._id);
-    if (value?.$oid) return String(value.$oid);
-    return String(value);
+    const { id, label } = this.splitCompositeLocation(value);
+    return id || label;
   }
 
   private getSelectedOrigin(): { originType: 'branch' | 'hub'; originLocId: string } | null {
@@ -492,25 +507,44 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   getCurrentBranchDisplay(shipment: any): string {
-    const currentLocationId = this.normalizeId(
-      shipment?.currentLocationId || shipment?.currentBranch
-    );
-    if (!currentLocationId) return '-';
-    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentLocationId);
-    if (branch?.branchName) return branch.branchName;
-    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === currentLocationId);
-    if (hub?.hubName) return hub.hubName;
-    return currentLocationId;
+    const raw = shipment?.currentLocationId || shipment?.currentBranch;
+    const { id, label } = this.splitCompositeLocation(raw);
+    const currentLocationId = id || this.normalizeId(raw);
+    if (!currentLocationId && !label) return '-';
+    if (currentLocationId) {
+      const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === currentLocationId);
+      if (branch?.branchName) return branch.branchName;
+      const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === currentLocationId);
+      if (hub?.hubName) return hub.hubName;
+    }
+    if (label) return label;
+    return currentLocationId || '-';
   }
 
   getOriginBranchDisplay(shipment: any): string {
-    const originoriginLocId = this.getOriginId(shipment);
-    if (!originoriginLocId) return '-';
-    const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === originoriginLocId);
-    if (branch?.branchName) return branch.branchName;
-    const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === originoriginLocId);
-    if (hub?.hubName) return hub.hubName;
-    return originoriginLocId;
+    const raw = shipment?.originLocId || shipment?.branch || shipment?.branchName;
+    const { id, label } = this.splitCompositeLocation(raw);
+    const originLocId = id || this.normalizeId(raw);
+    if (!originLocId && !label) return '-';
+    if (originLocId) {
+      const branch = (this.branches || []).find(b => this.normalizeId(b?._id) === originLocId);
+      if (branch?.branchName) return branch.branchName;
+      const hub = (this.hubs || []).find(h => this.normalizeId(h?._id) === originLocId);
+      if (hub?.hubName) return hub.hubName;
+    }
+    if (label) {
+      const labelLower = label.toLowerCase();
+      const branchByName = (this.branches || []).find(
+        b => String(b?.branchName || '').trim().toLowerCase() === labelLower
+      );
+      if (branchByName?.branchName) return branchByName.branchName;
+      const hubByName = (this.hubs || []).find(
+        h => String(h?.hubName || '').trim().toLowerCase() === labelLower
+      );
+      if (hubByName?.hubName) return hubByName.hubName;
+      return label;
+    }
+    return originLocId || '-';
   }
 
   private firstNonEmpty(...values: any[]): string {
@@ -983,7 +1017,7 @@ export class ViewShipmentsComponent implements OnInit {
   private buildSlip(shipment: any): string {
     const goodsValue = this.getInvoiceAmountTotal(shipment?.invoices || []);
     const charges = this.buildChargeRows(shipment?.charges, goodsValue);
-    const branchName = this.safeText(shipment?.branch);
+    const branchName = this.safeText(this.getOriginBranchDisplay(shipment));
     const branchAddress = this.safeText(this.getBranchAddress(branchName));
     const branchPhone = this.safeText(this.getBranchPhone(branchName));
     const billingIdText = this.safeText(shipment?.billingLocationId);

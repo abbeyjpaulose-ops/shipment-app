@@ -765,11 +765,13 @@ router.post('/add', requireAuth, async (req, res) => {
         const amountPaid = Number(shipment.initialPaid) || 0;
         const balance = amountDue - amountPaid;
         const isPaid = amountDue > 0 && balance <= 0;
+        const direction = 'receivable';
         const originReference = getOriginKey(shipment) || '';
         const referenceNo = `${originReference}$$${String(shipment._id)}`;
         const paymentPayload = {
           entityType,
           entityId: String(paymentEntityId),
+          direction,
           referenceNo,
           amountDue,
           amountPaid,
@@ -783,9 +785,15 @@ router.post('/add', requireAuth, async (req, res) => {
         };
         try {
           const paymentResult = await Payment.updateOne(
-            { entityType, entityId: String(paymentEntityId), referenceNo },
             {
-              $setOnInsert: { ...paymentPayload, GSTIN_ID: paymentGstinId }
+              entityType,
+              entityId: String(paymentEntityId),
+              referenceNo,
+              direction: { $in: [direction, null] }
+            },
+            {
+              $setOnInsert: { ...paymentPayload, GSTIN_ID: paymentGstinId },
+              $set: { direction }
             },
             { upsert: true }
           );
@@ -1218,9 +1226,21 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
     // Update payment summaries for client
     const billingClientId = invoice.billingClientId ? String(invoice.billingClientId) : '';
     if (billingClientId) {
+      const direction = 'receivable';
+      const directionFilter = { $in: [direction, null] };
       let [summary, payment] = await Promise.all([
-        PaymentEntitySummary.findOne({ GSTIN_ID: gstinId, entityType: 'client', entityId: billingClientId }),
-        Payment.findOne({ GSTIN_ID: gstinId, entityType: 'client', entityId: billingClientId })
+        PaymentEntitySummary.findOne({
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: billingClientId,
+          direction: directionFilter
+        }),
+        Payment.findOne({
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: billingClientId,
+          direction: directionFilter
+        })
       ]);
 
       if (!summary) {
@@ -1230,6 +1250,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
           GSTIN_ID: gstinId,
           entityType: 'client',
           entityId: billingClientId,
+          direction,
           totalDue: invoiceTotal,
           totalPaid,
           totalBalance,
@@ -1245,6 +1266,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
         summary.totalBalance = totalBalance;
         summary.status = desired === 'Paid' ? 'Paid' : 'Active';
         summary.lastPaymentDate = desired === 'Paid' ? new Date() : summary.lastPaymentDate;
+        summary.direction = direction;
         await summary.save();
       }
 
@@ -1255,6 +1277,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
           GSTIN_ID: gstinId,
           entityType: 'client',
           entityId: billingClientId,
+          direction,
           amountDue: invoiceTotal,
           amountPaid,
           balance,
@@ -1271,6 +1294,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
         payment.balance = balance;
         payment.status = desired === 'Paid' ? 'Paid' : 'Active';
         payment.paymentDate = desired === 'Paid' ? new Date() : payment.paymentDate;
+        payment.direction = direction;
         await payment.save();
 
         if (desired === 'Paid') {
@@ -1278,6 +1302,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
           await PaymentTransaction.create({
             paymentId: payment._id,
             invoiceId: invoice._id,
+            direction: payment.direction || direction,
             amount: invoiceTotal,
             transactionDate: new Date(),
             method: 'Invoice',
@@ -1572,11 +1597,14 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
       const hubExists = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id').lean();
       if (hubExists) {
         const referenceNo = `${String(shipment._id)}$$hubcharge`;
+        const direction = 'payable';
+        const directionFilter = { $in: [direction, null] };
         const existingPayment = await Payment.findOne({
           GSTIN_ID: gstinId,
           entityType: 'hub',
           entityId: hubId,
-          referenceNo
+          referenceNo,
+          direction: directionFilter
         }).lean();
         const previousDue = Number(existingPayment?.amountDue || 0);
         const amountPaid = Number(existingPayment?.amountPaid || 0);
@@ -1584,7 +1612,13 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
         const status = balance <= 0 ? 'Paid' : 'Pending';
 
         await Payment.updateOne(
-          { GSTIN_ID: gstinId, entityType: 'hub', entityId: hubId, referenceNo },
+          {
+            GSTIN_ID: gstinId,
+            entityType: 'hub',
+            entityId: hubId,
+            referenceNo,
+            direction: directionFilter
+          },
           {
             $set: {
               amountDue: hubCharge,
@@ -1593,13 +1627,15 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
               currency: 'rupees',
               status,
               paymentMethod: 'payable',
-              paymentDate: balance <= 0 ? new Date() : null
+              paymentDate: balance <= 0 ? new Date() : null,
+              direction
             },
             $setOnInsert: {
               GSTIN_ID: gstinId,
               entityType: 'hub',
               entityId: hubId,
               referenceNo,
+              direction,
               notes: `Hub charge for consignment ${String(shipment.consignmentNumber || '')}`.trim()
             }
           },
@@ -1609,13 +1645,15 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
         let summary = await PaymentEntitySummary.findOne({
           GSTIN_ID: gstinId,
           entityType: 'hub',
-          entityId: hubId
+          entityId: hubId,
+          direction: directionFilter
         });
         if (!summary) {
           summary = await PaymentEntitySummary.create({
             GSTIN_ID: gstinId,
             entityType: 'hub',
             entityId: hubId,
+            direction,
             totalDue: hubCharge,
             totalPaid: amountPaid,
             totalBalance: balance,
@@ -1629,6 +1667,7 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
           summary.totalDue = totalDue;
           summary.totalBalance = totalBalance;
           summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
+          summary.direction = direction;
           await summary.save();
         }
       }

@@ -25,6 +25,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   showInvoiceModal = false;
   branch: string = localStorage.getItem('branch') || 'All Branches';
   originLocId: string = localStorage.getItem('originLocId') || 'all';
+  hubs: any[] = [];
+  branches: any[] = [];
   private branchSub?: Subscription;
 
   editingInvoice: any = null;   // �o. Track the invoice being edited
@@ -42,18 +44,54 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       }
     });
     window.addEventListener('storage', this.onStorageChange);
-    this.loadInvoices();
+    this.loadBranches(() => this.loadHubs(() => this.loadInvoices()));
   }
   ngOnDestroy(): void {
     this.branchSub?.unsubscribe();
     window.removeEventListener('storage', this.onStorageChange);
   }
 
+  private loadBranches(onDone?: () => void) {
+    this.http.get<any[]>('http://localhost:3000/api/branches').subscribe({
+      next: (branches) => {
+        this.branches = Array.isArray(branches) ? branches : [];
+        if (onDone) onDone();
+      },
+      error: () => {
+        this.branches = [];
+        if (onDone) onDone();
+      }
+    });
+  }
+
+  private loadHubs(onDone?: () => void) {
+    this.http.get<any[]>('http://localhost:3000/api/hubs').subscribe({
+      next: (hubs) => {
+        this.hubs = Array.isArray(hubs) ? hubs : [];
+        if (onDone) onDone();
+      },
+      error: () => {
+        this.hubs = [];
+        if (onDone) onDone();
+      }
+    });
+  }
+
   loadInvoices() {
+    const storedOriginLocId = this.originLocId || localStorage.getItem('originLocId') || 'all';
+    const branchLabel = String(localStorage.getItem('branch') || '').trim();
+    const selectedBranchId = this.resolveSelectedBranchId(storedOriginLocId, branchLabel);
+    const normalizedOriginId = selectedBranchId || this.normalizeId(storedOriginLocId);
+    const hasBranchSelection = storedOriginLocId && storedOriginLocId !== 'all' && storedOriginLocId !== 'all-hubs';
+    const hasHubsForBranch = hasBranchSelection &&
+      this.hubs.some((h) => this.normalizeId(h?.originLocId) === normalizedOriginId);
+    const originLocIdParam = (hasBranchSelection && (!this.isObjectId(storedOriginLocId) || hasHubsForBranch))
+      ? 'all'
+      : storedOriginLocId;
     this.http.get<any>('http://localhost:3000/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
-        originLocId: this.originLocId || localStorage.getItem('originLocId') || 'all'
+        originLocId: originLocIdParam
       }
     }).subscribe({
       next: (res) => {
@@ -64,11 +102,10 @@ export class InvoiceComponent implements OnInit, OnDestroy {
           ...s,
           _normalizedStatus: this.normalizeStatus(s?.shipmentStatus)
         }));
-        this.invoices = normalized.filter((s: any) =>
-          s._normalizedStatus === 'delivered' || s._normalizedStatus === 'pre-invoiced'
-        );
-        this.deliveredInvoices = this.invoices.filter((s: any) => s._normalizedStatus === 'delivered');
-        this.preInvoicedInvoices = this.invoices.filter((s: any) => s._normalizedStatus === 'pre-invoiced');
+        const nonDeleted = normalized.filter((s: any) => !this.isDeletedStatus(s?.shipmentStatus));
+        this.invoices = nonDeleted;
+        this.deliveredInvoices = nonDeleted;
+        this.preInvoicedInvoices = nonDeleted.filter((s: any) => s._normalizedStatus === 'pre-invoiced');
         this.applyFilters();
         console.log('A??,f??A? Filtered Delivered consignments:', this.filteredDelivered);
         console.log('A??,f??A? Filtered Pre-Invoiced consignments:', this.filteredPreInvoiced);
@@ -92,14 +129,100 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   private normalizeStatus(status: any): string {
     const value = String(status || '').trim().toLowerCase();
     if (!value) return '';
+    if (value === 'dpending') return 'delivered';
     if (value.includes('delivered')) return 'delivered';
     if (value === 'pre invoiced' || value === 'preinvoiced' || value.includes('pre-invoiced')) {
       return 'pre-invoiced';
     }
     return value;
   }
+
+  private isDeletedStatus(status: any): boolean {
+    return String(status || '').trim().toLowerCase().includes('deleted');
+  }
+
+  getDisplayStatus(status: any): string {
+    const value = String(status || '').trim();
+    const lower = value.toLowerCase();
+    if (!value) return '';
+    if (lower === 'dpending') return 'Delivered';
+    if (lower.includes('delivered')) return 'Delivered';
+    if (lower === 'pre invoiced' || lower === 'preinvoiced' || lower.includes('pre-invoiced')) {
+      return 'Pre-Invoiced';
+    }
+    return value;
+  }
+  private normalizeId(value: any): string {
+    if (value === undefined || value === null) return '';
+    if (typeof value === 'string') return value.trim();
+    if (value?._id) return String(value._id).trim();
+    if (value?.$oid) return String(value.$oid).trim();
+    return String(value).trim();
+  }
+
+  private isObjectId(value: string): boolean {
+    return /^[a-f\d]{24}$/i.test(String(value || '').trim());
+  }
+
+  private resolveSelectedBranchId(originLocId: string, branchLabel: string): string {
+    const normalizedOrigin = this.normalizeId(originLocId);
+    if (this.isObjectId(normalizedOrigin)) return normalizedOrigin;
+    const label = String(branchLabel || originLocId || '').trim().toLowerCase();
+    if (!label) return '';
+    const match = (this.branches || []).find((b: any) => {
+      const prefix = String(b?.prefix || '').trim().toLowerCase();
+      const name = String(b?.branchName || '').trim().toLowerCase();
+      return (prefix && prefix === label) || (name && name === label);
+    });
+    return match ? this.normalizeId(match?._id) : '';
+  }
+
+  private matchesBranchLabel(currentBranch: string, branchLabel: string): boolean {
+    const current = String(currentBranch || '').trim().toLowerCase();
+    const label = String(branchLabel || '').trim().toLowerCase();
+    if (!current || !label) return false;
+    if (label === current) return true;
+    if (label.startsWith(`${current}-`)) return true;
+    const labelPrefix = label.split('-')[0].trim();
+    return Boolean(labelPrefix) && labelPrefix === current;
+  }
+
+  private matchesSelectedBranch(shipment: any): boolean {
+    const originLocId = String(this.originLocId || localStorage.getItem('originLocId') || '').trim();
+    const branchLabel = String(localStorage.getItem('branch') || '').trim();
+    const originId = this.normalizeId(shipment?.originLocId || shipment?.branch || shipment?.branchName);
+    const originLabel = String(shipment?.branchName || shipment?.branch || '').trim();
+
+    if (originLocId && originLocId !== 'all' && originLocId !== 'all-hubs') {
+      const normalizedOrigin = this.resolveSelectedBranchId(originLocId, branchLabel) || this.normalizeId(originLocId);
+      if (originId && originId === normalizedOrigin) return true;
+      const hubMatch = this.hubs.find((h) => this.normalizeId(h?._id) === originId);
+      const hubBranchId = this.normalizeId(hubMatch?.originLocId);
+      if (hubBranchId && hubBranchId === normalizedOrigin) return true;
+      const labelTarget = (branchLabel && branchLabel !== 'All Branches' && branchLabel !== 'All Hubs')
+        ? branchLabel
+        : originLocId;
+      if (labelTarget) {
+        const labelLower = String(labelTarget || '').trim().toLowerCase();
+        const originLower = originLabel.toLowerCase();
+        return originLower === labelLower || this.matchesBranchLabel(originLabel, String(labelTarget || ''));
+      }
+      return false;
+    }
+    if (originLocId === 'all' || originLocId === 'all-hubs') {
+      return true;
+    }
+    if (branchLabel && branchLabel !== 'All Branches' && branchLabel !== 'All Hubs') {
+      const labelLower = branchLabel.toLowerCase();
+      const originLower = originLabel.toLowerCase();
+      return originLower === labelLower || this.matchesBranchLabel(originLabel, branchLabel);
+    }
+    return true;
+  }
+
   applyFilters() {
     const matches = (s: any) =>
+      this.matchesSelectedBranch(s) &&
       (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
       (this.filterDate ? new Date(s.date).toISOString().split('T')[0] === this.filterDate : true) &&
       (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true);

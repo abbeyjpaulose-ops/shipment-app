@@ -9,6 +9,7 @@ export async function syncPaymentsFromGeneratedInvoices(gstinId, clientIds = nul
   }
 
   const preserveStatus = Boolean(options.preserveStatus);
+  const direction = 'receivable';
   const clientFilter = Array.isArray(clientIds)
     ? clientIds.map((id) => String(id || '').trim()).filter(Boolean)
     : null;
@@ -65,7 +66,8 @@ export async function syncPaymentsFromGeneratedInvoices(gstinId, clientIds = nul
   const existingSummaries = await PaymentEntitySummary.find({
     GSTIN_ID: gstinId,
     entityType: 'client',
-    entityId: { $in: clientIdsToUpdate }
+    entityId: { $in: clientIdsToUpdate },
+    direction: { $in: [direction, null] }
   }).lean();
 
   const summariesById = new Map(
@@ -81,9 +83,15 @@ export async function syncPaymentsFromGeneratedInvoices(gstinId, clientIds = nul
     const setPayload = preserveStatus
       ? { totalDue, totalPaid, totalBalance }
       : { totalDue, totalPaid, totalBalance, status };
+    setPayload.direction = direction;
     return {
       updateOne: {
-        filter: { GSTIN_ID: gstinId, entityType: 'client', entityId: id },
+        filter: {
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: id,
+          direction: { $in: [direction, null] }
+        },
         update: {
           $set: setPayload
         },
@@ -99,7 +107,8 @@ export async function syncPaymentsFromGeneratedInvoices(gstinId, clientIds = nul
   const existingPayments = await Payment.find({
     GSTIN_ID: gstinId,
     entityType: 'client',
-    entityId: { $in: clientIdsToUpdate }
+    entityId: { $in: clientIdsToUpdate },
+    direction: { $in: [direction, null] }
   }).lean();
 
   const paymentsById = new Map(existingPayments.map((p) => [String(p.entityId), p]));
@@ -113,9 +122,15 @@ export async function syncPaymentsFromGeneratedInvoices(gstinId, clientIds = nul
     const setPayload = preserveStatus
       ? { amountDue: totalDue, amountPaid, balance }
       : { amountDue: totalDue, amountPaid, balance, status };
+    setPayload.direction = direction;
     return {
       updateOne: {
-        filter: { GSTIN_ID: gstinId, entityType: 'client', entityId: id },
+        filter: {
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: id,
+          direction: { $in: [direction, null] }
+        },
         update: {
           $set: setPayload
         },

@@ -4,6 +4,7 @@ const PaymentTransactionSchema = new mongoose.Schema(
   {
     paymentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Payment', required: true },
     invoiceId: { type: mongoose.Schema.Types.ObjectId, ref: 'NewShipmentGeneratedInvoice' },
+    direction: { type: String, trim: true, enum: ['receivable', 'payable'] },
     amount: { type: Number, required: true },
     transactionDate: { type: Date, required: true },
     method: { type: String, trim: true },
