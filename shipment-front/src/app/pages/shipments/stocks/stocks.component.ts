@@ -339,6 +339,18 @@ calculateFinalAmount() {
     this.stocks = this.getBaseStocks()
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     this.applyFilters();
+    this.maybeOpenEditFromStorage();
+  }
+
+  private maybeOpenEditFromStorage(): void {
+    const target = String(localStorage.getItem('editConsignmentNumber') || '').trim();
+    if (!target) return;
+    const match = (this.stocks || []).find((s) =>
+      String(s?.consignmentNumber || '').trim() === target
+    );
+    if (!match) return;
+    localStorage.removeItem('editConsignmentNumber');
+    this.editStock(match);
   }
 
   setActiveTab(tab: 'stocks' | 'others-in-branch') {

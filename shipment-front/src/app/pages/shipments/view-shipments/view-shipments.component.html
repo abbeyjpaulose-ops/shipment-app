@@ -196,16 +196,55 @@
     <div class="details-header accent">
       <div>
         <h2>Shipment Details</h2>
-        <p class="details-sub">Consignment {{ selectedShipment.consignmentNumber }}</p>
+        <p class="details-sub">Consignment {{ isEditingConsignment ? editingShipment?.consignmentNumber : selectedShipment.consignmentNumber }}</p>
       </div>
-      <span class="details-status pill">{{ selectedShipment.shipmentStatus }}</span>
+      <span class="details-status pill">{{ isEditingConsignment ? editingShipment?.shipmentStatus : selectedShipment.shipmentStatus }}</span>
+    </div>
+    <div class="details-actions">
+      <button
+        *ngIf="!isEditingConsignment"
+        type="button"
+        class="edit-btn"
+        (click)="editSelectedConsignment()">
+        Edit Consignment
+      </button>
+      <button
+        *ngIf="isEditingConsignment"
+        type="button"
+        class="edit-btn save-btn"
+        [disabled]="isSavingConsignment"
+        (click)="saveConsignmentEdits()">
+        Save
+      </button>
+      <button
+        *ngIf="isEditingConsignment"
+        type="button"
+        class="ghost-btn"
+        [disabled]="isSavingConsignment"
+        (click)="cancelConsignmentEdit()">
+        Cancel
+      </button>
     </div>
 
     <div class="shipment-details details-grid card">
-      <p><strong>Shipment ID:</strong> {{ selectedShipment._id }}</p>
-      <p><strong>Consignment No.:</strong> {{ selectedShipment.consignmentNumber }}</p>
-        <p><strong>Status:</strong> {{ selectedShipment.shipmentStatus }}</p>
-        <p><strong>Status Details:</strong> {{ selectedShipment.shipmentStatusDetails }}</p>
+      <p>
+        <strong>Shipment ID:</strong>
+        <span class="detail-value">{{ selectedShipment._id }}</span>
+      </p>
+      <p>
+        <strong>Consignment No.:</strong>
+        <span class="detail-value">{{ selectedShipment.consignmentNumber }}</span>
+      </p>
+      <p>
+        <strong>Status:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.shipmentStatus }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.shipmentStatus" />
+      </p>
+      <p>
+        <strong>Status Details:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.shipmentStatusDetails }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.shipmentStatusDetails" />
+      </p>
         <p *ngIf="selectedShipmentManifestId">
           <strong>Manifest:</strong>
           <a
@@ -216,46 +255,201 @@
             {{ selectedShipmentManifestId }}
           </a>
         </p>
-        <p><strong>Branch:</strong> {{ getOriginBranchDisplay(selectedShipment) }}</p>
-      <p><strong>Current Branch:</strong> {{ getCurrentBranchDisplay(selectedShipment) }}</p>
-      <p><strong>Current Vehicle No.:</strong> {{ selectedShipment.currentVehicleNo }}</p>
-      <p><strong>Current Vehicle Owner Type:</strong> {{ selectedShipment.currentVehicleOwnerType }}</p>
-      <p><strong>Current Vehicle Owner ID:</strong> {{ selectedShipment.currentVehicleOwnerId }}</p>
-      <p><strong>Consignor:</strong> {{ selectedShipment.consignor }}</p>
-      <p><strong>Consignor GST:</strong> {{ selectedShipment.consignorGST }}</p>
-      <p><strong>Consignor Phone:</strong> {{ selectedShipment.consignorPhone }}</p>
-      <p><strong>Consignor Address:</strong> {{ selectedShipment.consignorAddress }}</p>
-      <p><strong>Consignee:</strong> {{ selectedShipment.consignee }}</p>
-      <p><strong>Consignee GST:</strong> {{ selectedShipment.consigneeGST }}</p>
-      <p><strong>Consignee Phone:</strong> {{ selectedShipment.consigneePhone }}</p>
-      <p><strong>Consignee Address:</strong> {{ selectedShipment.consigneeAddress }}</p>
-      <p><strong>Payment Mode:</strong> {{ selectedShipment.paymentMode }}</p>
-      <p><strong>External Ref ID:</strong> {{ selectedShipment.externalRefId }}</p>
-      <p><strong>Billing Type:</strong> {{ selectedShipment.billingType }}</p>
-      <p><strong>Billing Name:</strong> {{ selectedShipment.billingName }}</p>
-      <p><strong>Billing GSTIN:</strong> {{ selectedShipment.billingGSTIN }}</p>
-      <p><strong>Billing Phone:</strong> {{ selectedShipment.billingPhone }}</p>
-      <p><strong>Billing Address:</strong> {{ selectedShipment.billingAddress || selectedShipment.billingLocationId || '-' }}</p>
-      <p><strong>Pickup Type:</strong> {{ selectedShipment.pickupType }}</p>
-      <p><strong>Pickup Name:</strong> {{ selectedShipment.pickupName }}</p>
-      <p><strong>Pickup Phone:</strong> {{ selectedShipment.pickupPhone }}</p>
-      <p><strong>Pickup Address:</strong> {{ selectedShipment.pickupAddress }}</p>
-      <p><strong>Pickup Pincode:</strong> {{ selectedShipment.pickupPincode }}</p>
-      <p><strong>Delivery Type:</strong> {{ selectedShipment.deliveryType }}</p>
-      <p><strong>Delivery To:</strong> {{ getDeliveryDisplayName(selectedShipment) }}</p>
-      <p><strong>Delivery Phone:</strong> {{ selectedShipment.deliveryPhone }}</p>
-      <p><strong>Delivery Address:</strong> {{ selectedShipment.deliveryAddress }}</p>
-      <p><strong>Delivery Pincode:</strong> {{ selectedShipment.deliveryPincode }}</p>
-      <p><strong>Date:</strong> {{ selectedShipment.date | date:'short' }}</p>
-      <p><strong>Final Amount:</strong> {{ selectedShipment.finalAmount }}</p>
-      <p><strong>Charges - ODC:</strong> {{ selectedShipment?.charges?.odc }}</p>
-      <p><strong>Charges - Unloading:</strong> {{ selectedShipment?.charges?.unloading }}</p>
-      <p><strong>Charges - Docket:</strong> {{ selectedShipment?.charges?.docket }}</p>
-      <p><strong>Charges - Other:</strong> {{ selectedShipment?.charges?.other }}</p>
-      <p><strong>Charges - CCC:</strong> {{ selectedShipment?.charges?.ccc }}</p>
-      <p><strong>Charges - Consignor Discount:</strong> {{ selectedShipment?.charges?.consignorDiscount }}</p>
-      <p><strong>Products in stock:</strong> {{ getInStockAmountTotal(selectedShipment.invoices) }}</p>
-      <p><strong>No. of Products:</strong> {{ getInvoiceAmountTotal(selectedShipment.invoices) }}</p>
+      <p>
+        <strong>Branch:</strong>
+        <span class="detail-value">{{ getOriginBranchDisplay(selectedShipment) }}</span>
+      </p>
+      <p>
+        <strong>Current Branch:</strong>
+        <span class="detail-value">{{ getCurrentBranchDisplay(selectedShipment) }}</span>
+      </p>
+      <p>
+        <strong>Current Vehicle No.:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.currentVehicleNo }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.currentVehicleNo" />
+      </p>
+      <p>
+        <strong>Current Vehicle Owner Type:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.currentVehicleOwnerType }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.currentVehicleOwnerType" />
+      </p>
+      <p>
+        <strong>Current Vehicle Owner ID:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.currentVehicleOwnerId }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.currentVehicleOwnerId" />
+      </p>
+      <p>
+        <strong>Consignor:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consignor }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.consignor" />
+      </p>
+      <p>
+        <strong>Consignor GST:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consignorGST }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.consignorGST" />
+      </p>
+      <p>
+        <strong>Consignor Phone:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consignorPhone }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.consignorPhone" />
+      </p>
+      <p>
+        <strong>Consignor Address:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consignorAddress }}</span>
+        <textarea *ngIf="isEditingConsignment" rows="2" [(ngModel)]="editingShipment.consignorAddress"></textarea>
+      </p>
+      <p>
+        <strong>Consignee:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consignee }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.consignee" />
+      </p>
+      <p>
+        <strong>Consignee GST:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consigneeGST }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.consigneeGST" />
+      </p>
+      <p>
+        <strong>Consignee Phone:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consigneePhone }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.consigneePhone" />
+      </p>
+      <p>
+        <strong>Consignee Address:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.consigneeAddress }}</span>
+        <textarea *ngIf="isEditingConsignment" rows="2" [(ngModel)]="editingShipment.consigneeAddress"></textarea>
+      </p>
+      <p>
+        <strong>Payment Mode:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.paymentMode }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.paymentMode" />
+      </p>
+      <p>
+        <strong>External Ref ID:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.externalRefId }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.externalRefId" />
+      </p>
+      <p>
+        <strong>Billing Type:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.billingType }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.billingType" />
+      </p>
+      <p>
+        <strong>Billing Name:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.billingName }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.billingName" />
+      </p>
+      <p>
+        <strong>Billing GSTIN:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.billingGSTIN }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.billingGSTIN" />
+      </p>
+      <p>
+        <strong>Billing Phone:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.billingPhone }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.billingPhone" />
+      </p>
+      <p>
+        <strong>Billing Address:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.billingAddress || selectedShipment.billingLocationId || '-' }}</span>
+        <textarea *ngIf="isEditingConsignment" rows="2" [(ngModel)]="editingShipment.billingAddress"></textarea>
+      </p>
+      <p>
+        <strong>Pickup Type:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.pickupType }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.pickupType" />
+      </p>
+      <p>
+        <strong>Pickup Name:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.pickupName }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.pickupName" />
+      </p>
+      <p>
+        <strong>Pickup Phone:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.pickupPhone }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.pickupPhone" />
+      </p>
+      <p>
+        <strong>Pickup Address:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.pickupAddress }}</span>
+        <textarea *ngIf="isEditingConsignment" rows="2" [(ngModel)]="editingShipment.pickupAddress"></textarea>
+      </p>
+      <p>
+        <strong>Pickup Pincode:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.pickupPincode }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.pickupPincode" />
+      </p>
+      <p>
+        <strong>Delivery Type:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.deliveryType }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.deliveryType" />
+      </p>
+      <p>
+        <strong>Delivery To:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ getDeliveryDisplayName(selectedShipment) }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.deliveryName" />
+      </p>
+      <p>
+        <strong>Delivery Phone:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.deliveryPhone }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.deliveryPhone" />
+      </p>
+      <p>
+        <strong>Delivery Address:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.deliveryAddress }}</span>
+        <textarea *ngIf="isEditingConsignment" rows="2" [(ngModel)]="editingShipment.deliveryAddress"></textarea>
+      </p>
+      <p>
+        <strong>Delivery Pincode:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.deliveryPincode }}</span>
+        <input *ngIf="isEditingConsignment" [(ngModel)]="editingShipment.deliveryPincode" />
+      </p>
+      <p>
+        <strong>Date:</strong>
+        <span class="detail-value">{{ selectedShipment.date | date:'short' }}</span>
+      </p>
+      <p>
+        <strong>Final Amount:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.finalAmount }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.finalAmount" />
+      </p>
+      <p>
+        <strong>Charges - ODC:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.odc }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.odc" />
+      </p>
+      <p>
+        <strong>Charges - Unloading:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.unloading }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.unloading" />
+      </p>
+      <p>
+        <strong>Charges - Docket:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.docket }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.docket" />
+      </p>
+      <p>
+        <strong>Charges - Other:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.other }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.other" />
+      </p>
+      <p>
+        <strong>Charges - CCC:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.ccc }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.ccc" />
+      </p>
+      <p>
+        <strong>Charges - Consignor Discount:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.consignorDiscount }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.consignorDiscount" />
+      </p>
+      <p>
+        <strong>Products in stock:</strong>
+        <span class="detail-value">{{ getInStockAmountTotal(selectedShipment.invoices) }}</span>
+      </p>
+      <p>
+        <strong>No. of Products:</strong>
+        <span class="detail-value">{{ getInvoiceAmountTotal(selectedShipment.invoices) }}</span>
+      </p>
     </div>
 
     <h3>Products</h3>

@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { Subscription } from 'rxjs';
 import { BranchService } from '../../../services/branch.service';
 
@@ -16,8 +17,10 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   invoices: any[] = [];
   deliveredInvoices: any[] = [];
   preInvoicedInvoices: any[] = [];
+  preInvoices: any[] = [];
   filteredDelivered: any[] = [];
   filteredPreInvoiced: any[] = [];
+  filteredPreInvoices: any[] = [];
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
@@ -27,11 +30,22 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   originLocId: string = localStorage.getItem('originLocId') || 'all';
   hubs: any[] = [];
   branches: any[] = [];
+  clientList: any[] = [];
+  private clientById = new Map<string, any>();
+  private hubById = new Map<string, any>();
   private branchSub?: Subscription;
+  companyName: string = '';
+  companyAddress: string = '';
+  showPreInvoicePreview = false;
+  preInvoicePreviewHtml: SafeHtml = '';
 
   editingInvoice: any = null;   // �o. Track the invoice being edited
   showEditPopup: boolean = false;  showGenerateInvoicePopup: boolean = false;
-  constructor(private http: HttpClient, private branchService: BranchService) {}
+  constructor(
+    private http: HttpClient,
+    private branchService: BranchService,
+    private sanitizer: DomSanitizer
+  ) {}
 
   ngOnInit() {
     this.branch = this.branchService.currentBranch || this.branch;
@@ -40,11 +54,18 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       if (branch !== this.branch) {
         this.branch = branch;
         this.originLocId = localStorage.getItem('originLocId') || 'all';
+        this.loadClients();
         this.loadInvoices();
+        this.loadPreInvoices();
       }
     });
     window.addEventListener('storage', this.onStorageChange);
-    this.loadBranches(() => this.loadHubs(() => this.loadInvoices()));
+    this.loadCompanyProfile();
+    this.loadBranches(() => this.loadHubs(() => {
+      this.loadClients();
+      this.loadInvoices();
+      this.loadPreInvoices();
+    }));
   }
   ngOnDestroy(): void {
     this.branchSub?.unsubscribe();
@@ -68,13 +89,59 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.http.get<any[]>('http://localhost:3000/api/hubs').subscribe({
       next: (hubs) => {
         this.hubs = Array.isArray(hubs) ? hubs : [];
+        this.hubById = new Map();
+        this.hubs.forEach((hub: any) => {
+          const id = this.normalizeId(hub?._id);
+          if (id) this.hubById.set(id, hub);
+        });
         if (onDone) onDone();
       },
       error: () => {
         this.hubs = [];
+        this.hubById = new Map();
         if (onDone) onDone();
       }
     });
+  }
+
+  private loadClients(onDone?: () => void) {
+    const originLocId = localStorage.getItem('originLocId') || this.originLocId || 'all';
+    this.http.get<any[]>('http://localhost:3000/api/clients/clientslist', {
+      params: { originLocId }
+    }).subscribe({
+      next: (clients) => {
+        this.clientList = Array.isArray(clients) ? clients : [];
+        this.clientById = new Map();
+        this.clientList.forEach((client: any) => {
+          const id = this.normalizeId(client?._id);
+          if (id) this.clientById.set(id, client);
+        });
+        if (onDone) onDone();
+      },
+      error: () => {
+        this.clientList = [];
+        this.clientById = new Map();
+        if (onDone) onDone();
+      }
+    });
+  }
+
+  private loadCompanyProfile() {
+    const email = localStorage.getItem('email') || '';
+    const username = localStorage.getItem('username') || '';
+    if (!email && !username) return;
+    this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+      .subscribe({
+        next: (data) => {
+          const profile = Array.isArray(data) ? data[0] : data;
+          this.companyName = String(profile?.company || profile?.name || '').trim();
+          this.companyAddress = String(profile?.address || '').trim();
+        },
+        error: () => {
+          this.companyName = this.companyName || '';
+          this.companyAddress = this.companyAddress || '';
+        }
+      });
   }
 
   loadInvoices() {
@@ -114,6 +181,38 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     });
   }
 
+  private loadPreInvoices() {
+    if (!this.hasSpecificBranchSelection()) {
+      this.preInvoices = [];
+      this.filteredPreInvoices = [];
+      return;
+    }
+    const storedOriginLocId = this.originLocId || localStorage.getItem('originLocId') || '';
+    const branchLabel = String(localStorage.getItem('branch') || '').trim();
+    const selectedBranchId = this.resolveSelectedBranchId(String(storedOriginLocId || ''), branchLabel);
+    const originLocIdParam = selectedBranchId || (this.isObjectId(storedOriginLocId) ? storedOriginLocId : '');
+    if (!originLocIdParam) {
+      this.preInvoices = [];
+      this.filteredPreInvoices = [];
+      return;
+    }
+    this.http.get<any>('http://localhost:3000/api/newshipments/preInvoices', {
+      params: { originLocId: originLocIdParam }
+    }).subscribe({
+      next: (res) => {
+        const list = Array.isArray(res) ? res : (res?.preInvoices || []);
+        const safe = Array.isArray(list) ? list : [];
+        this.preInvoices = safe.map((p: any) => ({ ...p, selected: false }));
+        this.applyFilters();
+      },
+      error: (err) => {
+        console.error('Error loading pre-invoices:', err);
+        this.preInvoices = [];
+        this.filteredPreInvoices = [];
+      }
+    });
+  }
+
   private onStorageChange = (e: StorageEvent) => {
     if (e.key === 'branch' || e.key === 'originLocId') {
       const current = localStorage.getItem('branch') || 'All Branches';
@@ -121,10 +220,17 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       if (current !== this.branch || currentId !== this.originLocId) {
         this.branch = current;
         this.originLocId = currentId;
+        this.loadClients();
         this.loadInvoices();
+        this.loadPreInvoices();
       }
     }
   };
+
+  hasSpecificBranchSelection(): boolean {
+    const originLocId = String(this.originLocId || localStorage.getItem('originLocId') || '').trim();
+    return Boolean(originLocId && originLocId !== 'all' && originLocId !== 'all-hubs');
+  }
 
   private normalizeStatus(status: any): string {
     const value = String(status || '').trim().toLowerCase();
@@ -139,6 +245,16 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   private isDeletedStatus(status: any): boolean {
     return String(status || '').trim().toLowerCase().includes('deleted');
+  }
+
+  private isInvoiceOnProcess(shipment: any): boolean {
+    return String(shipment?.invoiceStatus || '').trim().toLowerCase() === 'onprocess';
+  }
+
+  isInvoicePreInvoiced(shipment: any): boolean {
+    const value = String(shipment?.invoiceStatus || '').trim().toLowerCase();
+    if (!value) return false;
+    return value === 'pre-invoiced' || value === 'pre invoiced' || value === 'preinvoiced';
   }
 
   getDisplayStatus(status: any): string {
@@ -220,25 +336,471 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     return true;
   }
 
+  getBillingEntity(shipment: any): string {
+    if (!shipment) return '';
+    const billingType = String(shipment?.billingType || '').trim().toLowerCase();
+    if (!billingType || billingType === 'consignor') {
+      return shipment?.consignor || '';
+    }
+    const fromData = String(shipment?.billingName || '').trim();
+    if (fromData) return fromData;
+    const billingId = this.normalizeId(shipment?.billingClientId);
+    if (billingId) {
+      const client = this.clientById.get(billingId);
+      if (client?.clientName) return client.clientName;
+      const hub = this.hubById.get(billingId);
+      if (hub?.hubName) return hub.hubName;
+    }
+    return '';
+  }
+
+  getPreInvoiceBillingEntity(pre: any): string {
+    if (!pre) return '';
+    const fromData = String(pre?.billingEntityName || pre?.billingName || '').trim();
+    if (fromData) return fromData;
+    const billingId = this.normalizeId(pre?.billingEntityId || pre?.billingClientId);
+    if (billingId) {
+      const client = this.clientById.get(billingId);
+      if (client?.clientName) return client.clientName;
+      const hub = this.hubById.get(billingId);
+      if (hub?.hubName) return hub.hubName;
+    }
+    return '';
+  }
+
+  private formatAddress(parts: any[]): string {
+    return (parts || [])
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  private getClientAddress(client: any): string {
+    if (!client) return '';
+    const direct = String(client?.address || '').trim();
+    const first = Array.isArray(client?.deliveryLocations) ? client.deliveryLocations[0] : null;
+    const address = direct || String(first?.address || first?.location || '').trim();
+    const city = String(first?.city || client?.city || '').trim();
+    const state = String(first?.state || client?.state || '').trim();
+    const pinCode = String(first?.pinCode || client?.pinCode || '').trim();
+    return this.formatAddress([address, city, state, pinCode]);
+  }
+
+  private getHubAddress(hub: any): string {
+    if (!hub) return '';
+    const address = String(hub?.address || '').trim();
+    const city = String(hub?.city || '').trim();
+    const state = String(hub?.state || '').trim();
+    const pinCode = String(hub?.pinCode || '').trim();
+    return this.formatAddress([address, city, state, pinCode]);
+  }
+
+  getPreInvoiceBillingEntityAddress(pre: any): string {
+    if (!pre) return '';
+    const fromData = String(pre?.billingEntityAddress || pre?.billingAddress || '').trim();
+    if (fromData) return fromData;
+    const billingId = this.normalizeId(pre?.billingEntityId || pre?.billingClientId);
+    if (billingId) {
+      const client = this.clientById.get(billingId);
+      if (client) return this.getClientAddress(client);
+      const hub = this.hubById.get(billingId);
+      if (hub) return this.getHubAddress(hub);
+    }
+    return '';
+  }
+
+  getPreInvoiceTaxableTotal(pre: any): number {
+    return (pre?.consignments || []).reduce(
+      (sum: number, c: any) => sum + Number(c?.taxableValue || 0),
+      0
+    );
+  }
+
+  getPreInvoiceDisplayNumber(pre: any): string {
+    const fiscal = this.getFiscalYearLabel(pre?.createdAt);
+    const category = this.getPreInvoiceBillingCategory(pre);
+    const prefix = this.getPreInvoiceBranchPrefix(pre);
+    const number = pre?.preInvoiceNumber ?? '';
+    const suffix = prefix ? `${prefix}${number}` : `${number}`;
+    return `${fiscal}/${category}/${suffix}`;
+  }
+
+  private getPreInvoiceIgstHeaderRate(pre: any): number {
+    const rates = (pre?.consignments || [])
+      .map((c: any) => Number(c?.igstPercent ?? 0))
+      .filter((r: number) => Number.isFinite(r));
+    if (!rates.length) return 0;
+    return Math.max(...rates);
+  }
+
+  private getFiscalYearLabel(dateInput: any): string {
+    const date = dateInput ? new Date(dateInput) : new Date();
+    if (Number.isNaN(date.getTime())) {
+      return this.buildFiscalLabel(new Date());
+    }
+    return this.buildFiscalLabel(date);
+  }
+
+  private buildFiscalLabel(date: Date): string {
+    const year = date.getMonth() >= 3 ? date.getFullYear() : date.getFullYear() - 1;
+    const next = year + 1;
+    const ny = String(next).slice(-2);
+    return `${ny}`;
+  }
+
+  private getPreInvoiceBranchPrefix(pre: any): string {
+    const originId = this.normalizeId(pre?.originLocId);
+    const branchMatch = (this.branches || []).find((b: any) =>
+      this.normalizeId(b?._id) === originId
+    );
+    let prefix = String(branchMatch?.prefix || '').trim();
+    if (!prefix) {
+      prefix = String(branchMatch?.branchName || '').trim();
+    }
+    return prefix;
+  }
+
+  private getPreInvoiceBillingCategory(pre: any): string {
+    const type = String(pre?.billingEntityType || '').trim().toLowerCase();
+    if (type === 'guest') return 'C';
+    if (type) return 'B';
+    const billingId = this.normalizeId(pre?.billingEntityId || pre?.billingClientId);
+    if (billingId) {
+      if (this.clientById.has(billingId)) return 'B';
+      if (this.hubById.has(billingId)) return 'B';
+    }
+    return 'C';
+  }
+
+  private getPreInvoiceStyles(): string {
+    return `
+      .preinvoice-preview { font-family: Arial, sans-serif; padding: 20px; }
+      .preinvoice-preview h2 { margin-bottom: 0; }
+      .preinvoice-preview table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+      .preinvoice-preview th,
+      .preinvoice-preview td { border: 1px solid #ccc; padding: 8px; text-align: left; vertical-align: top; }
+      .preinvoice-preview th { background-color: #f2f2f2; }
+      .preinvoice-preview .page-break { page-break-after: always; }
+      .preinvoice-preview .muted { color: #6b7280; font-size: 12px; }
+      .preinvoice-preview .company-block { margin: 6px 0 12px; }
+      .preinvoice-preview .company-name { font-weight: 700; }
+      .preinvoice-preview .header-grid { display: grid; grid-template-columns: 1.1fr 0.8fr 1.1fr; gap: 16px; align-items: start; margin-bottom: 14px; }
+      .preinvoice-preview .header-card { border: 1px solid #ccc; padding: 10px; min-height: 110px; }
+      .preinvoice-preview .header-title { text-align: center; font-size: 20px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 8px; }
+      .preinvoice-preview .meta-table { border-collapse: collapse; margin: 0 auto; width: auto; }
+      .preinvoice-preview .meta-table th,
+      .preinvoice-preview .meta-table td { border: 1px solid #777; padding: 6px 10px; font-size: 12px; text-align: left; }
+      .preinvoice-preview .bill-to-label { font-size: 12px; color: #6b7280; margin-bottom: 4px; }
+      .preinvoice-preview .bill-to-name { font-weight: 600; }
+      .preinvoice-preview .summary-row { margin-top: 12px; display: flex; gap: 16px; align-items: flex-start; }
+      .preinvoice-preview .notes-block { flex: 1 1 50%; font-size: 12px; color: #111827; }
+      .preinvoice-preview .note-line { margin-bottom: 6px; }
+      .preinvoice-preview .totals-block { flex: 0 0 50%; }
+      .preinvoice-preview .totals-table { border-collapse: collapse; width: 100%; margin-left: auto; }
+      .preinvoice-preview .totals-table th,
+      .preinvoice-preview .totals-table td { border: 1px solid #ccc; padding: 6px 10px; font-size: 12px; }
+      .preinvoice-preview .totals-table th { background-color: #f8fafc; font-weight: 600; text-align: left; }
+      .preinvoice-preview .totals-table td { text-align: right; }
+      .preinvoice-preview .amount-words { margin-top: 10px; font-size: 12px; font-style: italic; }
+    `;
+  }
+
+  private buildPreInvoiceSection(pre: any): string {
+    const billing = this.getPreInvoiceBillingEntity(pre);
+    const billingAddress = this.getPreInvoiceBillingEntityAddress(pre);
+    const companyName = this.companyName || 'Company';
+    const businessType = String(localStorage.getItem('companyType') || '').trim() || '0';
+    const igstHeaderRate = this.getPreInvoiceIgstHeaderRate(pre);
+    let totalOdc = 0;
+    let totalUnloading = 0;
+    let totalDocket = 0;
+    let totalOther = 0;
+    let totalCcc = 0;
+    let totalDiscount = 0;
+    let totalInitialPaid = 0;
+    let totalTaxable = 0;
+    let totalIgst = 0;
+    let totalFinal = 0;
+    const consignmentRows = (pre?.consignments || [])
+      .map((c: any, rowIndex: number) => {
+        const charges = c?.charges || {};
+        const odc = Number(charges?.odc || 0);
+        const unloading = Number(charges?.unloading || 0);
+        const docket = Number(charges?.docket || 0);
+        const other = Number(charges?.other || 0);
+        const ccc = Number(charges?.ccc || 0);
+        const discount = Number(charges?.consignorDiscount || 0);
+        const initialPaid = Number(c?.initialPaid || 0);
+        const taxableValue = Number(c?.taxableValue || 0);
+        const igstRate = Number(c?.igstPercent ?? igstHeaderRate ?? 0);
+        const igstAmount = taxableValue * (igstRate / 100);
+        const finalAmount = Number(c?.finalAmount || 0) || (taxableValue + igstAmount);
+        totalOdc += odc;
+        totalUnloading += unloading;
+        totalDocket += docket;
+        totalOther += other;
+        totalCcc += ccc;
+        totalDiscount += discount;
+        totalInitialPaid += initialPaid;
+        totalTaxable += taxableValue;
+        totalIgst += igstAmount;
+        totalFinal += Number(finalAmount);
+        return `
+        <tr>
+          <td>${rowIndex + 1}</td>
+          <td>${c.consignmentNumber || ''}</td>
+          <td>${odc.toFixed(2)}</td>
+          <td>${unloading.toFixed(2)}</td>
+          <td>${docket.toFixed(2)}</td>
+          <td>${other.toFixed(2)}</td>
+          <td>${ccc.toFixed(2)}</td>
+            <td>${discount.toFixed(2)}</td>
+            <td>${initialPaid.toFixed(2)}</td>
+            <td>${taxableValue.toFixed(2)}</td>
+            <td>${igstAmount.toFixed(2)}</td>
+            <td>${Number(finalAmount).toFixed(2)}</td>
+        </tr>
+      `;
+      }).join('');
+
+    const createdAt = pre?.createdAt ? new Date(pre.createdAt).toLocaleDateString() : '';
+
+    return `
+      <div class="header-grid">
+        <div class="header-card">
+          <div class="company-name">${companyName}</div>
+          ${this.companyAddress ? `<div>${this.companyAddress}</div>` : ''}
+        </div>
+        <div>
+          <div class="header-title">PRE-INVOICE RECORDS</div>
+          <table class="meta-table">
+            <tr>
+              <th>Pre-Invoice No</th>
+              <td>${this.getPreInvoiceDisplayNumber(pre)}</td>
+            </tr>
+            <tr>
+              <th>Date</th>
+              <td>${createdAt}</td>
+            </tr>
+          </table>
+        </div>
+        <div class="header-card">
+          <div class="bill-to-label">Bill To..</div>
+          <div class="bill-to-name">${billing || ''}</div>
+          ${billingAddress ? `<div>${billingAddress}</div>` : ''}
+        </div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Sl No.</th>
+            <th>Consignment No.</th>
+            <th>ODC</th>
+            <th>Unloading</th>
+            <th>Docket</th>
+            <th>Other</th>
+            <th>CCC</th>
+            <th>Discount</th>
+            <th>Initial Paid</th>
+            <th>Taxable Value</th>
+            <th>IGST (${igstHeaderRate || 0}%)</th>
+            <th>Final Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${consignmentRows || '<tr><td colspan="12" class="muted">No consignments</td></tr>'}
+        </tbody>
+      </table>
+      <div class="summary-row">
+        <div class="notes-block">
+          <div class="note-line">-Interest @ 18 % will be charged if not paid within 7 days of Invoice date.</div>
+          <div class="note-line">-Please Draw Cheque/DD in favour of “${companyName}”.</div>
+          <div class="note-line">-Note: We are Registered under GST/GTA.Vide Notification No:13/2017 GST.GST @${businessType} % to be paid by Consignor/conginee as this comes under Reverse Charge Mechanism (RCM)</div>
+        </div>
+        <div class="totals-block">
+          <table class="totals-table">
+            <tbody>
+              <tr><th>ODC:</th><td>${totalOdc.toFixed(2)}</td></tr>
+              <tr><th>Unloading:</th><td>${totalUnloading.toFixed(2)}</td></tr>
+              <tr><th>Docket:</th><td>${totalDocket.toFixed(2)}</td></tr>
+              <tr><th>Other:</th><td>${totalOther.toFixed(2)}</td></tr>
+              <tr><th>CCC:</th><td>${totalCcc.toFixed(2)}</td></tr>
+              <tr><th>Discount:</th><td>${totalDiscount.toFixed(2)}</td></tr>
+              <tr><th>Initial Paid:</th><td>${totalInitialPaid.toFixed(2)}</td></tr>
+              <tr><th>Taxable Value:</th><td>${totalTaxable.toFixed(2)}</td></tr>
+              <tr><th>IGST (${igstHeaderRate || 0}%):</th><td>${totalIgst.toFixed(2)}</td></tr>
+              <tr><th>Final Amount:</th><td>${totalFinal.toFixed(2)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="amount-words"><strong>Amount in Words :</strong> ${this.numberToWords(totalFinal)}</div>
+    `;
+  }
+
+  private numberToWords(amount: number): string {
+    const units = [
+      'Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine',
+      'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen',
+      'Seventeen', 'Eighteen', 'Nineteen'
+    ];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+
+    const twoDigits = (num: number): string => {
+      if (num < 20) return units[num];
+      const t = Math.floor(num / 10);
+      const u = num % 10;
+      return u ? `${tens[t]} ${units[u]}` : tens[t];
+    };
+
+    const threeDigits = (num: number): string => {
+      const h = Math.floor(num / 100);
+      const r = num % 100;
+      if (!h) return twoDigits(r);
+      if (!r) return `${units[h]} Hundred`;
+      return `${units[h]} Hundred ${twoDigits(r)}`;
+    };
+
+    const toIndianWords = (num: number): string => {
+      if (num === 0) return 'Zero';
+      let n = num;
+      const parts: string[] = [];
+      const crore = Math.floor(n / 10000000);
+      if (crore) {
+        parts.push(`${threeDigits(crore)} Crore`);
+        n %= 10000000;
+      }
+      const lakh = Math.floor(n / 100000);
+      if (lakh) {
+        parts.push(`${threeDigits(lakh)} Lakh`);
+        n %= 100000;
+      }
+      const thousand = Math.floor(n / 1000);
+      if (thousand) {
+        parts.push(`${threeDigits(thousand)} Thousand`);
+        n %= 1000;
+      }
+      if (n) {
+        parts.push(threeDigits(n));
+      }
+      return parts.join(' ');
+    };
+
+    const safeAmount = Number.isFinite(amount) ? amount : 0;
+    const rupees = Math.floor(safeAmount);
+    const paise = Math.round((safeAmount - rupees) * 100);
+    const rupeeWords = toIndianWords(rupees);
+    if (paise > 0) {
+      return `${rupeeWords} Rupees and ${twoDigits(paise)} Paise`;
+    }
+    return `${rupeeWords} Rupees`;
+  }
+
+  private buildPreInvoiceDocument(preInvoices: any[], includeWrapper: boolean): string {
+    let html = includeWrapper
+      ? `
+        <html>
+          <head>
+            <style>${this.getPreInvoiceStyles()}</style>
+          </head>
+          <body class="preinvoice-preview">
+      `
+      : `
+        <style>${this.getPreInvoiceStyles()}</style>
+        <div class="preinvoice-preview">
+      `;
+
+    preInvoices.forEach((pre, index) => {
+      html += this.buildPreInvoiceSection(pre);
+      if (index < preInvoices.length - 1) {
+        html += `<div class="page-break"></div>`;
+      }
+    });
+
+    html += includeWrapper ? `</body></html>` : `</div>`;
+    return html;
+  }
+
+  openPreInvoicePreview(pre: any) {
+    const html = this.buildPreInvoiceDocument([pre], false);
+    this.preInvoicePreviewHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+    this.showPreInvoicePreview = true;
+  }
+
+  closePreInvoicePreview() {
+    this.showPreInvoicePreview = false;
+    this.preInvoicePreviewHtml = '';
+  }
+
+  isPreInvoiceDeleted(pre: any): boolean {
+    return String(pre?.status || '').trim().toLowerCase() === 'deleted';
+  }
+
   applyFilters() {
+    if (!this.hasSpecificBranchSelection()) {
+      this.filteredDelivered = [];
+      this.filteredPreInvoiced = [];
+      this.filteredPreInvoices = [];
+      return;
+    }
     const matches = (s: any) =>
       this.matchesSelectedBranch(s) &&
-      (this.searchText ? s.consignmentNumber?.includes(this.searchText) || s.consignor?.includes(this.searchText) : true) &&
+      (this.searchText
+        ? s.consignmentNumber?.includes(this.searchText) || this.getBillingEntity(s).includes(this.searchText)
+        : true) &&
       (this.filterDate ? new Date(s.date).toISOString().split('T')[0] === this.filterDate : true) &&
-      (this.filterConsignor ? s.consignor?.toLowerCase().includes(this.filterConsignor.toLowerCase()) : true);
+      (this.filterConsignor
+        ? this.getBillingEntity(s).toLowerCase().includes(this.filterConsignor.toLowerCase())
+        : true);
 
-    this.filteredDelivered = this.deliveredInvoices.filter(matches);
+    this.filteredDelivered = this.deliveredInvoices.filter(
+      (s) => matches(s) && (this.isInvoiceOnProcess(s) || this.isInvoicePreInvoiced(s))
+    );
+    this.filteredDelivered.forEach((s) => {
+      if (this.isInvoicePreInvoiced(s)) s.selected = false;
+    });
     this.filteredPreInvoiced = this.preInvoicedInvoices.filter(matches);
+
+    const search = String(this.searchText || '').trim().toLowerCase();
+    const billingFilter = String(this.filterConsignor || '').trim().toLowerCase();
+    const filterDate = this.filterDate;
+    const matchesPre = (p: any) => {
+      const billingName = this.getPreInvoiceBillingEntity(p).toLowerCase();
+      const number = String(p?.preInvoiceNumber || '').toLowerCase();
+      const consignmentNumbers = (p?.consignments || [])
+        .map((c: any) => String(c?.consignmentNumber || '').toLowerCase())
+        .filter(Boolean);
+      const created = p?.createdAt ? new Date(p.createdAt).toISOString().split('T')[0] : '';
+      const matchesSearch = !search ||
+        billingName.includes(search) ||
+        number.includes(search) ||
+        consignmentNumbers.some((c: string) => c.includes(search));
+      const matchesBilling = !billingFilter || billingName.includes(billingFilter);
+      const matchesDate = !filterDate || (created === filterDate);
+      return matchesSearch && matchesBilling && matchesDate;
+    };
+    this.filteredPreInvoices = this.preInvoices.filter((p) => matchesPre(p));
   }
 
   toggleAllDeliveredSelection(event: any) {
     const checked = event.target.checked;
-    this.filteredDelivered.forEach(i => i.selected = checked);
+    this.filteredDelivered.forEach(i => {
+      if (this.isInvoicePreInvoiced(i)) return;
+      i.selected = checked;
+    });
   }
 
   toggleAllPreInvoicedSelection(event: any) {
     const checked = event.target.checked;
     this.filteredPreInvoiced.forEach(i => i.selected = checked);
+  }
+
+  toggleAllPreInvoicesSelection(event: any) {
+    const checked = event.target.checked;
+    this.filteredPreInvoices.forEach(i => {
+      if (this.isPreInvoiceDeleted(i)) return;
+      i.selected = checked;
+    });
   }
   openInvoiceDetails(invoice: any) {
     this.selectedInvoice = invoice;
@@ -252,29 +814,44 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   // �o. Function to mark selected Delivered consignments as Invoiced
   invoiceSelected() {
-    const selectedConsignments = this.filteredDelivered.filter(i => i.selected);
+    const selectedConsignments = this.filteredDelivered
+      .filter(i => i.selected && !this.isInvoicePreInvoiced(i));
 
     if (selectedConsignments.length === 0) {
       console.warn('No consignments selected for invoicing.');
       return;
     }
 
-    selectedConsignments.forEach(consignment => {
-      const updatedConsignment = { ...consignment, shipmentStatus: 'Pre-Invoiced' };
+    const billingIds = selectedConsignments
+      .map((c) => this.normalizeId(c?.billingClientId))
+      .filter(Boolean);
+    if (billingIds.length !== selectedConsignments.length) {
+      alert('Missing Billing Entity');
+      return;
+    }
+    const uniqueBilling = new Set(billingIds);
+    if (uniqueBilling.size > 1) {
+      alert('Different Billing Entity');
+      return;
+    }
 
-      this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
-        .subscribe({
-          next: () => {
-            console.log(`Consignment ${consignment.consignmentNumber} updated to Pre-Invoiced`);
-            this.loadInvoices();
-          },
-          error: (err) => {
-            console.error(`Error updating consignment ${consignment.consignmentNumber}:`, err);
-          }
-        });
+    const consignmentNumbers = selectedConsignments
+      .map((c) => String(c?.consignmentNumber || '').trim())
+      .filter(Boolean);
+
+    this.http.post('http://localhost:3000/api/newshipments/preInvoices', {
+      consignmentNumbers
+    }).subscribe({
+      next: () => {
+        this.filteredDelivered.forEach(i => i.selected = false);
+        this.loadInvoices();
+        this.loadPreInvoices();
+      },
+      error: (err) => {
+        console.error('Error creating pre-invoice:', err);
+        alert(err?.error?.message || 'Error creating pre-invoice');
+      }
     });
-
-    this.filteredDelivered.forEach(i => i.selected = false);
   }
 
   editInvoice(invoice: any) {
@@ -308,6 +885,36 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   deletePreInvoiced() {
     this.deleteConsignments(this.filteredPreInvoiced);
+  }
+
+  deletePreInvoices() {
+    const selected = (this.filteredPreInvoices || []).filter(
+      (p: any) => p.selected && !this.isPreInvoiceDeleted(p)
+    );
+    if (!selected.length) {
+      alert('No pre-invoices selected.');
+      return;
+    }
+    const preInvoiceIds = selected
+      .map((p: any) => String(p?._id || '').trim())
+      .filter(Boolean);
+    if (!preInvoiceIds.length) {
+      alert('Missing pre-invoice ids.');
+      return;
+    }
+    this.http.request('delete', 'http://localhost:3000/api/newshipments/preInvoices', {
+      body: { preInvoiceIds }
+    }).subscribe({
+      next: () => {
+        this.filteredPreInvoices.forEach((p) => p.selected = false);
+        this.loadInvoices();
+        this.loadPreInvoices();
+      },
+      error: (err) => {
+        console.error('Error deleting pre-invoices:', err);
+        alert(err?.error?.message || 'Error deleting pre-invoices');
+      }
+    });
   }
 
   deleteInvoice() {
@@ -493,5 +1100,23 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         }
       })
       .catch(err => console.error('Error loading invoice template:', err));
+  }
+
+  printPreInvoices() {
+    const selected = (this.filteredPreInvoices || []).filter((p: any) => p.selected);
+    if (!selected.length) {
+      alert('No pre-invoices selected.');
+      return;
+    }
+
+    const fullHtml = this.buildPreInvoiceDocument(selected, true);
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.open();
+      printWindow.document.write(fullHtml);
+      printWindow.document.close();
+      printWindow.print();
+    }
   }
 }

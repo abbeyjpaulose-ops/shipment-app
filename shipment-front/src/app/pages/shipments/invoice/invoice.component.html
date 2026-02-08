@@ -3,20 +3,18 @@
 
   <!-- Filters -->
   <div class="filters">
-    <input type="text" placeholder="Search by Consignment / Consignor" [(ngModel)]="searchText" (input)="applyFilters()" />
+    <input type="text" placeholder="Search by Consignment / Billing Entity" [(ngModel)]="searchText" (input)="applyFilters()" />
     <input type="date" [(ngModel)]="filterDate" (change)="applyFilters()" />
-    <input type="text" placeholder="Filter by Consignor" [(ngModel)]="filterConsignor" (input)="applyFilters()" />
+    <input type="text" placeholder="Filter by Billing Entity" [(ngModel)]="filterConsignor" (input)="applyFilters()" />
     <!-- Action Bar -->
   </div>
 
   <!-- Delivered Table -->
 <div class="invoice-sections">
-<div class="invoice-section">
+<div class="invoice-section" *ngIf="hasSpecificBranchSelection()">
   <h3>Consignments</h3>
   <div class="action-bar">
     <button (click)="invoiceSelected()">Generate Pre-Invoice</button>
-    <button class="delete-btn" (click)="deleteDelivered()">Delete</button>
-    <button class="print-btn" (click)="printDelivered()">Print Manifest</button>
   </div>
   <table class="invoice-table">
     <thead>
@@ -24,8 +22,7 @@
         <th><input type="checkbox" (change)="toggleAllDeliveredSelection($event)" /></th>
         <th>Consignment No.</th>
         <th>Status</th>
-        <th>Consignor</th>
-                        <th>Actions</th>
+        <th>Billing Entity</th>
       </tr>
     </thead>
     <tbody>
@@ -35,14 +32,12 @@
             type="checkbox"
             [(ngModel)]="inv.selected"
             (click)="$event.stopPropagation()"
+            [disabled]="isInvoicePreInvoiced(inv)"
           />
         </td>
         <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
-        <td>{{ getDisplayStatus(inv.shipmentStatus) }}</td>
-        <td>{{ inv.consignor }}</td>
-                        <td>
-          <button class="edit-btn" (click)="editInvoice(inv)">fo?<,? Edit</button>
-        </td>
+        <td>{{ inv.invoiceStatus }}</td>
+        <td>{{ getBillingEntity(inv) }}</td>
       </tr>
     </tbody>
   </table>
@@ -56,34 +51,50 @@
     <button class="delete-btn" (click)="deletePreInvoiced()">Delete</button>
     <button class="print-btn" (click)="printPreInvoiced()">Print Manifest</button>
   </div>
-  <table class="invoice-table">
-    <thead>
-      <tr>
-        <th><input type="checkbox" (change)="toggleAllPreInvoicedSelection($event)" /></th>
-        <th>Consignment No.</th>
-        <th>Status</th>
-        <th>Consignor</th>
-                        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr *ngFor="let inv of filteredPreInvoiced" [class.selected]="inv.selected">
-        <td>
-          <input
-            type="checkbox"
-            [(ngModel)]="inv.selected"
-            (click)="$event.stopPropagation()"
-          />
-        </td>
-        <td (click)="openInvoiceDetails(inv)">{{ inv.consignmentNumber }}</td>
-        <td>{{ getDisplayStatus(inv.shipmentStatus) }}</td>
-        <td>{{ inv.consignor }}</td>
-                        <td>
-          <button class="edit-btn" (click)="editInvoice(inv)">fo?<,? Edit</button>
-        </td>
-      </tr>
-    </tbody>
-  </table>
+
+  <div class="invoice-block" *ngIf="hasSpecificBranchSelection()">
+    <div class="invoice-title">Pre-Invoice Records</div>
+    <div class="action-bar">
+      <button class="delete-btn" (click)="deletePreInvoices()">Delete</button>
+      <button class="print-btn" (click)="printPreInvoices()">Print Pre-Invoice</button>
+    </div>
+    <table class="invoice-table">
+      <thead>
+        <tr>
+          <th><input type="checkbox" (change)="toggleAllPreInvoicesSelection($event)" /></th>
+          <th>Pre-Invoice No.</th>
+          <th>Billing Entity</th>
+          <th>Consignments (Taxable)</th>
+          <th>Total Taxable</th>
+          <th>Status</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let pre of filteredPreInvoices" (click)="openPreInvoicePreview(pre)">
+          <td>
+            <input
+              type="checkbox"
+              [(ngModel)]="pre.selected"
+              (click)="$event.stopPropagation()"
+              [disabled]="isPreInvoiceDeleted(pre)"
+            />
+          </td>
+          <td>{{ getPreInvoiceDisplayNumber(pre) }}</td>
+          <td>{{ getPreInvoiceBillingEntity(pre) }}</td>
+          <td>
+            <div *ngFor="let c of pre.consignments">
+              {{ c.consignmentNumber }} ({{ c.taxableValue || 0 }})
+            </div>
+          </td>
+          <td>{{ getPreInvoiceTaxableTotal(pre) | number:'1.0-2' }}</td>
+          <td>{{ pre.status }}</td>
+          <td>{{ pre.createdAt | date:'short' }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <p *ngIf="!filteredPreInvoices.length">No pre-invoices found.</p>
+  </div>
 </div>
 </div>
 <!-- Modal for invoice details -->
@@ -341,6 +352,13 @@
         <button type="button" (click)="confirmGenerateInvoice()">Okay</button>
         <button type="button" (click)="cancelGenerateInvoice()">Cancel</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal details-modal" *ngIf="showPreInvoicePreview">
+    <div class="modal-content preview-content">
+      <button class="details-close" type="button" (click)="closePreInvoicePreview()">&times;</button>
+      <div class="preview-body" [innerHTML]="preInvoicePreviewHtml"></div>
     </div>
   </div>
 </div>

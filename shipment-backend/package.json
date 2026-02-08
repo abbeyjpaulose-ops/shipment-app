@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "create-user": "node create-user.js",
     "migrate-prefix": "node scripts/migrate-branch-prefix.js",
-    "backfill-taxable-igst": "node scripts/backfill-taxable-igst.js"
+    "backfill-taxable-igst": "node scripts/backfill-taxable-igst.js",
+    "backfill-invoice-status": "node scripts/backfill-invoice-status.js"
   },
   "dependencies": {
     "@ng-select/ng-select": "^20.2.2",

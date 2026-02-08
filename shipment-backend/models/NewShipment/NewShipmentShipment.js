@@ -21,6 +21,7 @@ const ShipmentSchema = new mongoose.Schema(
     date: { type: Date, default: Date.now },
     shipmentStatus: { type: String, default: 'Pending' },
     shipmentStatusDetails: { type: String, default: '' },
+    invoiceStatus: { type: String, trim: true, default: 'onProcess' },
 
     // Consignor / Consignee
     consignorTab: { type: String, required: true, trim: true },

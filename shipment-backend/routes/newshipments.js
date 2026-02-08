@@ -7,6 +7,8 @@ import Invoice from '../models/NewShipment/NewShipmentInvoice.js';
 import InvoiceProduct from '../models/NewShipment/NewShipmentInvoiceProduct.js';
 import InvoicePackage from '../models/NewShipment/NewShipmentInvoicePackage.js';
 import GeneratedInvoice from '../models/NewShipment/NewShipmentGeneratedInvoice.js';
+import PreInvoice from '../models/NewShipment/NewShipmentPreInvoice.js';
+import PreInvoiceItem from '../models/NewShipment/NewShipmentPreInvoiceItem.js';
 import Client from '../models/Client.js';
 import Guest from '../models/Guest.js';
 import User from '../models/User.js';
@@ -1039,6 +1041,147 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
   }
 });
 
+// Generate pre-invoice (single billing entity)
+router.post('/preInvoices', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const consignmentNumbers = (req.body?.consignmentNumbers || [])
+      .map((c) => String(c || '').trim())
+      .filter(Boolean);
+
+    if (!consignmentNumbers.length) {
+      return res.status(400).json({ message: 'Missing consignmentNumbers' });
+    }
+
+    const shipments = await Shipment.find({
+      GSTIN_ID: gstinId,
+      consignmentNumber: { $in: consignmentNumbers }
+    }).lean();
+
+    if (!shipments.length) {
+      return res.status(404).json({ message: 'No consignments found' });
+    }
+
+    const foundNumbers = new Set(shipments.map((s) => String(s.consignmentNumber || '').trim()));
+    const missing = consignmentNumbers.filter((c) => !foundNumbers.has(c));
+    if (missing.length) {
+      return res.status(404).json({ message: 'Consignments not found', consignments: missing });
+    }
+
+    const missingBilling = shipments
+      .filter((s) => !s.billingClientId)
+      .map((s) => s.consignmentNumber);
+    if (missingBilling.length) {
+      return res.status(400).json({
+        message: 'Missing billing entity for consignments',
+        consignments: missingBilling
+      });
+    }
+
+    const billingIds = new Set(shipments.map((s) => String(s.billingClientId || '')).filter(Boolean));
+    if (billingIds.size > 1) {
+      return res.status(400).json({ message: 'Different Billing Entity' });
+    }
+
+    const hubIds = shipments
+      .filter((s) => normalizeOriginType(s?.originType) === 'hub')
+      .map((s) => String(s.originLocId || ''))
+      .filter(Boolean);
+    const hubs = hubIds.length
+      ? await Hub.find({ _id: { $in: hubIds }, GSTIN_ID: gstinId }).select('_id originLocId').lean()
+      : [];
+    const hubOriginById = new Map((hubs || []).map((h) => [String(h._id), String(h.originLocId || '')]));
+
+    const branchIds = new Set();
+    const missingBranch = [];
+    shipments.forEach((s) => {
+      if (normalizeOriginType(s?.originType) === 'hub') {
+        const branchId = hubOriginById.get(String(s.originLocId || '')) || '';
+        if (branchId) {
+          branchIds.add(branchId);
+        } else {
+          missingBranch.push(s.consignmentNumber);
+        }
+      } else {
+        const branchId = String(s.originLocId || '');
+        if (branchId) {
+          branchIds.add(branchId);
+        } else {
+          missingBranch.push(s.consignmentNumber);
+        }
+      }
+    });
+
+    if (missingBranch.length) {
+      return res.status(400).json({
+        message: 'Missing branch for consignments',
+        consignments: missingBranch
+      });
+    }
+    if (branchIds.size > 1) {
+      return res.status(400).json({ message: 'Different Branch' });
+    }
+    const originLocId = Array.from(branchIds)[0];
+
+    const lastPreInvoice = await PreInvoice.findOne({ GSTIN_ID: gstinId, originLocId })
+      .sort({ preInvoiceNumber: -1 })
+      .select('preInvoiceNumber')
+      .lean();
+    let nextNumber = Number(lastPreInvoice?.preInvoiceNumber) || 0;
+    nextNumber += 1;
+
+    const billingEntityId = shipments[0]?.billingClientId || null;
+    const created = await PreInvoice.create({
+      GSTIN_ID: gstinId,
+      originLocId,
+      billingEntityId,
+      preInvoiceNumber: nextNumber,
+      createdBy: req.user.username || ''
+    });
+
+      const items = shipments.map((s) => {
+        const taxableValue = Number(s.taxableValue || 0);
+        const igstPercent = Number(s.igstPercent || 0);
+        const igstAmount = taxableValue * (igstPercent / 100);
+        const finalAmount = Number(s.finalAmount || 0) || (taxableValue + igstAmount);
+        const charges = s.charges || {};
+        return {
+          preInvoiceId: created._id,
+          shipmentId: s._id,
+          consignmentNumber: String(s.consignmentNumber || ''),
+          taxableValue,
+          igstPercent,
+          igstAmount,
+          finalAmount,
+          initialPaid: Number(s.initialPaid || 0),
+          charges: {
+            odc: Number(charges?.odc || 0),
+            unloading: Number(charges?.unloading || 0),
+            docket: Number(charges?.docket || 0),
+            other: Number(charges?.other || 0),
+            ccc: Number(charges?.ccc || 0),
+            consignorDiscount: Number(charges?.consignorDiscount || 0)
+          }
+        };
+      });
+
+    if (items.length) {
+      await PreInvoiceItem.insertMany(items);
+    }
+
+    await Shipment.updateMany(
+      { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
+      { $set: { invoiceStatus: 'pre-invoiced' } }
+    );
+
+    res.json({ message: 'Pre-invoice created', preInvoice: created });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // List generated invoices (defaults to current fiscal year)
 router.get('/generatedInvoices', requireAuth, async (req, res) => {
   try {
@@ -1098,6 +1241,168 @@ router.get('/generatedInvoices', requireAuth, async (req, res) => {
     }));
 
     res.json({ fiscalYear, gstPercent, invoices: response });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Soft-delete pre-invoices (and reset related shipments)
+router.delete('/preInvoices', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const rawIds = Array.isArray(req.body?.preInvoiceIds) ? req.body.preInvoiceIds : [];
+    const ids = rawIds
+      .map((id) => String(id || '').trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    if (!ids.length) {
+      return res.status(400).json({ message: 'Missing preInvoiceIds' });
+    }
+
+    const preInvoices = await PreInvoice.find({
+      _id: { $in: ids },
+      GSTIN_ID: gstinId
+    }).select('_id status').lean();
+    const preInvoiceIds = (preInvoices || []).map((p) => String(p._id || '')).filter(Boolean);
+    if (!preInvoiceIds.length) {
+      return res.status(404).json({ message: 'Pre-invoices not found' });
+    }
+
+    const items = await PreInvoiceItem.find({ preInvoiceId: { $in: preInvoiceIds } })
+      .select('shipmentId consignmentNumber')
+      .lean();
+    const consignmentNumbers = Array.from(
+      new Set((items || []).map((i) => String(i?.consignmentNumber || '')).filter(Boolean))
+    );
+
+    await PreInvoice.updateMany(
+      { _id: { $in: preInvoiceIds }, GSTIN_ID: gstinId },
+      { $set: { status: 'deleted' } }
+    );
+
+    if (consignmentNumbers.length) {
+      await Shipment.updateMany(
+        { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers }, invoiceStatus: 'pre-invoiced' },
+        { $set: { invoiceStatus: 'onProcess' } }
+      );
+    }
+
+    res.json({ success: true, deleted: preInvoiceIds.length });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// List pre-invoices for current company
+router.get('/preInvoices', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const originLocId = String(req.query.originLocId || '').trim();
+    const filter = { GSTIN_ID: gstinId };
+    if (originLocId) {
+      if (!mongoose.Types.ObjectId.isValid(originLocId)) {
+        return res.status(400).json({ message: 'Invalid originLocId' });
+      }
+      filter.originLocId = originLocId;
+    }
+
+    const preInvoices = await PreInvoice.find(filter)
+      .sort({ preInvoiceNumber: -1 })
+      .lean();
+
+    if (!preInvoices.length) {
+      return res.json({ preInvoices: [] });
+    }
+
+    const preInvoiceIds = preInvoices.map((pre) => pre._id);
+    const items = await PreInvoiceItem.find({ preInvoiceId: { $in: preInvoiceIds } }).lean();
+    const shipmentIds = (items || [])
+      .filter((item) => !item?.charges || item?.igstPercent === undefined || item?.igstAmount === undefined)
+      .map((item) => String(item?.shipmentId || ''))
+      .filter(Boolean);
+    const shipments = shipmentIds.length
+      ? await Shipment.find({ _id: { $in: shipmentIds }, GSTIN_ID: gstinId })
+          .select('_id charges initialPaid taxableValue igstPercent finalAmount')
+          .lean()
+      : [];
+    const shipmentById = new Map((shipments || []).map((s) => [String(s._id), s]));
+
+    const itemsByPreInvoiceId = new Map();
+    (items || []).forEach((item) => {
+      const key = String(item.preInvoiceId || '');
+      if (!key) return;
+      if (!itemsByPreInvoiceId.has(key)) itemsByPreInvoiceId.set(key, []);
+      const shipment = shipmentById.get(String(item?.shipmentId || ''));
+      const charges = item?.charges || shipment?.charges || {};
+      const taxableValue = Number(item?.taxableValue ?? shipment?.taxableValue ?? 0) || 0;
+      const igstPercent = Number(item?.igstPercent ?? shipment?.igstPercent ?? 0) || 0;
+      const igstAmount = Number(item?.igstAmount ?? 0) || (taxableValue * (igstPercent / 100));
+      const finalAmount = Number(item?.finalAmount ?? shipment?.finalAmount ?? 0) || (taxableValue + igstAmount);
+      itemsByPreInvoiceId.get(key).push({
+        consignmentNumber: item.consignmentNumber,
+        shipmentId: item.shipmentId,
+        taxableValue,
+        charges: {
+          odc: Number(charges?.odc || 0),
+          unloading: Number(charges?.unloading || 0),
+          docket: Number(charges?.docket || 0),
+          other: Number(charges?.other || 0),
+          ccc: Number(charges?.ccc || 0),
+          consignorDiscount: Number(charges?.consignorDiscount || 0)
+        },
+        initialPaid: Number(item?.initialPaid ?? shipment?.initialPaid ?? 0),
+        igstPercent,
+        igstAmount,
+        finalAmount
+      });
+    });
+
+    const billingEntityIds = preInvoices
+      .map((pre) => String(pre?.billingEntityId || ''))
+      .filter(Boolean);
+    const [clients, hubs, guests] = await Promise.all([
+      billingEntityIds.length
+        ? Client.find({ _id: { $in: billingEntityIds } }).select('_id clientName').lean()
+        : [],
+      billingEntityIds.length
+        ? Hub.find({ _id: { $in: billingEntityIds } }).select('_id hubName').lean()
+        : [],
+      billingEntityIds.length
+        ? Guest.find({ _id: { $in: billingEntityIds } }).select('_id guestName').lean()
+        : []
+    ]);
+    const nameById = new Map();
+    const typeById = new Map();
+    (clients || []).forEach((client) => {
+      if (!client?._id) return;
+      const id = String(client._id);
+      nameById.set(id, client.clientName || '');
+      typeById.set(id, 'client');
+    });
+    (hubs || []).forEach((hub) => {
+      if (!hub?._id) return;
+      const id = String(hub._id);
+      if (!nameById.has(id)) nameById.set(id, hub.hubName || '');
+      if (!typeById.has(id)) typeById.set(id, 'hub');
+    });
+    (guests || []).forEach((guest) => {
+      if (!guest?._id) return;
+      const id = String(guest._id);
+      if (!nameById.has(id)) nameById.set(id, guest.guestName || '');
+      if (!typeById.has(id)) typeById.set(id, 'guest');
+    });
+
+    const response = preInvoices.map((pre) => ({
+      ...pre,
+      billingEntityName: nameById.get(String(pre?.billingEntityId || '')) || '',
+      billingEntityType: typeById.get(String(pre?.billingEntityId || '')) || '',
+      consignments: itemsByPreInvoiceId.get(String(pre._id)) || []
+    }));
+
+    res.json({ preInvoices: response });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

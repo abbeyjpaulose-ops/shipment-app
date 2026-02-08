@@ -12,7 +12,7 @@ import hubRoutes from './routes/hub.js';
 import clientsRoutes from './routes/clients.js';
 import guestsRoutes from './routes/guests.js';
 import productRoutes from './routes/product.js';
-import newShipmentRoutes from './routes/newShipments.js';
+import newShipmentRoutes from './routes/newshipments.js';
 import profileRoutes from './routes/profile.js';
 import adminUsersRoutes from './routes/adminUsers.js';
 import pricingRoutes from './routes/pricing.js';

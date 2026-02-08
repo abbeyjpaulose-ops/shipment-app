@@ -33,6 +33,9 @@ export class ViewShipmentsComponent implements OnInit {
   selectedShipment: any | null = null;   // ✅ for modal popup
   selectedShipmentManifestId: string | null = null;
   selectedShipmentManifestNumber: string | null = null;
+  isEditingConsignment: boolean = false;
+  editingShipment: any | null = null;
+  isSavingConsignment: boolean = false;
   showReturnModal: boolean = false;
   showReturnFinalAmount: boolean = false;
   // selection for print
@@ -962,7 +965,76 @@ export class ViewShipmentsComponent implements OnInit {
     this.selectedShipment = enriched;
     this.selectedShipmentManifestId = null;
     this.selectedShipmentManifestNumber = null;
+    this.isEditingConsignment = false;
+    this.editingShipment = null;
     this.loadManifestForShipment(enriched?.consignmentNumber);
+  }
+
+  editSelectedConsignment(): void {
+    if (!this.selectedShipment) return;
+    this.isEditingConsignment = true;
+    this.editingShipment = this.prepareShipmentForEdit(this.selectedShipment);
+  }
+
+  cancelConsignmentEdit(): void {
+    this.isEditingConsignment = false;
+    this.editingShipment = null;
+  }
+
+  saveConsignmentEdits(): void {
+    if (!this.editingShipment) return;
+    const updatedConsignment = this.buildConsignmentUpdatePayload(this.editingShipment);
+    this.isSavingConsignment = true;
+    this.http.post('http://localhost:3000/api/newshipments/updateConsignment', { updatedConsignment })
+      .subscribe({
+        next: (res: any) => {
+          const data = res?.data ? this.enrichShipmentDetails(res.data) : this.enrichShipmentDetails(updatedConsignment);
+          this.selectedShipment = data;
+          this.cancelConsignmentEdit();
+          this.loadShipments();
+          this.loadReceivedShipments();
+        },
+        error: (err: any) => {
+          console.error('Error updating consignment:', err);
+          this.isSavingConsignment = false;
+        },
+        complete: () => {
+          this.isSavingConsignment = false;
+        }
+      });
+  }
+
+  private prepareShipmentForEdit(shipment: any): any {
+    const cloned = JSON.parse(JSON.stringify(shipment || {}));
+    cloned.charges = this.normalizeCharges(cloned.charges);
+    return cloned;
+  }
+
+  private buildConsignmentUpdatePayload(editing: any): any {
+    const payload = { ...editing };
+    delete payload.branch;
+    delete payload.invoices;
+    delete payload.ewaybills;
+    delete payload._returnSelected;
+    delete payload._id;
+    payload.charges = this.normalizeCharges(payload.charges);
+    if (payload.finalAmount !== undefined && payload.finalAmount !== null && payload.finalAmount !== '') {
+      payload.finalAmount = Number(payload.finalAmount) || 0;
+    }
+    return payload;
+  }
+
+  private normalizeCharges(charges: any): any {
+    const base = charges || {};
+    return {
+      ...base,
+      odc: Number(base.odc || 0),
+      unloading: Number(base.unloading || 0),
+      docket: Number(base.docket || 0),
+      other: Number(base.other || 0),
+      ccc: Number(base.ccc || 0),
+      consignorDiscount: Number(base.consignorDiscount || 0)
+    };
   }
 
   // ✅ close details modal
@@ -970,6 +1042,8 @@ export class ViewShipmentsComponent implements OnInit {
     this.selectedShipment = null;
     this.selectedShipmentManifestId = null;
     this.selectedShipmentManifestNumber = null;
+    this.isEditingConsignment = false;
+    this.editingShipment = null;
   }
 
   // --- Print helpers ---
