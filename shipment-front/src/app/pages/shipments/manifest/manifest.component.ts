@@ -41,6 +41,11 @@ export class ManifestComponent implements OnInit, OnDestroy {
   consignmentEditError = '';
   consignmentsToAdd = new Set<string>();
   consignmentsToRemove = new Set<string>();
+  manifestEditVehicleNo = '';
+  manifestEditStatus = '';
+  manifestEditDeliverySelection = '';
+  manifestEditOriginal = { vehicleNo: '', status: '', deliverySelection: '' };
+  manifestEditStatusOptions = ['Scheduled', 'Out for Delivery', 'Will be Picked-Up'];
 
   // Billing
 billingType: 'consignor' | 'different' = 'consignor';
@@ -420,6 +425,39 @@ calculateFinalAmount() {
     return branch?.branchName ? String(branch.branchName).trim() : deliveryId;
   }
 
+  private buildDeliverySelection(manifest: any): string {
+    const deliveryType = String(manifest?.deliveryType || '').trim().toLowerCase();
+    const deliveryId = this.normalizeId(manifest?.deliveryId);
+    if (!deliveryType || !deliveryId) return '';
+    return `${deliveryType}:${deliveryId}`;
+  }
+
+  private parseDeliverySelection(value: string): { type: string; id: string } {
+    const raw = String(value || '').trim();
+    if (!raw || !raw.includes(':')) return { type: '', id: '' };
+    const [type, id] = raw.split(':');
+    return { type: String(type || '').trim().toLowerCase(), id: String(id || '').trim() };
+  }
+
+  getDeliveryPointOptions(): Array<{ value: string; label: string }> {
+    const options: Array<{ value: string; label: string }> = [];
+    (this.branches || []).forEach((b: any) => {
+      const id = this.normalizeId(b?._id);
+      if (!id) return;
+      const prefix = String(b?.prefix || '').trim();
+      const name = String(b?.branchName || '').trim() || id;
+      const label = prefix ? `${prefix} - ${name}` : name;
+      options.push({ value: `branch:${id}`, label: `Branch: ${label}` });
+    });
+    (this.hubs || []).forEach((h: any) => {
+      const id = this.normalizeId(h?._id);
+      if (!id) return;
+      const name = String(h?.hubName || '').trim() || id;
+      options.push({ value: `hub:${id}`, label: `Hub: ${name}` });
+    });
+    return options;
+  }
+
   private resolveLocationNameByIdOrName(value: string): string {
     const raw = String(value || '').trim();
     if (!raw) return '';
@@ -556,6 +594,14 @@ calculateFinalAmount() {
     this.resetConsignmentEditState();
   }
 
+  getNoConsignmentsMessage(status: any): string {
+    const value = String(status || '').trim().toLowerCase();
+    if (value.includes('will be picked-up') || value.includes('out for delivery')) {
+      return 'No consignments found or linked.';
+    }
+    return 'No consignments found for this manifest.';
+  }
+
   canDeliverManifest(manifest: any): boolean {
     const status = String(manifest?.status || '').trim().toLowerCase();
     return status !== 'completed' && status !== 'cancelled';
@@ -598,6 +644,14 @@ calculateFinalAmount() {
     return status !== 'completed' && status !== 'cancelled';
   }
 
+  isManifestPickupStatus(status: any): boolean {
+    return String(status || '').trim().toLowerCase() === 'will be picked-up';
+  }
+
+  isManifestOutForDeliveryStatus(status: any): boolean {
+    return String(status || '').trim().toLowerCase() === 'out for delivery';
+  }
+
   private resetConsignmentEditState() {
     this.showConsignmentEdit = false;
     this.eligibleConsignments = [];
@@ -605,12 +659,26 @@ calculateFinalAmount() {
     this.consignmentEditError = '';
     this.consignmentsToAdd.clear();
     this.consignmentsToRemove.clear();
+    this.manifestEditVehicleNo = '';
+    this.manifestEditStatus = '';
+    this.manifestEditDeliverySelection = '';
+    this.manifestEditOriginal = { vehicleNo: '', status: '', deliverySelection: '' };
   }
 
   startConsignmentEdit(manifest: any) {
     if (!manifest?._id) return;
     this.resetConsignmentEditState();
     this.showConsignmentEdit = true;
+    const vehicleNo = String(manifest?.vehicleNo || '').trim();
+    const status = String(manifest?.status || '').trim() || 'Scheduled';
+    if (status && !this.manifestEditStatusOptions.some((s) => s.toLowerCase() === status.toLowerCase())) {
+      this.manifestEditStatusOptions = [status, ...this.manifestEditStatusOptions];
+    }
+    const deliverySelection = this.buildDeliverySelection(manifest);
+    this.manifestEditVehicleNo = vehicleNo;
+    this.manifestEditStatus = status;
+    this.manifestEditDeliverySelection = deliverySelection;
+    this.manifestEditOriginal = { vehicleNo, status, deliverySelection };
     this.loadEligibleConsignments(manifest);
   }
 
@@ -672,25 +740,76 @@ calculateFinalAmount() {
     if (!manifest?._id) return;
     const addShipmentIds = Array.from(this.consignmentsToAdd.values());
     const removeShipmentIds = Array.from(this.consignmentsToRemove.values());
+    const updates: any[] = [];
 
-    this.http.patch<any>(`http://localhost:3000/api/manifests/${manifest._id}/consignments`, {
-      addShipmentIds,
-      removeShipmentIds
-    }).subscribe({
-      next: (res: any) => {
+    const nextStatus = String(this.manifestEditStatus || '').trim();
+    const currentStatus = String(manifest?.status || '').trim();
+    const statusChanged = nextStatus && nextStatus.toLowerCase() !== currentStatus.toLowerCase();
+    if (statusChanged) {
+      const allowed = this.manifestEditStatusOptions.map((s) => s.toLowerCase());
+      if (!allowed.includes(nextStatus.toLowerCase())) {
+        alert('Invalid manifest status.');
+        return;
+      }
+      updates.push(this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+        status: nextStatus
+      }));
+    }
+
+    const nextVehicleNo = String(this.manifestEditVehicleNo || '').trim();
+    const currentVehicleNo = String(manifest?.vehicleNo || '').trim();
+    if (nextVehicleNo && nextVehicleNo !== currentVehicleNo) {
+      updates.push(this.http.patch(`http://localhost:3000/api/manifests/${manifest._id}/vehicle`, {
+        vehicleNo: nextVehicleNo
+      }));
+    }
+
+    const { type: deliveryType, id: deliveryId } = this.parseDeliverySelection(this.manifestEditDeliverySelection);
+    const currentDeliveryType = String(manifest?.deliveryType || '').trim().toLowerCase();
+    const currentDeliveryId = this.normalizeId(manifest?.deliveryId);
+    const deliveryChanged = currentDeliveryType !== deliveryType || currentDeliveryId !== deliveryId;
+    if (deliveryChanged) {
+      updates.push(this.http.patch(`http://localhost:3000/api/manifests/${manifest._id}/delivery`, {
+        deliveryType,
+        deliveryId
+      }));
+    }
+
+    if (addShipmentIds.length || removeShipmentIds.length) {
+      updates.push(this.http.patch<any>(`http://localhost:3000/api/manifests/${manifest._id}/consignments`, {
+        addShipmentIds,
+        removeShipmentIds
+      }));
+    }
+
+    if (!updates.length) {
+      this.resetConsignmentEditState();
+      return;
+    }
+
+    forkJoin(updates).subscribe({
+      next: (results: any[]) => {
         this.resetConsignmentEditState();
         this.loadManifests();
         this.loadStocks();
-        if (res?.manifest) {
-          const updatedManifest = { ...res.manifest, items: res.items || [] };
-          this.openManifestDetails(updatedManifest);
-        } else {
-          this.refreshSelectedManifestDetails(manifest._id);
+        let updatedManifest = null;
+        let updatedItems = null;
+        (results || []).forEach((res) => {
+          if (res?.manifest) updatedManifest = res.manifest;
+          if (Array.isArray(res?.items)) updatedItems = res.items;
+        });
+        const manifestDetails: any = { ...(manifest || {}) };
+        if (updatedManifest && typeof updatedManifest === 'object') {
+          Object.assign(manifestDetails, updatedManifest);
         }
+        if (updatedItems) {
+          manifestDetails.items = updatedItems;
+        }
+        this.openManifestDetails(manifestDetails);
       },
       error: (err) => {
-        console.error('Failed to update manifest consignments', err);
-        alert('Failed to update consignments.');
+        console.error('Failed to update manifest details', err);
+        alert('Failed to update manifest details.');
       }
     });
   }
@@ -702,10 +821,7 @@ calculateFinalAmount() {
   getManifestConsignments(): any[] {
     const manifestId = String(this.selectedManifestDetails?.manifest?._id || '');
     if (!manifestId) return [];
-    const allowedStatuses = ['Manifestation', 'DManifestation'];
     return (this.selectedManifestDetails?.consignments || []).filter((c: any) => {
-      const status = String(c?.shipmentStatus || '').trim();
-      if (status && !allowedStatuses.includes(status)) return false;
       return String(c?.manifestId || '').trim() === manifestId;
     });
   }
@@ -1080,6 +1196,71 @@ calculateFinalAmount() {
     const ownerHub = this.resolveHubByVehicle(vehicleNo);
     if (ownerHub?._id) return { ownerType: 'Hub', ownerId: String(ownerHub._id) };
     return { ownerType: '', ownerId: '' };
+  }
+
+  getSelectedBranchVehicles(): string[] {
+    const currentoriginLocId = this.normalizeId(this.originLocId || localStorage.getItem('originLocId'));
+    const currentBranchName = String(this.branch || localStorage.getItem('branch') || '').trim();
+    const currentBranchNameLower = currentBranchName.toLowerCase();
+    const isAllHubsSelection = currentoriginLocId === 'all-hubs' || currentBranchNameLower === 'all hubs';
+    const selectedHubId = isAllHubsSelection
+      ? (this.normalizeId(this.selectedHubFilterId) || this.normalizeId(localStorage.getItem('hubId')))
+      : '';
+    const locationFilterId = isAllHubsSelection ? selectedHubId : currentoriginLocId;
+    const locationFilterName = locationFilterId
+      ? String(
+          (this.branches || []).find((b) => this.normalizeId(b?._id) === locationFilterId)?.branchName ||
+          (this.hubs || []).find((h) => this.normalizeId(h?._id) === locationFilterId)?.hubName ||
+          ''
+        ).trim()
+      : '';
+    if (!locationFilterId || locationFilterId === 'all' || locationFilterId === 'all-hubs') return [];
+
+    const branchVehicles = (this.branches || []).flatMap((b: any) =>
+      (b?.vehicles || []).map((v: any) => ({
+        ...v,
+        _ownerType: 'branch',
+        _ownerId: this.normalizeId(b?._id)
+      }))
+    );
+    const hubVehicles = (this.hubs || []).flatMap((h: any) =>
+      (h?.deliveryAddresses || []).flatMap((addr: any) =>
+        (addr?.vehicles || []).map((v: any) => ({
+          ...v,
+          _ownerType: 'hub',
+          _ownerId: this.normalizeId(h?._id)
+        }))
+      )
+    );
+    const vehicles = [...branchVehicles, ...hubVehicles];
+    const seen = new Set<string>();
+
+    return vehicles
+      .filter((v: any) => {
+        const currentLocationRaw = v?.currentLocationId || v?.currentBranch || v?.currentBranch || '';
+        const currentLocation = this.normalizeId(currentLocationRaw);
+        if (currentLocation) {
+          if (this.isCurrentBranchMatch(currentLocation, locationFilterId)) return true;
+          if (locationFilterName && this.matchesBranchLabel(String(currentLocationRaw || ''), locationFilterName)) return true;
+          if (locationFilterName && this.matchesBranchLabel(String(currentLocation || ''), locationFilterName)) return true;
+          return false;
+        }
+        if (String(v?._ownerType || '').toLowerCase() === 'branch') {
+          const ownerId = this.normalizeId(v?._ownerId);
+          return ownerId && ownerId === this.normalizeId(locationFilterId);
+        }
+        return false;
+      })
+      .map((v: any) => {
+        if (typeof v === 'string') return v;
+        return v?.vehicleNo || v?.number || v?.vehicleNumber || '';
+      })
+      .filter((vehicle: string) => {
+        if (!vehicle) return false;
+        if (seen.has(vehicle)) return false;
+        seen.add(vehicle);
+        return true;
+      });
   }
 
   private resolveClientLocation(client: any, locationId: any): any | null {

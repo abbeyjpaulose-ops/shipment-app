@@ -205,28 +205,13 @@
         *ngIf="!isEditingConsignment"
         type="button"
         class="edit-btn"
-        (click)="editSelectedConsignment()">
+        (click)="editSelectedConsignment()"
+        [disabled]="!isInvoiceOnProcess(selectedShipment)">
         Edit Consignment
-      </button>
-      <button
-        *ngIf="isEditingConsignment"
-        type="button"
-        class="edit-btn save-btn"
-        [disabled]="isSavingConsignment"
-        (click)="saveConsignmentEdits()">
-        Save
-      </button>
-      <button
-        *ngIf="isEditingConsignment"
-        type="button"
-        class="ghost-btn"
-        [disabled]="isSavingConsignment"
-        (click)="cancelConsignmentEdit()">
-        Cancel
       </button>
     </div>
 
-    <div class="shipment-details details-grid card">
+    <div *ngIf="!isEditingConsignment" class="shipment-details details-grid card">
       <p>
         <strong>Shipment ID:</strong>
         <span class="detail-value">{{ selectedShipment._id }}</span>
@@ -408,11 +393,6 @@
         <span class="detail-value">{{ selectedShipment.date | date:'short' }}</span>
       </p>
       <p>
-        <strong>Final Amount:</strong>
-        <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment.finalAmount }}</span>
-        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.finalAmount" />
-      </p>
-      <p>
         <strong>Charges - ODC:</strong>
         <span class="detail-value" *ngIf="!isEditingConsignment">{{ selectedShipment?.charges?.odc }}</span>
         <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.charges.odc" />
@@ -450,6 +430,205 @@
         <strong>No. of Products:</strong>
         <span class="detail-value">{{ getInvoiceAmountTotal(selectedShipment.invoices) }}</span>
       </p>
+      <p>
+        <strong>Taxable Value:</strong>
+        <span class="detail-value">{{ getViewTaxableValue(selectedShipment) }}</span>
+      </p>
+      <p>
+        <strong>IGST ({{ getViewIgstPercent(selectedShipment) }}%):</strong>
+        <span class="detail-value">{{ getViewIgstAmount(selectedShipment) }}</span>
+      </p>
+      <p>
+        <strong>Final Amount:</strong>
+        <span class="detail-value" *ngIf="!isEditingConsignment">{{ getViewFinalAmount(selectedShipment) }}</span>
+        <input *ngIf="isEditingConsignment" type="number" [(ngModel)]="editingShipment.finalAmount" />
+      </p>
+    </div>
+
+    <div *ngIf="isEditingConsignment" class="edit-consignment">
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Shipment</p>
+            <h3>Shipment Details</h3>
+          </div>
+        </div>
+        <div class="grid-2">
+          <label>Consignment Number
+            <input [ngModel]="editingShipment.consignmentNumber" readonly>
+          </label>
+          <label>External Ref ID
+            <input [(ngModel)]="editingShipment.externalRefId">
+          </label>
+          <label>Status
+            <input [(ngModel)]="editingShipment.shipmentStatus">
+          </label>
+          <label>Status Details
+            <input [(ngModel)]="editingShipment.shipmentStatusDetails">
+          </label>
+          <label>Branch
+            <input [ngModel]="getOriginBranchDisplay(selectedShipment)" readonly>
+          </label>
+          <label>Current Branch
+            <input [ngModel]="getCurrentBranchDisplay(selectedShipment)" readonly>
+          </label>
+          <label>Current Vehicle No.
+            <input [(ngModel)]="editingShipment.currentVehicleNo">
+          </label>
+          <label>Current Vehicle Owner Type
+            <input [(ngModel)]="editingShipment.currentVehicleOwnerType">
+          </label>
+          <label>Current Vehicle Owner ID
+            <input [(ngModel)]="editingShipment.currentVehicleOwnerId">
+          </label>
+          <label>Payment Mode
+            <input [(ngModel)]="editingShipment.paymentMode" (ngModelChange)="recalculateEditTotals()">
+          </label>
+          <label>Date
+            <input type="date" [ngModel]="editingShipment.date | date:'yyyy-MM-dd'" readonly>
+          </label>
+          <label>Billing Type
+            <input [(ngModel)]="editingShipment.billingType" (ngModelChange)="recalculateEditTotals()">
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Parties</p>
+            <h3>Sender & Receiver</h3>
+          </div>
+        </div>
+        <div class="grid-2 party-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <h4>Consignor (Sender)</h4>
+            </div>
+            <div class="panel-body">
+              <label>Name
+                <input [(ngModel)]="editingShipment.consignor">
+              </label>
+              <label>GST
+                <input [(ngModel)]="editingShipment.consignorGST">
+              </label>
+              <label>Phone
+                <input [(ngModel)]="editingShipment.consignorPhone">
+              </label>
+              <label>Address
+                <textarea [(ngModel)]="editingShipment.consignorAddress"></textarea>
+              </label>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h4>Consignee (Receiver)</h4>
+            </div>
+            <div class="panel-body">
+              <label>Name
+                <input [(ngModel)]="editingShipment.consignee">
+              </label>
+              <label>GST
+                <input [(ngModel)]="editingShipment.consigneeGST">
+              </label>
+              <label>Phone
+                <input [(ngModel)]="editingShipment.consigneePhone">
+              </label>
+              <label>Address
+                <textarea [(ngModel)]="editingShipment.consigneeAddress"></textarea>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Pickup & Delivery</p>
+            <h3>Pickup / Delivery</h3>
+          </div>
+        </div>
+        <div class="grid-2">
+          <label>Pickup Type
+            <input [(ngModel)]="editingShipment.pickupType">
+          </label>
+          <label>Pickup Name
+            <input [(ngModel)]="editingShipment.pickupName">
+          </label>
+          <label>Pickup Phone
+            <input [(ngModel)]="editingShipment.pickupPhone">
+          </label>
+          <label>Pickup Pincode
+            <input [(ngModel)]="editingShipment.pickupPincode">
+          </label>
+          <label class="span-2">Pickup Address
+            <textarea [(ngModel)]="editingShipment.pickupAddress"></textarea>
+          </label>
+          <label>Delivery Type
+            <input [(ngModel)]="editingShipment.deliveryType">
+          </label>
+          <label>Delivery Name
+            <input [(ngModel)]="editingShipment.deliveryName">
+          </label>
+          <label>Delivery Phone
+            <input [(ngModel)]="editingShipment.deliveryPhone">
+          </label>
+          <label>Delivery Pincode
+            <input [(ngModel)]="editingShipment.deliveryPincode">
+          </label>
+          <label class="span-2">Delivery Address
+            <textarea [(ngModel)]="editingShipment.deliveryAddress"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Addresses</p>
+            <h3>Billing</h3>
+          </div>
+        </div>
+        <div class="grid-2">
+          <label>Billing Name
+            <input [(ngModel)]="editingShipment.billingName">
+          </label>
+          <label>Billing GSTIN
+            <input [(ngModel)]="editingShipment.billingGSTIN">
+          </label>
+          <label>Billing Phone
+            <input [(ngModel)]="editingShipment.billingPhone">
+          </label>
+          <label>Billing Location ID
+            <input [(ngModel)]="editingShipment.billingLocationId">
+          </label>
+          <label class="span-2">Billing Address
+            <textarea [(ngModel)]="editingShipment.billingAddress"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <p class="eyebrow">Money</p>
+            <h3>Charges & Payment</h3>
+          </div>
+        </div>
+        <div class="charges-grid">
+          <label>ODC <input type="number" [(ngModel)]="editingShipment.charges.odc" (ngModelChange)="recalculateEditTotals()"></label>
+          <label>Unloading <input type="number" [(ngModel)]="editingShipment.charges.unloading" (ngModelChange)="recalculateEditTotals()"></label>
+          <label>Docket <input type="number" [(ngModel)]="editingShipment.charges.docket" (ngModelChange)="recalculateEditTotals()"></label>
+          <label>Other <input type="number" [(ngModel)]="editingShipment.charges.other" (ngModelChange)="recalculateEditTotals()"></label>
+          <label>CCC <input type="number" [(ngModel)]="editingShipment.charges.ccc" (ngModelChange)="recalculateEditTotals()"></label>
+          <label>Discount <input type="number" [(ngModel)]="editingShipment.charges.consignorDiscount" (ngModelChange)="recalculateEditTotals()"></label>
+          <label>Initial Paid <input type="number" [(ngModel)]="editingShipment.initialPaid"></label>
+          <label>Taxable Value <input type="number" [ngModel]="editingShipment.taxableValue" readonly></label>
+          <label>IGST ({{ editingShipment.igstPercent || 0 }}%) <input type="number" [ngModel]="editingShipment.igstAmount" readonly></label>
+          <label>Final Amount <input type="number" [(ngModel)]="editingShipment.finalAmount" (ngModelChange)="onEditFinalAmountChange($event)"></label>
+        </div>
+      </div>
     </div>
 
     <h3>Products</h3>
@@ -463,6 +642,25 @@
             <span class="product-meta">Total: {{ product.amount }}</span>
           </li>
         </ul>
+      </div>
+    </div>
+
+    <div class="details-footer" *ngIf="isEditingConsignment">
+      <div class="action-buttons">
+        <button
+          type="button"
+          class="ghost-btn"
+          [disabled]="isSavingConsignment"
+          (click)="cancelConsignmentEdit()">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="edit-btn save-btn"
+          [disabled]="isSavingConsignment"
+          (click)="saveConsignmentEdits()">
+          Save
+        </button>
       </div>
     </div>
   </div>

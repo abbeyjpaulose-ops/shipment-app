@@ -272,6 +272,18 @@
   margin-bottom: 16px;
 }
 
+.manifest-details-grid input,
+.manifest-details-grid select {
+  padding: 6px 8px;
+  border: 1px solid var(--stock-border);
+  border-radius: 8px;
+  background: #ffffff;
+  color: var(--stock-text);
+  font-size: 12px;
+  margin-left: 6px;
+  min-width: 160px;
+}
+
 .manifest-consignments {
   margin-top: 10px;
 }

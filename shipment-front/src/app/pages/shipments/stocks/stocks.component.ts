@@ -563,9 +563,7 @@ calculateFinalAmount() {
     }
 
     const name = resolvedName || rawLabel || resolvedId || '-';
-    if (!resolvedId) return name;
-    if (name.toLowerCase() === String(resolvedId).toLowerCase()) return name;
-    return `${name}$$${resolvedId}`;
+    return name;
   }
 
   getCurrentBranchLabel(stock: any): string {

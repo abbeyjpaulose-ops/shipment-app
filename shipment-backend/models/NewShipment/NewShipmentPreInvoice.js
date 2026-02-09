@@ -11,6 +11,9 @@ const PreInvoiceSchema = new mongoose.Schema(
     // Billing entity (client/hub/etc)
     billingEntityId: { type: mongoose.Schema.Types.ObjectId, required: true, index: true },
 
+    // B2B/B2C series marker (B = business, C = consumer)
+    billingCategory: { type: String, trim: true, enum: ['B', 'C'], index: true },
+
     // Serial pre-invoice number
     preInvoiceNumber: { type: Number, required: true },
 
@@ -21,7 +24,7 @@ const PreInvoiceSchema = new mongoose.Schema(
 );
 
 PreInvoiceSchema.index(
-  { GSTIN_ID: 1, originLocId: 1, preInvoiceNumber: 1 },
+  { GSTIN_ID: 1, originLocId: 1, billingCategory: 1, preInvoiceNumber: 1 },
   { unique: true }
 );
 

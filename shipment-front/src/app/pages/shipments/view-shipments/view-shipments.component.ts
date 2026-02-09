@@ -36,6 +36,7 @@ export class ViewShipmentsComponent implements OnInit {
   isEditingConsignment: boolean = false;
   editingShipment: any | null = null;
   isSavingConsignment: boolean = false;
+  editQuoteSubtotal: number = 0;
   showReturnModal: boolean = false;
   showReturnFinalAmount: boolean = false;
   // selection for print
@@ -321,6 +322,14 @@ export class ViewShipmentsComponent implements OnInit {
 
   hasSelectedReceived(): boolean {
     return (this.filteredReceived || []).some(s => s._returnSelected);
+  }
+
+  isInvoiceOnProcess(shipment: any): boolean {
+    const invoiceStatus = String(shipment?.invoiceStatus || '').trim().toLowerCase();
+    const shipmentStatus = String(shipment?.shipmentStatus || '').trim().toLowerCase();
+    if (!invoiceStatus) return false;
+    if (shipmentStatus.includes('deleted')) return false;
+    return invoiceStatus === 'onprocess';
   }
 
   // --- View Shipments selection helpers (print) ---
@@ -974,6 +983,7 @@ export class ViewShipmentsComponent implements OnInit {
     if (!this.selectedShipment) return;
     this.isEditingConsignment = true;
     this.editingShipment = this.prepareShipmentForEdit(this.selectedShipment);
+    this.recalculateEditTotals();
   }
 
   cancelConsignmentEdit(): void {
@@ -1021,6 +1031,16 @@ export class ViewShipmentsComponent implements OnInit {
     if (payload.finalAmount !== undefined && payload.finalAmount !== null && payload.finalAmount !== '') {
       payload.finalAmount = Number(payload.finalAmount) || 0;
     }
+    if (payload.taxableValue !== undefined && payload.taxableValue !== null && payload.taxableValue !== '') {
+      payload.taxableValue = Number(payload.taxableValue) || 0;
+    }
+    if (payload.igstPercent !== undefined && payload.igstPercent !== null && payload.igstPercent !== '') {
+      payload.igstPercent = Number(payload.igstPercent) || 0;
+    }
+    if (payload.initialPaid !== undefined && payload.initialPaid !== null && payload.initialPaid !== '') {
+      payload.initialPaid = Number(payload.initialPaid) || 0;
+    }
+    delete payload.igstAmount;
     return payload;
   }
 
@@ -1035,6 +1055,152 @@ export class ViewShipmentsComponent implements OnInit {
       ccc: Number(base.ccc || 0),
       consignorDiscount: Number(base.consignorDiscount || 0)
     };
+  }
+
+  recalculateEditTotals(): void {
+    if (!this.editingShipment) return;
+    this.editingShipment.charges = this.normalizeCharges(this.editingShipment.charges);
+    const invoices = Array.isArray(this.editingShipment.invoices) ? this.editingShipment.invoices : [];
+    const baseTotals = this.computeEditTotals(invoices, this.editingShipment.charges);
+    this.editQuoteSubtotal = baseTotals.subtotal;
+
+    const discountPercent = this.normalizeAmount(this.editingShipment.charges?.consignorDiscount);
+    const discountAmount = (baseTotals.subtotal * discountPercent) / 100;
+    const baseAmount = baseTotals.subtotal - discountAmount;
+
+    const storedPercent = Number(this.editingShipment?.igstPercent);
+    const fallbackPercent = Number(localStorage.getItem('companyType')) || 0;
+    const igstPercent = Number.isFinite(storedPercent) ? storedPercent : fallbackPercent;
+    this.editingShipment.igstPercent = igstPercent;
+    const effectiveRate = this.getEffectiveIgstPercentForEdit(igstPercent);
+
+    this.editingShipment.taxableValue = this.roundCurrency(baseAmount);
+    const igstAmount = this.roundCurrency((this.editingShipment.taxableValue || 0) * effectiveRate / 100);
+    this.editingShipment.igstAmount = igstAmount;
+    this.editingShipment.finalAmount = this.roundCurrency((this.editingShipment.taxableValue || 0) + igstAmount);
+  }
+
+  onEditFinalAmountChange(value: any): void {
+    if (!this.editingShipment) return;
+    const raw = Number(value);
+    const finalAmount = Number.isFinite(raw) ? raw : 0;
+    this.editingShipment.finalAmount = this.roundCurrency(finalAmount);
+    if (this.editQuoteSubtotal <= 0) return;
+    const effectiveRate = this.getEffectiveIgstPercentForEdit(Number(this.editingShipment?.igstPercent) || 0);
+    const multiplier = 1 + effectiveRate / 100;
+    const taxable = multiplier > 0 ? this.editingShipment.finalAmount / multiplier : this.editingShipment.finalAmount;
+    this.editingShipment.taxableValue = this.roundCurrency(taxable);
+    this.editingShipment.igstAmount = this.roundCurrency(this.editingShipment.finalAmount - this.editingShipment.taxableValue);
+    const discountPercent = ((this.editQuoteSubtotal - this.editingShipment.taxableValue) / this.editQuoteSubtotal) * 100;
+    const safePercent = Number.isFinite(discountPercent) ? discountPercent : 0;
+    this.editingShipment.charges.consignorDiscount = this.roundCurrency(Math.max(0, safePercent));
+  }
+
+  private computeEditTotals(invoices: any[], charges: any): { subtotal: number } {
+    let invoiceTotal = 0;
+    let packageTotal = 0;
+    (invoices || []).forEach((inv: any) => {
+      const products = Array.isArray(inv?.products) ? inv.products : [];
+      const productTotal = products.reduce((sum: number, p: any) => {
+        const qty = this.normalizeAmount(p?.amount);
+        const rate = this.normalizeAmount(p?.ratePer);
+        return sum + (qty * rate);
+      }, 0);
+      const invoiceValue = this.normalizeAmount(inv?.value);
+      invoiceTotal += productTotal > 0 ? productTotal : invoiceValue;
+      const packages = Array.isArray(inv?.packages) ? inv.packages : [];
+      packageTotal += packages.reduce((sum: number, p: any) => sum + this.normalizeAmount(p?.amount), 0);
+    });
+
+    const chargeTotal = Object.entries(charges || {})
+      .filter(([key]) => key !== 'consignorDiscount')
+      .reduce((sum, [, value]) => sum + this.normalizeAmount(value), 0);
+
+    return { subtotal: invoiceTotal + packageTotal + chargeTotal };
+  }
+
+  private getEffectiveIgstPercentForEdit(base: number): number {
+    if (base === 5 && this.shouldGtaExemptEdit()) return 0;
+    return base;
+  }
+
+  getViewTaxableValue(shipment: any): number {
+    const raw = this.normalizeAmount(shipment?.taxableValue);
+    if (raw > 0) return this.roundCurrency(raw);
+    const finalAmount = this.normalizeAmount(shipment?.finalAmount);
+    if (finalAmount <= 0) return 0;
+    const effectiveRate = this.getEffectiveIgstPercentForView(shipment);
+    const multiplier = 1 + effectiveRate / 100;
+    return this.roundCurrency(multiplier > 0 ? finalAmount / multiplier : finalAmount);
+  }
+
+  getViewIgstPercent(shipment: any): number {
+    const storedPercent = Number(shipment?.igstPercent);
+    const fallbackPercent = Number(localStorage.getItem('companyType')) || 0;
+    return Number.isFinite(storedPercent) ? storedPercent : fallbackPercent;
+  }
+
+  getViewIgstAmount(shipment: any): number {
+    const taxableValue = this.getViewTaxableValue(shipment);
+    const effectiveRate = this.getEffectiveIgstPercentForView(shipment);
+    return this.roundCurrency(taxableValue * effectiveRate / 100);
+  }
+
+  getViewFinalAmount(shipment: any): number {
+    const taxableValue = this.getViewTaxableValue(shipment);
+    const igstAmount = this.getViewIgstAmount(shipment);
+    return this.roundCurrency(taxableValue + igstAmount);
+  }
+
+  private getEffectiveIgstPercentForView(shipment: any): number {
+    const base = this.getViewIgstPercent(shipment);
+    if (base === 5 && this.shouldGtaExemptForShipment(shipment)) return 0;
+    return base;
+  }
+
+  private shouldGtaExemptForShipment(shipment: any): boolean {
+    if (this.isToPayModeForShipment(shipment)) {
+      return String(shipment?.consigneeTab || '').toLowerCase() === 'consignee';
+    }
+    return this.isBillingClientForShipment(shipment);
+  }
+
+  private isBillingClientForShipment(shipment: any): boolean {
+    if (String(shipment?.billingType || '') === 'consignor') {
+      return String(shipment?.consignorTab || '').toLowerCase() === 'consignor';
+    }
+    return Boolean(shipment?.billingClientId);
+  }
+
+  private isToPayModeForShipment(shipment: any): boolean {
+    return String(shipment?.paymentMode || '').toLowerCase().includes('to pay');
+  }
+
+  private shouldGtaExemptEdit(): boolean {
+    if (this.isToPayModeEdit()) {
+      return String(this.editingShipment?.consigneeTab || '').toLowerCase() === 'consignee';
+    }
+    return this.isBillingClientEdit();
+  }
+
+  private isBillingClientEdit(): boolean {
+    if (String(this.editingShipment?.billingType || '') === 'consignor') {
+      return String(this.editingShipment?.consignorTab || '').toLowerCase() === 'consignor';
+    }
+    return Boolean(this.editingShipment?.billingClientId);
+  }
+
+  private isToPayModeEdit(): boolean {
+    return String(this.editingShipment?.paymentMode || '').toLowerCase().includes('to pay');
+  }
+
+  private normalizeAmount(value: any): number {
+    const num = Number(value);
+    return Number.isFinite(num) ? num : 0;
+  }
+
+  private roundCurrency(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
   // ✅ close details modal

@@ -24,6 +24,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
+  consignmentBillingSearch: string = '';
+  preInvoiceCategoryFilter: 'all' | 'B' | 'C' = 'all';
   selectedInvoice: any = null;
   showInvoiceModal = false;
   branch: string = localStorage.getItem('branch') || 'All Branches';
@@ -190,7 +192,12 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     const storedOriginLocId = this.originLocId || localStorage.getItem('originLocId') || '';
     const branchLabel = String(localStorage.getItem('branch') || '').trim();
     const selectedBranchId = this.resolveSelectedBranchId(String(storedOriginLocId || ''), branchLabel);
-    const originLocIdParam = selectedBranchId || (this.isObjectId(storedOriginLocId) ? storedOriginLocId : '');
+    const normalizedOriginId = this.normalizeId(storedOriginLocId);
+    const hubMatch = this.hubs.find((h: any) => this.normalizeId(h?._id) === normalizedOriginId);
+    const hubOriginId = this.normalizeId(hubMatch?.originLocId);
+    const originLocIdParam = selectedBranchId ||
+      hubOriginId ||
+      (this.isObjectId(normalizedOriginId) ? normalizedOriginId : '');
     if (!originLocIdParam) {
       this.preInvoices = [];
       this.filteredPreInvoices = [];
@@ -416,12 +423,21 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     );
   }
 
+  getPreInvoiceFinalTotal(pre: any): number {
+    return (pre?.consignments || []).reduce(
+      (sum: number, c: any) => sum + Number(c?.finalAmount || 0),
+      0
+    );
+  }
+
   getPreInvoiceDisplayNumber(pre: any): string {
     const fiscal = this.getFiscalYearLabel(pre?.createdAt);
     const category = this.getPreInvoiceBillingCategory(pre);
     const prefix = this.getPreInvoiceBranchPrefix(pre);
     const number = pre?.preInvoiceNumber ?? '';
-    const suffix = prefix ? `${prefix}${number}` : `${number}`;
+    const suffix = prefix
+      ? (number ? `${prefix}/${number}` : `${prefix}`)
+      : `${number}`;
     return `${fiscal}/${category}/${suffix}`;
   }
 
@@ -461,6 +477,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   }
 
   private getPreInvoiceBillingCategory(pre: any): string {
+    const stored = String(pre?.billingCategory || '').trim().toUpperCase();
+    if (stored === 'B' || stored === 'C') return stored;
     const type = String(pre?.billingEntityType || '').trim().toLowerCase();
     if (type === 'guest') return 'C';
     if (type) return 'B';
@@ -752,21 +770,27 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       (this.filterConsignor
         ? this.getBillingEntity(s).toLowerCase().includes(this.filterConsignor.toLowerCase())
         : true);
+    const consignmentBillingFilter = String(this.consignmentBillingSearch || '').trim().toLowerCase();
+    const matchesConsignment = (s: any) =>
+      matches(s) &&
+      (!consignmentBillingFilter || this.getBillingEntity(s).toLowerCase().includes(consignmentBillingFilter));
 
     this.filteredDelivered = this.deliveredInvoices.filter(
-      (s) => matches(s) && (this.isInvoiceOnProcess(s) || this.isInvoicePreInvoiced(s))
+      (s) => matchesConsignment(s) && (this.isInvoiceOnProcess(s) || this.isInvoicePreInvoiced(s))
     );
     this.filteredDelivered.forEach((s) => {
       if (this.isInvoicePreInvoiced(s)) s.selected = false;
     });
-    this.filteredPreInvoiced = this.preInvoicedInvoices.filter(matches);
+    this.filteredPreInvoiced = this.preInvoicedInvoices.filter(matchesConsignment);
 
     const search = String(this.searchText || '').trim().toLowerCase();
     const billingFilter = String(this.filterConsignor || '').trim().toLowerCase();
     const filterDate = this.filterDate;
+    const categoryFilter = this.preInvoiceCategoryFilter;
     const matchesPre = (p: any) => {
       const billingName = this.getPreInvoiceBillingEntity(p).toLowerCase();
       const number = String(p?.preInvoiceNumber || '').toLowerCase();
+      const billingCategory = this.getPreInvoiceBillingCategory(p);
       const consignmentNumbers = (p?.consignments || [])
         .map((c: any) => String(c?.consignmentNumber || '').toLowerCase())
         .filter(Boolean);
@@ -777,7 +801,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         consignmentNumbers.some((c: string) => c.includes(search));
       const matchesBilling = !billingFilter || billingName.includes(billingFilter);
       const matchesDate = !filterDate || (created === filterDate);
-      return matchesSearch && matchesBilling && matchesDate;
+      const matchesCategory = categoryFilter === 'all' || billingCategory === categoryFilter;
+      return matchesSearch && matchesBilling && matchesDate && matchesCategory;
     };
     this.filteredPreInvoices = this.preInvoices.filter((p) => matchesPre(p));
   }

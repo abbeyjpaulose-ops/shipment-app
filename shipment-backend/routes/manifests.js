@@ -1029,6 +1029,76 @@ router.put('/:id/status', requireAuth, async (req, res) => {
   }
 });
 
+// Update manifest delivery point (auth required)
+router.patch('/:id/delivery', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const manifestId = String(req.params.id || '').trim();
+    if (!mongoose.Types.ObjectId.isValid(manifestId)) {
+      return res.status(400).json({ message: 'Invalid manifest id' });
+    }
+
+    const manifest = await Manifest.findOne({ _id: manifestId, GSTIN_ID: gstinId }).lean();
+    if (!manifest) return res.status(404).json({ message: 'Manifest not found' });
+
+    const normalizedStatus = String(manifest?.status || '').trim().toLowerCase();
+    if (normalizedStatus === 'completed' || normalizedStatus === 'cancelled') {
+      return res.status(400).json({ message: 'Cannot modify delivery point for completed/cancelled manifests' });
+    }
+
+    const allowedoriginLocIds = getAllowedoriginLocIds(req);
+    if (allowedoriginLocIds) {
+      if (manifest.entityType === 'branch') {
+        if (!allowedoriginLocIds.includes(String(manifest.entityId))) {
+          return res.status(403).json({ message: 'Branch access denied' });
+        }
+      } else if (manifest.entityType === 'hub') {
+        const hub = await Hub.findOne({ _id: manifest.entityId, GSTIN_ID: gstinId })
+          .select('_id originLocId')
+          .lean();
+        const huboriginLocId = String(hub?.originLocId || '');
+        if (!hub || !huboriginLocId || !allowedoriginLocIds.includes(huboriginLocId)) {
+          return res.status(403).json({ message: 'Hub access denied' });
+        }
+      }
+    }
+
+    const deliveryTypeRaw = String(req.body?.deliveryType || '').trim().toLowerCase();
+    const deliveryIdRaw = String(req.body?.deliveryId || '').trim();
+    if (deliveryTypeRaw && !['branch', 'hub'].includes(deliveryTypeRaw)) {
+      return res.status(400).json({ message: 'deliveryType must be "branch" or "hub"' });
+    }
+    if (deliveryIdRaw && !mongoose.Types.ObjectId.isValid(deliveryIdRaw)) {
+      return res.status(400).json({ message: 'Invalid deliveryId' });
+    }
+    if ((deliveryTypeRaw && !deliveryIdRaw) || (!deliveryTypeRaw && deliveryIdRaw)) {
+      return res.status(400).json({ message: 'deliveryType and deliveryId must be provided together' });
+    }
+
+    const update = {};
+    const unset = {};
+    if (deliveryTypeRaw && deliveryIdRaw) {
+      update.deliveryType = deliveryTypeRaw;
+      update.deliveryId = deliveryIdRaw;
+    } else {
+      unset.deliveryType = 1;
+      unset.deliveryId = 1;
+    }
+
+    const updateDoc = {};
+    if (Object.keys(update).length) updateDoc.$set = update;
+    if (Object.keys(unset).length) updateDoc.$unset = unset;
+
+    await Manifest.updateOne({ _id: manifestId, GSTIN_ID: gstinId }, updateDoc);
+    const updated = await Manifest.findOne({ _id: manifestId, GSTIN_ID: gstinId }).lean();
+    res.json({ manifest: updated });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
 // Update manifest vehicle (auth required)
 router.patch('/:id/vehicle', requireAuth, async (req, res) => {
   try {

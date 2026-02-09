@@ -9,7 +9,8 @@
     "create-user": "node create-user.js",
     "migrate-prefix": "node scripts/migrate-branch-prefix.js",
     "backfill-taxable-igst": "node scripts/backfill-taxable-igst.js",
-    "backfill-invoice-status": "node scripts/backfill-invoice-status.js"
+    "backfill-invoice-status": "node scripts/backfill-invoice-status.js",
+    "fix-preinvoice-indexes": "node scripts/fix-preinvoice-indexes.js"
   },
   "dependencies": {
     "@ng-select/ng-select": "^20.2.2",

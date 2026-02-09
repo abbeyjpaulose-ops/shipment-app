@@ -35,7 +35,6 @@
           <th>Vehicle</th>
           <th>Entity</th>
           <th>Consignments</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -53,13 +52,9 @@
           <td>{{ m.vehicleNo || '-' }}</td>
           <td>{{ getManifestEntityName(m) }}</td>
           <td>{{ getManifestItemCount(m) }}</td>
-          <td>
-            <button *ngIf="canDeliverManifest(m)" (click)="deliverManifest(m); $event.stopPropagation()">Deliver</button>
-            <button *ngIf="canCancelManifest(m)" (click)="cancelManifest(m); $event.stopPropagation()">Cancel</button>
-          </td>
         </tr>
         <tr *ngIf="!filterManifests(manifests).length">
-          <td colspan="8">No manifests found.</td>
+          <td colspan="7">No manifests found.</td>
         </tr>
       </tbody>
     </table>
@@ -69,11 +64,39 @@
     <div class="modal-content manifest-details-content">
       <button class="details-close" type="button" (click)="closeManifestDetails()">&times;</button>
       <h3>Manifest Details</h3>
+      <div class="consignment-edit-actions" *ngIf="selectedManifestDetails?.manifest && canEditConsignments(selectedManifestDetails.manifest) && !showConsignmentEdit">
+        <button (click)="startConsignmentEdit(selectedManifestDetails.manifest)">Edit Consignments</button>
+      </div>
       <div class="manifest-details-grid" *ngIf="selectedManifestDetails?.manifest">
         <p><strong>Manifest No.:</strong> {{ selectedManifestDetails.manifest.manifestNumber }}</p>
-        <p><strong>Vehicle No.:</strong> {{ selectedManifestDetails.manifest.vehicleNo || '-' }}</p>
-        <p><strong>Status:</strong> {{ selectedManifestDetails.manifest.status || '-' }}</p>
-        <p><strong>Delivery Point:</strong> {{ selectedManifestDetails.deliveryPoint || '-' }}</p>
+        <p>
+          <strong>Vehicle No.:</strong>
+          <span *ngIf="!showConsignmentEdit">{{ selectedManifestDetails.manifest.vehicleNo || '-' }}</span>
+          <ng-container *ngIf="showConsignmentEdit">
+            <select [(ngModel)]="manifestEditVehicleNo" [disabled]="isManifestPickupStatus(manifestEditStatus)">
+              <option value="">-</option>
+              <option *ngFor="let v of getSelectedBranchVehicles()" [value]="v">{{ v }}</option>
+            </select>
+          </ng-container>
+        </p>
+        <p>
+          <strong>Status:</strong>
+          <span *ngIf="!showConsignmentEdit">{{ selectedManifestDetails.manifest.status || '-' }}</span>
+          <select *ngIf="showConsignmentEdit" [(ngModel)]="manifestEditStatus">
+            <option *ngFor="let status of manifestEditStatusOptions" [value]="status">{{ status }}</option>
+          </select>
+        </p>
+        <p>
+          <strong>Delivery Point:</strong>
+          <span *ngIf="!showConsignmentEdit">{{ selectedManifestDetails.deliveryPoint || '-' }}</span>
+          <select
+            *ngIf="showConsignmentEdit"
+            [(ngModel)]="manifestEditDeliverySelection"
+            [disabled]="isManifestPickupStatus(manifestEditStatus) || isManifestOutForDeliveryStatus(manifestEditStatus)">
+            <option value="">-</option>
+            <option *ngFor="let opt of getDeliveryPointOptions()" [value]="opt.value">{{ opt.label }}</option>
+          </select>
+        </p>
         <p><strong>Pickup Point:</strong> {{ selectedManifestDetails.pickupPoint || '-' }}</p>
         <p>
           <strong>Entity ID:</strong>
@@ -130,17 +153,13 @@
         </div>
       </div>
       <ng-template #noConsignments>
-        <p>No consignments found for this manifest.</p>
+        <p>{{ getNoConsignmentsMessage(selectedManifestDetails?.manifest?.status) }}</p>
       </ng-template>
 
-      <div class="consignment-edit-actions" *ngIf="selectedManifestDetails?.manifest && canEditConsignments(selectedManifestDetails.manifest) && !showConsignmentEdit">
-        <button (click)="startConsignmentEdit(selectedManifestDetails.manifest)">Edit Consignments</button>
-      </div>
-
       <div class="consignment-edit-panel" *ngIf="showConsignmentEdit">
-        <div class="consignment-edit-status" *ngIf="consignmentEditLoading">Loading eligible consignments...</div>
-        <div class="consignment-edit-status error" *ngIf="consignmentEditError">{{ consignmentEditError }}</div>
-        <div class="consignment-edit-grid">
+      <div class="consignment-edit-status" *ngIf="consignmentEditLoading">Loading eligible consignments...</div>
+      <div class="consignment-edit-status error" *ngIf="consignmentEditError">{{ consignmentEditError }}</div>
+      <div class="consignment-edit-grid">
           <div class="consignment-edit-list">
             <h5>Current Consignments (remove)</h5>
             <div class="consignment-edit-item" *ngFor="let c of getManifestConsignments()">

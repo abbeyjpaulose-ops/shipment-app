@@ -97,6 +97,19 @@ function normalizeOriginType(value) {
   return 'branch';
 }
 
+async function resolveBillingCategory(billingEntityId, gstinId) {
+  const entityId = String(billingEntityId || '').trim();
+  if (!entityId) return 'B';
+  const [client, hub, guest] = await Promise.all([
+    Client.findOne({ _id: entityId, GSTIN_ID: gstinId }).select('_id').lean(),
+    Hub.findOne({ _id: entityId, GSTIN_ID: gstinId }).select('_id').lean(),
+    Guest.findOne({ _id: entityId, GSTIN_ID: gstinId }).select('_id').lean()
+  ]);
+  if (guest) return 'C';
+  if (client || hub) return 'B';
+  return 'B';
+}
+
 function ensureOriginFromExisting(shipmentData, existing) {
   if (!existing || !shipmentData) return;
   if (!shipmentData.originLocId) {
@@ -1125,18 +1138,21 @@ router.post('/preInvoices', requireAuth, async (req, res) => {
     }
     const originLocId = Array.from(branchIds)[0];
 
-    const lastPreInvoice = await PreInvoice.findOne({ GSTIN_ID: gstinId, originLocId })
+    const billingEntityId = shipments[0]?.billingClientId || null;
+    const billingCategory = await resolveBillingCategory(billingEntityId, gstinId);
+
+    const lastPreInvoice = await PreInvoice.findOne({ GSTIN_ID: gstinId, originLocId, billingCategory })
       .sort({ preInvoiceNumber: -1 })
       .select('preInvoiceNumber')
       .lean();
     let nextNumber = Number(lastPreInvoice?.preInvoiceNumber) || 0;
     nextNumber += 1;
 
-    const billingEntityId = shipments[0]?.billingClientId || null;
     const created = await PreInvoice.create({
       GSTIN_ID: gstinId,
       originLocId,
       billingEntityId,
+      billingCategory,
       preInvoiceNumber: nextNumber,
       createdBy: req.user.username || ''
     });
