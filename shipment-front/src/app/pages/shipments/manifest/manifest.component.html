@@ -65,7 +65,7 @@
       <button class="details-close" type="button" (click)="closeManifestDetails()">&times;</button>
       <h3>Manifest Details</h3>
       <div class="consignment-edit-actions" *ngIf="selectedManifestDetails?.manifest && canEditConsignments(selectedManifestDetails.manifest) && !showConsignmentEdit">
-        <button (click)="startConsignmentEdit(selectedManifestDetails.manifest)">Edit Consignments</button>
+        <button (click)="startConsignmentEdit(selectedManifestDetails.manifest)">Edit Manifest</button>
       </div>
       <div class="manifest-details-grid" *ngIf="selectedManifestDetails?.manifest">
         <p><strong>Manifest No.:</strong> {{ selectedManifestDetails.manifest.manifestNumber }}</p>
@@ -82,7 +82,7 @@
         <p>
           <strong>Status:</strong>
           <span *ngIf="!showConsignmentEdit">{{ selectedManifestDetails.manifest.status || '-' }}</span>
-          <select *ngIf="showConsignmentEdit" [(ngModel)]="manifestEditStatus">
+          <select *ngIf="showConsignmentEdit" [(ngModel)]="manifestEditStatus" (ngModelChange)="onManifestEditStatusChange($event)">
             <option *ngFor="let status of manifestEditStatusOptions" [value]="status">{{ status }}</option>
           </select>
         </p>

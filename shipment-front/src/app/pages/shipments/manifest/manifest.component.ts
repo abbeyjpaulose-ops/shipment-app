@@ -652,6 +652,17 @@ calculateFinalAmount() {
     return String(status || '').trim().toLowerCase() === 'out for delivery';
   }
 
+  onManifestEditStatusChange(status: any) {
+    if (this.isManifestPickupStatus(status)) {
+      this.manifestEditVehicleNo = this.manifestEditOriginal.vehicleNo;
+      this.manifestEditDeliverySelection = this.manifestEditOriginal.deliverySelection;
+      return;
+    }
+    if (this.isManifestOutForDeliveryStatus(status)) {
+      this.manifestEditDeliverySelection = this.manifestEditOriginal.deliverySelection;
+    }
+  }
+
   private resetConsignmentEditState() {
     this.showConsignmentEdit = false;
     this.eligibleConsignments = [];
@@ -745,6 +756,8 @@ calculateFinalAmount() {
     const nextStatus = String(this.manifestEditStatus || '').trim();
     const currentStatus = String(manifest?.status || '').trim();
     const statusChanged = nextStatus && nextStatus.toLowerCase() !== currentStatus.toLowerCase();
+    const isPickup = this.isManifestPickupStatus(nextStatus);
+    const isOutForDelivery = this.isManifestOutForDeliveryStatus(nextStatus);
     if (statusChanged) {
       const allowed = this.manifestEditStatusOptions.map((s) => s.toLowerCase());
       if (!allowed.includes(nextStatus.toLowerCase())) {
@@ -758,7 +771,7 @@ calculateFinalAmount() {
 
     const nextVehicleNo = String(this.manifestEditVehicleNo || '').trim();
     const currentVehicleNo = String(manifest?.vehicleNo || '').trim();
-    if (nextVehicleNo && nextVehicleNo !== currentVehicleNo) {
+    if (!isPickup && nextVehicleNo && nextVehicleNo !== currentVehicleNo) {
       updates.push(this.http.patch(`http://localhost:3000/api/manifests/${manifest._id}/vehicle`, {
         vehicleNo: nextVehicleNo
       }));
@@ -768,7 +781,7 @@ calculateFinalAmount() {
     const currentDeliveryType = String(manifest?.deliveryType || '').trim().toLowerCase();
     const currentDeliveryId = this.normalizeId(manifest?.deliveryId);
     const deliveryChanged = currentDeliveryType !== deliveryType || currentDeliveryId !== deliveryId;
-    if (deliveryChanged) {
+    if (!isPickup && !isOutForDelivery && deliveryChanged) {
       updates.push(this.http.patch(`http://localhost:3000/api/manifests/${manifest._id}/delivery`, {
         deliveryType,
         deliveryId

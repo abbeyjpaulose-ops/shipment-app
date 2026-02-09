@@ -42,7 +42,9 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   preInvoicePreviewHtml: SafeHtml = '';
 
   editingInvoice: any = null;   // �o. Track the invoice being edited
-  showEditPopup: boolean = false;  showGenerateInvoicePopup: boolean = false;
+  showEditPopup: boolean = false;
+  showGenerateInvoicePopup: boolean = false;
+  generateInvoiceSource: 'preInvoiced' | 'preInvoices' = 'preInvoiced';
   constructor(
     private http: HttpClient,
     private branchService: BranchService,
@@ -972,30 +974,70 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.filteredPreInvoiced.forEach(i => i.selected = false);
   }
 
-  openGenerateInvoicePopup() {
-    const selectedConsignments = (this.filteredPreInvoiced || []).filter(i => i.selected);
-    if (selectedConsignments.length === 0) {
-      console.warn('No consignments selected for invoicing.');
+  private getSelectedPreInvoicedConsignments(): any[] {
+    return (this.filteredPreInvoiced || []).filter((i) => i.selected);
+  }
+
+  private getSelectedPreInvoices(): any[] {
+    return (this.filteredPreInvoices || []).filter(
+      (p) => p.selected && !this.isPreInvoiceDeleted(p)
+    );
+  }
+
+  private extractConsignmentNumbersFromPreInvoices(preInvoices: any[]): string[] {
+    const numbers = new Set<string>();
+    (preInvoices || []).forEach((pre) => {
+      (pre?.consignments || []).forEach((c: any) => {
+        const number = String(c?.consignmentNumber || '').trim();
+        if (number) numbers.add(number);
+      });
+    });
+    return Array.from(numbers);
+  }
+
+  openGenerateInvoicePopup(source: 'preInvoiced' | 'preInvoices' = 'preInvoiced') {
+    this.generateInvoiceSource = source;
+    const selected = source === 'preInvoices'
+      ? this.getSelectedPreInvoices()
+      : this.getSelectedPreInvoicedConsignments();
+    if (selected.length === 0) {
+      const message = source === 'preInvoices'
+        ? 'No pre-invoices selected.'
+        : 'No consignments selected for invoicing.';
+      alert(message);
       return;
     }
     this.showGenerateInvoicePopup = true;
   }
 
   confirmGenerateInvoice() {
-    const selectedConsignments = (this.filteredPreInvoiced || []).filter(i => i.selected);
-    if (selectedConsignments.length === 0) {
-      console.warn('No consignments selected for invoicing.');
+    const source = this.generateInvoiceSource || 'preInvoiced';
+    const selected = source === 'preInvoices'
+      ? this.getSelectedPreInvoices()
+      : this.getSelectedPreInvoicedConsignments();
+    const consignmentNumbers = source === 'preInvoices'
+      ? this.extractConsignmentNumbersFromPreInvoices(selected)
+      : selected.map((s) => String(s?.consignmentNumber || '').trim()).filter(Boolean);
+    if (consignmentNumbers.length === 0) {
+      const message = source === 'preInvoices'
+        ? 'No consignments found in the selected pre-invoices.'
+        : 'No consignments selected for invoicing.';
+      alert(message);
       this.showGenerateInvoicePopup = false;
       return;
     }
 
-    const consignmentNumbers = selectedConsignments.map((s) => s.consignmentNumber);
     this.http.post('http://localhost:3000/api/newshipments/generateInvoices', {
       consignmentNumbers
     }).subscribe({
       next: () => {
         this.showGenerateInvoicePopup = false;
-        this.filteredPreInvoiced.forEach(i => i.selected = false);
+        if (source === 'preInvoices') {
+          this.filteredPreInvoices.forEach((p) => p.selected = false);
+          this.loadPreInvoices();
+        } else {
+          this.filteredPreInvoiced.forEach((i) => i.selected = false);
+        }
         this.loadInvoices();
       },
       error: (err) => {
@@ -1007,6 +1049,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   cancelGenerateInvoice() {
     this.showGenerateInvoicePopup = false;
+    this.generateInvoiceSource = 'preInvoiced';
   }
   private deleteConsignments(list: any[]) {
     const selectedConsignments = (list || []).filter(i => i.selected);
