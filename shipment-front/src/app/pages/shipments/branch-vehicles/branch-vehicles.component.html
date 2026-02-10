@@ -1,6 +1,5 @@
 <div class="branch-vehicles-container">
   <h2>Branch Vehicles</h2>
-  <p class="branch-subtitle">{{ originLocId === 'all' ? 'All Branches' : (originLocId === 'all-hubs' ? 'All Hubs' : branchName) }}</p>
 
   <div class="vehicles-table-wrapper">
     <table>
@@ -29,58 +28,65 @@
   </div>
 </div>
 
-<div class="modal" *ngIf="showEditLocationPopup">
-  <div class="modal-content">
-    <span class="close" (click)="closeEditLocationPopup()">&times;</span>
-    <h3>Edit Vehicle Activity</h3>
-    <p class="modal-subtitle">Vehicle: {{ editLocationVehicle?.vehicleNo || '-' }}</p>
-    <label>
-      Current Branch
-      <select [(ngModel)]="editLocationValue">
-        <option value="" disabled>Select a location</option>
-        <option *ngFor="let opt of getLocationOptions()" [value]="opt.value">
-          {{ opt.label }}
-        </option>
-      </select>
-    </label>
+<div class="modal theme-modal" *ngIf="showEditLocationPopup">
+  <div class="modal-content vehicle-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Edit Vehicle Activity</h3>
+        <p class="modal-subtitle">Vehicle: {{ editLocationVehicle?.vehicleNo || '-' }}</p>
+      </div>
+      <button type="button" class="close" (click)="closeEditLocationPopup()">&times;</button>
+    </div>
 
-    <div class="manifest-consignments edit-manifest-list">
-      <h4>Scheduled Manifests</h4>
-      <p *ngIf="editManifestsLoading">Loading manifests...</p>
-      <p *ngIf="!editManifestsLoading && editVehicleManifests.length === 0">No manifests found.</p>
-      <div *ngFor="let m of editVehicleManifests" class="manifest-card">
-        <div class="manifest-header">
-          <div>
-            <strong>{{ m.manifestNumber || '-' }}</strong>
-            <span class="manifest-status">{{ formatVehicleStatus(m.status) }}</span>
-          </div>
-          <div class="manifest-meta">Vehicle: {{ m.vehicleNo || '-' }}</div>
-        </div>
-        <div class="manifest-meta manifest-vehicle-select">
-          <label>
-            Change Vehicle
-            <select [ngModel]="m.vehicleNo" (ngModelChange)="onManifestVehicleChange(m, $event)" [disabled]="isUpdatingManifestVehicle">
-              <option value="" disabled>Select vehicle</option>
-              <option *ngFor="let v of getCompanyVehicleOptions()" [value]="v">{{ v }}</option>
-            </select>
-          </label>
-        </div>
-        <div class="manifest-meta">Pickup: {{ m.pickup || '-' }}</div>
-        <div class="manifest-meta">Drop: {{ m.drop || '-' }}</div>
+    <div class="modal-body">
+      <label class="field">
+        <span>Current Branch</span>
+        <select [(ngModel)]="editLocationValue">
+          <option value="" disabled>Select a location</option>
+          <option *ngFor="let opt of getLocationOptions()" [value]="opt.value">
+            {{ opt.label }}
+          </option>
+        </select>
+      </label>
 
-        <div class="manifest-consignments">
-          <h4>Consignments</h4>
-          <div *ngIf="!m.consignments.length" class="manifest-empty">No consignments.</div>
-          <div *ngFor="let c of m.consignments" class="consignment-row">
-            <div class="consignment-header">
-              <span>{{ c.consignmentNumber }}</span>
-              <span class="consignment-status">{{ c.shipmentStatus || '-' }}</span>
+      <div class="manifest-consignments edit-manifest-list">
+        <h4>Scheduled Manifests</h4>
+        <p *ngIf="editManifestsLoading">Loading manifests...</p>
+        <p *ngIf="!editManifestsLoading && editVehicleManifests.length === 0">No manifests found.</p>
+        <div *ngFor="let m of editVehicleManifests" class="manifest-card">
+          <div class="manifest-header">
+            <div>
+              <strong>{{ m.manifestNumber || '-' }}</strong>
+              <span class="manifest-status">{{ formatVehicleStatus(m.status) }}</span>
             </div>
-            <div class="consignment-products">
-              <span *ngIf="!c.products.length">No products.</span>
-              <span *ngFor="let p of c.products" class="product-pill">
-                {{ p.name }} ({{ p.qty }})
-              </span>
+            <div class="manifest-meta">Vehicle: {{ m.vehicleNo || '-' }}</div>
+          </div>
+          <div class="manifest-meta manifest-vehicle-select">
+            <label>
+              Change Vehicle
+              <select [ngModel]="m.vehicleNo" (ngModelChange)="onManifestVehicleChange(m, $event)" [disabled]="isUpdatingManifestVehicle">
+                <option value="" disabled>Select vehicle</option>
+                <option *ngFor="let v of getCompanyVehicleOptions()" [value]="v">{{ v }}</option>
+              </select>
+            </label>
+          </div>
+          <div class="manifest-meta">Pickup: {{ m.pickup || '-' }}</div>
+          <div class="manifest-meta">Drop: {{ m.drop || '-' }}</div>
+
+          <div class="manifest-consignments">
+            <h4>Consignments</h4>
+            <div *ngIf="!m.consignments.length" class="manifest-empty">No consignments.</div>
+            <div *ngFor="let c of m.consignments" class="consignment-row">
+              <div class="consignment-header">
+                <span>{{ c.consignmentNumber }}</span>
+                <span class="consignment-status">{{ c.shipmentStatus || '-' }}</span>
+              </div>
+              <div class="consignment-products">
+                <span *ngIf="!c.products.length">No products.</span>
+                <span *ngFor="let p of c.products" class="product-pill">
+                  {{ p.name }} ({{ p.qty }})
+                </span>
+              </div>
             </div>
           </div>
         </div>

@@ -30,3 +30,126 @@ button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.cl
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+.theme-modal {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.theme-modal.modal,
+.theme-modal.modal-overlay,
+.theme-modal.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 16px;
+}
+
+.theme-modal .modal-content,
+.theme-modal .modal,
+.theme-modal .modal-card,
+.theme-modal .product-modal,
+.modal-content,
+.modal-card,
+.product-modal {
+  background: #ffffff !important;
+  border: 1px solid #d1d9e6 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.18) !important;
+  padding: 16px;
+  position: relative;
+}
+
+.theme-modal .modal-head,
+.theme-modal .modal-header,
+.modal-head,
+.modal-header {
+  margin: -16px -16px 12px;
+  padding: 12px 16px;
+  background: #2c3e50;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-radius: 12px 12px 0 0;
+}
+
+.theme-modal .modal-head h3,
+.theme-modal .modal-header h3,
+.modal-head h3,
+.modal-header h3 {
+  margin: 0;
+  color: inherit;
+}
+
+.theme-modal .modal-content > h3,
+.theme-modal .modal-content > h2,
+.modal-content > h3,
+.modal-content > h2 {
+  margin: -16px -16px 12px;
+  padding: 12px 16px;
+  background: #2c3e50;
+  color: #ffffff;
+  border-radius: 12px 12px 0 0;
+}
+
+.theme-modal .modal-content > .modal-subtitle,
+.modal-content > .modal-subtitle {
+  margin: -10px -16px 12px;
+  padding: 0 16px 12px;
+  background: #2c3e50;
+  color: #e2e8f0;
+}
+
+.theme-modal .close,
+.theme-modal .modal-head .icon-btn,
+.theme-modal .modal-header .close,
+.modal-content .close,
+.modal-head .icon-btn,
+.modal-header .close {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  color: #ffffff !important;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
+.theme-modal .close,
+.modal-content .close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
+}
+
+.theme-modal .modal-actions,
+.theme-modal .terminal-buttons,
+.theme-modal .button-section,
+.theme-modal .popup-actions,
+.modal-content .modal-actions,
+.modal-content .terminal-buttons,
+.modal-content .button-section,
+.modal-content .popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.modal {
+  z-index: 4000;
+}
+
+.modal-backdrop,
+.modal-overlay {
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 4000;
+}

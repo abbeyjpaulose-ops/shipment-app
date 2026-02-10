@@ -274,41 +274,24 @@
   border-radius: 16px;
   border: 1px solid var(--border);
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+  padding: 16px;
 }
 
-.details-close {
-  position: absolute;
-  right: 18px;
-  top: 12px;
-  background: transparent;
-  border: none;
-  font-size: 24px;
-  cursor: pointer;
-  color: var(--muted);
-}
-
-.details-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  gap: 12px;
-}
-
-.details-header h2 {
-  margin: 0;
-  font-size: 22px;
+.details-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .details-sub {
   margin: 6px 0 0;
-  color: var(--muted);
+  color: #e2e8f0;
   font-size: 13px;
 }
 
 .details-status {
-  background: #e0f2fe;
-  color: #0ea5e9;
+  background: #e2e8f0;
+  color: #1f2937;
   padding: 6px 10px;
   border-radius: 999px;
   font-size: 12px;

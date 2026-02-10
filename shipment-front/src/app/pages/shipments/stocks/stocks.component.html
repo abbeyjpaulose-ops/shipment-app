@@ -88,15 +88,17 @@
 </div>
 
 <!-- 📑 Shipment Details Modal -->
-<div class="modal details-modal" *ngIf="selectedStock">
+<div class="modal details-modal theme-modal" *ngIf="selectedStock">
   <div class="modal-content details-content">
-    <button class="details-close" type="button" (click)="closeStockDetails()">&times;</button>
-    <div class="details-header">
+    <div class="modal-head details-head">
       <div>
-        <h2>Shipment Details</h2>
+        <h3>Shipment Details</h3>
         <p class="details-sub">Consignment {{ selectedStock.consignmentNumber }}</p>
       </div>
-      <span class="details-status">{{ selectedStock.shipmentStatus }}</span>
+      <div class="details-head-actions">
+        <span class="details-status">{{ selectedStock.shipmentStatus }}</span>
+        <button class="icon-btn" type="button" (click)="closeStockDetails()">x</button>
+      </div>
     </div>
 
     <div class="stock-details details-grid">
@@ -424,21 +426,23 @@
   </div>
 </div>
 <!-- 🧾 Manifestation Terminal Popup -->
-<div class="modal" *ngIf="showManifestationPopup">
-  <div class="modal-content terminal-style">
-    <span class="close" (click)="closeManifestationPopup()">&times;</span>
-    <div class="terminal-header">
-      <h2>Manifestation Terminal</h2>
+<div class="modal theme-modal" *ngIf="showManifestationPopup">
+  <div class="modal-content manifestation-modal">
+    <div class="modal-head">
+      <h3>Manifestation Terminal</h3>
+      <button class="icon-btn" (click)="closeManifestationPopup()">x</button>
+    </div>
+    <div class="terminal-toolbar">
       <label class="terminal-status">
         <span>Status</span>
         <select [(ngModel)]="manifestationStatus">
           <option *ngFor="let status of manifestationStatusOptions" [value]="status">{{ status }}</option>
         </select>
       </label>
+      <p class="manifest-number" *ngIf="manifestationNumber">
+        <strong>Manifest No:</strong> {{ manifestationNumber }}
+      </p>
     </div>
-    <p class="manifest-number" *ngIf="manifestationNumber">
-      <strong>Manifest No:</strong> {{ manifestationNumber }}
-    </p>
 
     <div *ngIf="selectedForManifestation.length > 0; else noSelection">
       <hr>

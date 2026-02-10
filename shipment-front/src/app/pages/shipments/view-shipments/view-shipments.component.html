@@ -211,15 +211,17 @@
   </div>
 </div>
 <!-- dY"` Shipment Details Modal -->
-<div class="modal details-modal" *ngIf="selectedShipment">
+<div class="modal details-modal theme-modal" *ngIf="selectedShipment">
   <div class="modal-content details-content">
-    <button class="details-close" type="button" (click)="closeShipmentDetails()">&times;</button>
-    <div class="details-header accent">
+    <div class="modal-head details-head">
       <div>
-        <h2>Shipment Details</h2>
+        <h3>Shipment Details</h3>
         <p class="details-sub">Consignment {{ isEditingConsignment ? editingShipment?.consignmentNumber : selectedShipment.consignmentNumber }}</p>
       </div>
-      <span class="details-status pill">{{ isEditingConsignment ? editingShipment?.shipmentStatus : selectedShipment.shipmentStatus }}</span>
+      <div class="details-head-actions">
+        <span class="details-status pill">{{ isEditingConsignment ? editingShipment?.shipmentStatus : selectedShipment.shipmentStatus }}</span>
+        <button class="icon-btn" type="button" (click)="closeShipmentDetails()">x</button>
+      </div>
     </div>
     <div class="details-actions">
       <button
