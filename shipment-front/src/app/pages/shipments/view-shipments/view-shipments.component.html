@@ -6,9 +6,10 @@
     <button type="button" (click)="activeTab='received'" [class.active]="activeTab==='received'">Received Shipments</button>
   </div>
 
-  <div *ngIf="activeTab==='all'">
+  <div *ngIf="activeTab==='all'" class="tab-panel tab-panel--all">
     <!-- dY"? Search and Filters -->
-    <div class="filters">
+    <div class="tab-toolbar">
+      <div class="filters filters--all">
       <input
         type="text"
         placeholder="Search by consignment no. or consignor"
@@ -26,24 +27,37 @@
         <option value="Manifested">Manifested</option>
         <option value="Delivered">Delivered</option>
       </select>
-      <button
-        type="button"
-        class="print-btn"
-        (click)="printSelectedShipments()"
-        [disabled]="!isPrintEnabled">
-        Print LR
-      </button>
       <select
         *ngIf="originLocId === 'all-hubs'"
         [(ngModel)]="selectedHubFilterId"
         (ngModelChange)="onHubFilterChange($event)">
         <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
       </select>
+      </div>
+      <div class="tab-actions">
+        <button
+          type="button"
+          class="print-btn"
+          (click)="printSelectedShipments()"
+          [disabled]="!isPrintEnabled">
+          Print LR
+        </button>
+      </div>
     </div>
 
     <!-- dY"Žř Shipments Table -->
-    <div class="table-wrapper">
-      <table class="shipments-table">
+    <div class="table-wrapper table-wrapper--all">
+      <table class="shipments-table shipments-table--all">
+        <colgroup>
+          <col class="col-select" />
+          <col class="col-consignment" />
+          <col class="col-status" />
+          <col class="col-branch" />
+          <col class="col-current-branch" />
+          <col class="col-consignor" />
+          <col class="col-address" />
+          <col class="col-products" />
+        </colgroup>
         <thead>
           <tr>
             <th class="select-column">
@@ -83,11 +97,9 @@
     </div>
   </div>
 
-  <div *ngIf="activeTab==='received'">
-    <div class="actions-bar">
-      <button type="button" class="return-btn" *ngIf="hasSelectedReceived()" (click)="openReturnModal()">Return</button>
-    </div>
-    <div class="filters">
+  <div *ngIf="activeTab==='received'" class="tab-panel tab-panel--received">
+    <div class="tab-toolbar">
+      <div class="filters filters--received">
       <input
         type="text"
         placeholder="Search by consignment no. or consignor"
@@ -111,15 +123,24 @@
         (ngModelChange)="onHubFilterChange($event)">
         <option *ngFor="let h of getAllHubsFilterOptions()" [value]="h._id">{{ h.hubName }}</option>
       </select>
-      <input
-        type="text"
-        placeholder="Filter by consignor"
-        [(ngModel)]="filterConsignor"
-        (input)="applyFilters()" />
+      </div>
+      <div class="tab-actions">
+        <button type="button" class="return-btn" *ngIf="hasSelectedReceived()" (click)="openReturnModal()">Return</button>
+      </div>
     </div>
 
-    <div class="table-wrapper">
-      <table class="shipments-table">
+    <div class="table-wrapper table-wrapper--received">
+      <table class="shipments-table shipments-table--received">
+        <colgroup>
+          <col class="col-select" />
+          <col class="col-consignment" />
+          <col class="col-status" />
+          <col class="col-branch" />
+          <col class="col-current-branch" />
+          <col class="col-consignor" />
+          <col class="col-address" />
+          <col class="col-products" />
+        </colgroup>
         <thead>
           <tr>
             <th><input type="checkbox" (change)="toggleAllReceived($event)" /></th>
@@ -450,7 +471,7 @@
         <div class="card-head">
           <div>
             <p class="eyebrow">Shipment</p>
-            <h3>Shipment Details</h3>
+            <h3>Edit Shipment Details</h3>
           </div>
         </div>
         <div class="grid-2">
@@ -461,10 +482,10 @@
             <input [(ngModel)]="editingShipment.externalRefId">
           </label>
           <label>Status
-            <input [(ngModel)]="editingShipment.shipmentStatus">
+            <input [(ngModel)]="editingShipment.shipmentStatus" readonly>
           </label>
           <label>Status Details
-            <input [(ngModel)]="editingShipment.shipmentStatusDetails">
+            <input [(ngModel)]="editingShipment.shipmentStatusDetails" readonly>
           </label>
           <label>Branch
             <input [ngModel]="getOriginBranchDisplay(selectedShipment)" readonly>
@@ -473,22 +494,16 @@
             <input [ngModel]="getCurrentBranchDisplay(selectedShipment)" readonly>
           </label>
           <label>Current Vehicle No.
-            <input [(ngModel)]="editingShipment.currentVehicleNo">
+            <input [(ngModel)]="editingShipment.currentVehicleNo" readonly>
           </label>
           <label>Current Vehicle Owner Type
-            <input [(ngModel)]="editingShipment.currentVehicleOwnerType">
+            <input [(ngModel)]="editingShipment.currentVehicleOwnerType" readonly>
           </label>
           <label>Current Vehicle Owner ID
-            <input [(ngModel)]="editingShipment.currentVehicleOwnerId">
-          </label>
-          <label>Payment Mode
-            <input [(ngModel)]="editingShipment.paymentMode" (ngModelChange)="recalculateEditTotals()">
+            <input [(ngModel)]="editingShipment.currentVehicleOwnerId" readonly>
           </label>
           <label>Date
             <input type="date" [ngModel]="editingShipment.date | date:'yyyy-MM-dd'" readonly>
-          </label>
-          <label>Billing Type
-            <input [(ngModel)]="editingShipment.billingType" (ngModelChange)="recalculateEditTotals()">
           </label>
         </div>
       </div>
@@ -551,34 +566,34 @@
         </div>
         <div class="grid-2">
           <label>Pickup Type
-            <input [(ngModel)]="editingShipment.pickupType">
+            <input [(ngModel)]="editingShipment.pickupType" readonly>
           </label>
           <label>Pickup Name
-            <input [(ngModel)]="editingShipment.pickupName">
+            <input [(ngModel)]="editingShipment.pickupName" readonly>
           </label>
           <label>Pickup Phone
-            <input [(ngModel)]="editingShipment.pickupPhone">
+            <input [(ngModel)]="editingShipment.pickupPhone" readonly>
           </label>
           <label>Pickup Pincode
-            <input [(ngModel)]="editingShipment.pickupPincode">
+            <input [(ngModel)]="editingShipment.pickupPincode" readonly>
           </label>
           <label class="span-2">Pickup Address
-            <textarea [(ngModel)]="editingShipment.pickupAddress"></textarea>
+            <textarea [(ngModel)]="editingShipment.pickupAddress" readonly></textarea>
           </label>
           <label>Delivery Type
-            <input [(ngModel)]="editingShipment.deliveryType">
+            <input [(ngModel)]="editingShipment.deliveryType" readonly>
           </label>
           <label>Delivery Name
-            <input [(ngModel)]="editingShipment.deliveryName">
+            <input [(ngModel)]="editingShipment.deliveryName" readonly>
           </label>
           <label>Delivery Phone
-            <input [(ngModel)]="editingShipment.deliveryPhone">
+            <input [(ngModel)]="editingShipment.deliveryPhone" readonly>
           </label>
           <label>Delivery Pincode
-            <input [(ngModel)]="editingShipment.deliveryPincode">
+            <input [(ngModel)]="editingShipment.deliveryPincode" readonly>
           </label>
           <label class="span-2">Delivery Address
-            <textarea [(ngModel)]="editingShipment.deliveryAddress"></textarea>
+            <textarea [(ngModel)]="editingShipment.deliveryAddress" readonly></textarea>
           </label>
         </div>
       </div>
@@ -591,20 +606,28 @@
           </div>
         </div>
         <div class="grid-2">
-          <label>Billing Name
-            <input [(ngModel)]="editingShipment.billingName">
+          <label>Billing
+            <select [(ngModel)]="editingShipment.billingType" (ngModelChange)="recalculateEditTotals()">
+              <option value="consignor">Consignor/ Consignee</option>
+              <option value="different">Different</option>
+            </select>
           </label>
-          <label>Billing GSTIN
-            <input [(ngModel)]="editingShipment.billingGSTIN">
+          <label>Payment Mode
+            <select [(ngModel)]="editingShipment.paymentMode" (ngModelChange)="recalculateEditTotals()">
+              <option>To Pay</option>
+              <option>To Pay with account credit</option>
+              <option>Account Credit</option>
+              <option>Paid</option>
+              <option>Partially Paid</option>
+            </select>
           </label>
-          <label>Billing Phone
-            <input [(ngModel)]="editingShipment.billingPhone">
-          </label>
-          <label>Billing Location ID
-            <input [(ngModel)]="editingShipment.billingLocationId">
-          </label>
-          <label class="span-2">Billing Address
-            <textarea [(ngModel)]="editingShipment.billingAddress"></textarea>
+          <label class="span-2">Address
+            <select [(ngModel)]="editingShipment.billingAddress">
+              <option value="">Select address</option>
+              <option *ngFor="let opt of getEditBillingAddressOptions()" [value]="opt.value">
+                {{ opt.label }}
+              </option>
+            </select>
           </label>
         </div>
       </div>
@@ -631,18 +654,83 @@
       </div>
     </div>
 
-    <h3>Products</h3>
-    <div class="details-products card">
-      <div class="details-invoice" *ngFor="let invoice of selectedShipment.invoices">
-        <div class="details-invoice-title">Invoice #{{ invoice.number }}</div>
-        <ul class="details-product-list">
-          <li *ngFor="let product of invoice.products">
-            <span class="product-name">{{ product.type }}</span>
-            <span class="product-meta">In Stock: {{ product.instock }}</span>
-            <span class="product-meta">Total: {{ product.amount }}</span>
-          </li>
-        </ul>
+    <div class="card products-section">
+      <div class="card-head">
+        <div>
+          <p class="eyebrow">Items</p>
+          <h3>E-Waybills & Invoices</h3>
+        </div>
       </div>
+      <ng-container *ngIf="getShipmentEwaybills(isEditingConsignment ? editingShipment : selectedShipment) as ewaybills">
+        <ng-container *ngIf="ewaybills.length; else noEwaybills">
+          <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill">
+            <div class="line-header">
+              <div class="eyebrow">E-Waybill {{ e + 1 }}</div>
+            </div>
+            <div class="grid-3 compact">
+              <input
+                placeholder="Customer Eway-bill No"
+                [ngModel]="ewb?.number"
+                readonly>
+              <input
+                type="date"
+                [ngModel]="ewb?.date | date:'yyyy-MM-dd'"
+                readonly>
+            </div>
+
+            <div class="invoice-block" *ngFor="let invoice of (ewb?.invoices || []); let i = index">
+              <div class="line-header">
+                <div class="eyebrow">Invoice {{ i + 1 }}</div>
+              </div>
+              <div class="grid-3 compact">
+                <input
+                  placeholder="Customer INV No"
+                  [ngModel]="invoice?.number"
+                  readonly>
+                <input
+                  type="number"
+                  placeholder="Value"
+                  [ngModel]="invoice?.value"
+                  readonly>
+              </div>
+
+              <div class="subsection">
+                <div class="subsection-head">
+                  <div class="subsection-title">Products</div>
+                </div>
+                <div *ngFor="let product of (invoice?.products || []); let p = index" class="product-row">
+                  <div class="compact-row">
+                    <input [ngModel]="product?.type || product?.productName" readonly>
+                    <input type="number" placeholder="Qty" [ngModel]="product?.amount" readonly>
+                  </div>
+                  <div class="rate-inline">
+                    <input
+                      type="number"
+                      class="rate-input"
+                      placeholder="Rate / Unit"
+                      [ngModel]="product?.ratePer"
+                      readonly>
+                  </div>
+                </div>
+                <div class="muted" *ngIf="!invoice?.products?.length">No products found.</div>
+              </div>
+
+              <div class="subsection">
+                <div class="subsection-title">Packages</div>
+                <div *ngFor="let pkg of (invoice?.packages || []); let j = index" class="compact-row">
+                  <input [ngModel]="pkg?.type || pkg?.pkgName" readonly>
+                  <input type="number" placeholder="Qty" [ngModel]="pkg?.amount" readonly>
+                </div>
+                <div class="muted" *ngIf="!invoice?.packages?.length">No packages found.</div>
+              </div>
+            </div>
+            <div class="muted" *ngIf="!ewb?.invoices?.length">No invoices found.</div>
+          </div>
+        </ng-container>
+      </ng-container>
+      <ng-template #noEwaybills>
+        <p class="muted">No e-waybills found.</p>
+      </ng-template>
     </div>
 
     <div class="details-footer" *ngIf="isEditingConsignment">

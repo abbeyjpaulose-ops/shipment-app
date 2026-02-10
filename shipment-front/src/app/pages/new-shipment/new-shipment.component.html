@@ -64,15 +64,15 @@
             <div class="panel-head">
               <h4>Consignor (Sender)</h4>
               <div class="tab-buttons">
-                <button (click)="consignorTab='consignor'" [class.active]="consignorTab==='consignor'">Client</button>
-                <button (click)="consignorTab='guest'" [class.active]="consignorTab==='guest'">Guest</button>
+                <button class="tab-button" (click)="consignorTab='consignor'" [class.active]="consignorTab==='consignor'">Client</button>
+                <button class="tab-button" (click)="consignorTab='guest'" [class.active]="consignorTab==='guest'">Guest</button>
               </div>
             </div>
 
             <div *ngIf="consignorTab==='consignor'" class="panel-body">
               <div class="inline-actions">
                 <span class="muted">Saved clients</span>
-                <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
+                <button class="tiny-btn" (click)="openClientModal()">+ New/Edit Client</button>
               </div>
               <label>Sender Name
                 <input
@@ -150,15 +150,15 @@
             <div class="panel-head">
               <h4>Consignee (Receiver)</h4>
               <div class="tab-buttons">
-                <button (click)="consigneeTab='consignee'" [class.active]="consigneeTab==='consignee'">Client</button>
-                <button (click)="consigneeTab='guest'" [class.active]="consigneeTab==='guest'">Guest</button>
+                <button class="tab-button" (click)="consigneeTab='consignee'" [class.active]="consigneeTab==='consignee'">Client</button>
+                <button class="tab-button" (click)="consigneeTab='guest'" [class.active]="consigneeTab==='guest'">Guest</button>
               </div>
             </div>
 
             <div *ngIf="consigneeTab==='consignee'" class="panel-body">
               <div class="inline-actions">
                 <span class="muted">Saved clients</span>
-                <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
+                <button class="tiny-btn" (click)="openClientModal()">+ New/Edit Client</button>
               </div>
               <label>Receiver Name
                 <input
@@ -202,30 +202,32 @@
                     <span>{{ deliveryType === 'branch' ? 'Customer Self Pickup' : 'Out for delivery too' }}</span>
                   </label>
                 </div>
-                <div class="inline-actions">
-                  <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
-                </div>
-                <label>Client Name
-                  <select [(ngModel)]="deliveryPreviousReceiver" (change)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
-                    <option value="">Select client</option>
-                    <option *ngFor="let c of clientList" [value]="c.clientName">
-                      {{ formatClientOption(c) }}
-                    </option>
-                  </select>
-                </label>
-                <label>Delivery Address
-                  <select
-                    [(ngModel)]="deliveryLocationIndex"
-                    (change)="onDeliverySelectedLocationSelect(deliveryLocationIndex)"
-                    [disabled]="!deliveryPreviousReceiver">
-                    <option value="">Select address</option>
-                    <option *ngFor="let loc of getDeliverySelectedClientLocations(); let i = index" [value]="i">
-                      {{ formatLocation(loc) }}
-                    </option>
-                  </select>
-                </label>
+                <ng-container *ngIf="deliveryType !== 'branch'">
+                  <div class="inline-actions">
+                    <button class="tiny-btn" (click)="openClientModal()">+ New/Edit Client</button>
+                  </div>
+                  <label>Client Name
+                    <select [(ngModel)]="deliveryPreviousReceiver" (change)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
+                      <option value="">Select client</option>
+                      <option *ngFor="let c of clientList" [value]="c.clientName">
+                        {{ formatClientOption(c) }}
+                      </option>
+                    </select>
+                  </label>
+                  <label>Delivery Address
+                    <select
+                      [(ngModel)]="deliveryLocationIndex"
+                      (change)="onDeliverySelectedLocationSelect(deliveryLocationIndex)"
+                      [disabled]="!deliveryPreviousReceiver">
+                      <option value="">Select address</option>
+                      <option *ngFor="let loc of getDeliverySelectedClientLocations(); let i = index" [value]="i">
+                        {{ formatLocation(loc) }}
+                      </option>
+                    </select>
+                  </label>
+                </ng-container>
               </div>
-              <div class="field-display">
+              <div class="field-display" *ngIf="deliveryType !== 'branch'">
                 <span class="label">Delivery Pincode</span>
                 <span class="value">{{ deliveryPincode || '-' }}</span>
               </div>
@@ -246,8 +248,8 @@
             <div class="panel-head">
               <h4>Billing</h4>
               <div class="tab-buttons ghost">
-                <button (click)="setBillingType('consignor')" [class.active]="billingType==='consignor'">Consignor/ Consignee</button>
-                <button (click)="setBillingType('different')" [class.active]="billingType==='different'">Different</button>
+                <button class="tab-button" (click)="setBillingType('consignor')" [class.active]="billingType==='consignor'">Consignor/ Consignee</button>
+                <button class="tab-button" (click)="setBillingType('different')" [class.active]="billingType==='different'">Different</button>
               </div>
           <div class="panel soft span-2">
             <div class="panel-body">
@@ -269,7 +271,7 @@
             <div *ngIf="billingType==='different'" class="panel-body">
               <div class="inline-actions">
                 <span class="muted">Saved clients</span>
-                <button class="tiny-btn" (click)="openClientModal()">+ New Client/Edit Client</button>
+                <button class="tiny-btn" (click)="openClientModal()">+ New/Edit Client</button>
               </div>
               <label>Billing Name
                 <select [(ngModel)]="billingSource" (change)="onBillingSourceSelect(billingSource)">
@@ -358,7 +360,9 @@
         <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill">
           <div class="line-header">
             <div class="eyebrow">E-Waybill {{ e + 1 }}</div>
-            <button class="icon-btn" (click)="deleteEwaybill(e)">バ</button>
+            <button *ngIf="e > 0" class="icon-btn" (click)="deleteEwaybill(e)" aria-label="Delete e-waybill" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
           <div class="grid-3 compact">
             <input placeholder="Customer Eway-bill No" [(ngModel)]="ewb.number">
@@ -370,7 +374,9 @@
               <div>
                 <div class="eyebrow">Invoice {{ i + 1 }}</div>
               </div>
-              <button class="icon-btn" (click)="deleteInvoice(e, i)">バ</button>
+              <button *ngIf="i > 0" class="icon-btn" (click)="deleteInvoice(e, i)" aria-label="Delete invoice" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
             <div class="grid-3 compact">
             <input placeholder="Customer INV No" [(ngModel)]="invoice.number">
@@ -380,23 +386,37 @@
             <div class="subsection">
               <div class="subsection-head">
                 <div class="subsection-title">Products</div>
-                <button class="tiny-btn" (click)="openProductModal()">+ New Product</button>
+                <button class="tiny-btn" (click)="openProductModal()">+ New Product to list</button>
+              </div>
+              <div class="product-head">
+                <span>Product</span>
+                <span>Qty</span>
+                <span>Rate</span>
+                <span></span>
               </div>
               <div *ngFor="let product of invoice.products; let p=index" class="product-row">
-                <div class="compact-row">
+                <div class="product-cell product-cell-product">
                   <select [(ngModel)]="product.type" (change)="onProductTypeChange(product)">
                     <option *ngFor="let prod of productList" [value]="prod.productName">
                       {{ prod.hsnNum }} - {{ prod.productName }}
                     </option>
                   </select>
-                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount" (ngModelChange)="scheduleQuote()">
-                  <button class="icon-btn" (click)="deleteProduct(e, i, p)">バ</button>
                 </div>
-                <div class="rate-inline">
-                  <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer" (ngModelChange)="scheduleQuote()">
-                  <span *ngIf="getSuggestedRate(product) !== null" class="suggested-rate">
-                    Suggested: {{ getSuggestedRate(product) }}
-                  </span>
+                <div class="product-cell product-cell-qty">
+                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount" (ngModelChange)="scheduleQuote()">
+                </div>
+                <div class="product-cell product-cell-rate">
+                  <div class="rate-inline">
+                    <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer" (ngModelChange)="scheduleQuote()">
+                    <span *ngIf="getSuggestedRate(product) !== null" class="suggested-rate">
+                      Suggested: {{ getSuggestedRate(product) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="product-cell product-cell-delete">
+                  <button *ngIf="p > 0" class="icon-btn" (click)="deleteProduct(e, i, p)" aria-label="Delete product" title="Delete">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </div>
               </div>
               <button class="tiny-btn" (click)="addProduct(e, i)">+ Product</button>
@@ -409,7 +429,9 @@
                   <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
                 </select>
                 <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount" (ngModelChange)="scheduleQuote()">
-                <button class="icon-btn" (click)="deletePackage(e, i, j)">バ</button>
+                <button class="icon-btn" (click)="deletePackage(e, i, j)" aria-label="Delete package" title="Delete">
+                  <i class="fas fa-trash"></i>
+                </button>
               </div>
               <button class="tiny-btn" (click)="addPackage(e, i)">+ Package</button>
             </div>
@@ -572,8 +594,8 @@
       <button class="icon-btn" (click)="closeModals()">?</button>
     </div>
     <div class="tab-buttons" style="margin-bottom: 12px;" *ngIf="showClientAddTab">
-      <button (click)="setClientModalTab('add')" [class.active]="clientModalTab==='add'">New Client</button>
-      <button (click)="setClientModalTab('edit')" [class.active]="clientModalTab==='edit'">Edit Client</button>
+      <button class="tab-button" (click)="setClientModalTab('add')" [class.active]="clientModalTab==='add'">New Client</button>
+      <button class="tab-button" (click)="setClientModalTab('edit')" [class.active]="clientModalTab==='edit'">Edit Client</button>
     </div>
 
     <div *ngIf="showClientAddTab && clientModalTab==='add'">

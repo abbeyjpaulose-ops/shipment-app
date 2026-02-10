@@ -17,23 +17,57 @@
   min-width: 0;
 }
 
-.filters {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 15px;
-  flex-wrap: wrap;
+.tab-panel {
+  margin-bottom: 16px;
 }
 
-.filters .print-btn {
+.tab-panel--all {
+  --tab-accent: #2563eb;
+}
+
+.tab-panel--received {
+  --tab-accent: #f97316;
+}
+
+.tab-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  border-left: 4px solid var(--tab-accent, var(--primary));
+  margin-bottom: 12px;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  flex: 1 1 520px;
+  min-width: 0;
+}
+
+.tab-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.print-btn {
   padding: 8px 14px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--primary);
   color: #ffffff;
   cursor: pointer;
+  white-space: nowrap;
 }
 
-.filters .print-btn:disabled {
+.print-btn:disabled {
   background: #e5e7eb;
   border-color: #e5e7eb;
   cursor: not-allowed;
@@ -56,8 +90,8 @@
   border-radius: 10px;
   background: #ffffff;
   color: var(--text);
-  flex: 1 1 190px;
   min-width: 0;
+  width: 100%;
 }
 
 .tabs {
@@ -114,9 +148,41 @@
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
-  table-layout: auto;
+  table-layout: fixed;
   min-width: 0;
   font-size: 12px;
+}
+
+.shipments-table .col-select {
+  width: 48px;
+}
+
+.shipments-table .col-consignment {
+  width: 150px;
+}
+
+.shipments-table .col-status {
+  width: 120px;
+}
+
+.shipments-table .col-branch {
+  width: 130px;
+}
+
+.shipments-table .col-current-branch {
+  width: 140px;
+}
+
+.shipments-table .col-consignor {
+  width: 160px;
+}
+
+.shipments-table .col-address {
+  width: 220px;
+}
+
+.shipments-table .col-products {
+  width: 120px;
 }
 
 .shipments-table th, .shipments-table td {
@@ -139,6 +205,30 @@
 .shipments-table tr:hover {
   background-color: #f8fafc;
   cursor: pointer;
+}
+
+.table-wrapper--all .shipments-table {
+  border-color: #bfdbfe;
+}
+
+.table-wrapper--received .shipments-table {
+  border-color: #fed7aa;
+}
+
+.shipments-table--all th {
+  background: #eff6ff;
+}
+
+.shipments-table--received th {
+  background: #fff7ed;
+}
+
+.shipments-table--all tr:hover {
+  background-color: #eff6ff;
+}
+
+.shipments-table--received tr:hover {
+  background-color: #fff7ed;
 }
 
 /* Modal Styling */
@@ -423,6 +513,113 @@
   gap: 10px;
 }
 
+.products-section .eyebrow {
+  margin: 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+
+.products-section input,
+.products-section select,
+.products-section textarea {
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--text);
+  background: #fff;
+  font-family: inherit;
+}
+
+.products-section .grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.products-section .grid-3.compact {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.products-section .line-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.products-section .ewaybill {
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #f8fafc;
+}
+
+.products-section .invoice-block {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.products-section .subsection {
+  margin-top: 8px;
+  border: 1px dashed var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fff;
+}
+
+.products-section .subsection-title {
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.products-section .subsection-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.products-section .subsection-head .subsection-title {
+  margin-bottom: 0;
+}
+
+.products-section .compact-row {
+  display: grid;
+  grid-template-columns: 1fr 110px;
+  gap: 8px;
+  align-items: center;
+}
+
+.products-section .product-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.products-section .rate-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.products-section .rate-input {
+  max-width: 160px;
+}
+
 .details-footer {
   position: sticky;
   bottom: 0;
@@ -624,6 +821,14 @@
   }
 
   .edit-consignment .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .products-section .grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .products-section .compact-row {
     grid-template-columns: 1fr;
   }
 

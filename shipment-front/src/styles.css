@@ -2,3 +2,31 @@ body {
   margin: 0;
   font-family: Arial, sans-serif;
 }
+
+:root {
+  --theme-primary: #2c3e50;
+  --theme-primary-hover: #34495e;
+  --theme-primary-border: #1f2d3a;
+  --theme-primary-text: #ffffff;
+}
+
+button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button) {
+  background: var(--theme-primary) !important;
+  color: var(--theme-primary-text) !important;
+  border: 1px solid var(--theme-primary-border) !important;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font: inherit;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):hover {
+  background: var(--theme-primary-hover) !important;
+  border-color: var(--theme-primary-hover) !important;
+}
+
+button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

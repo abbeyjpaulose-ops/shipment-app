@@ -22,6 +22,15 @@
 .inactive-btn { background:#777; color:white; }
 
 .add-branch-btn {
+  margin: 0;
+}
+
+.branches-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
   margin-bottom: 12px;
 }
 
@@ -57,4 +66,77 @@
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+.branches-container {
+  padding: 20px 24px;
+}
+
+.branches-table-wrapper table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+}
+
+.branches-table-wrapper th,
+.branches-table-wrapper td {
+  border: 1px solid #d1d9e6;
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.branches-table-wrapper th {
+  background: #2c3e50;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.branches-table-wrapper tr:nth-child(even) td {
+  background: #eef2f7;
+}
+
+.vehicle-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+  background: #ffffff;
+}
+
+.vehicle-table th,
+.vehicle-table td {
+  border: 1px solid #d1d9e6;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.vehicle-table th {
+  background: #2c3e50;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.vehicle-table tbody tr:nth-child(even) td {
+  background: #eef2f7;
+}
+
+.vehicle-table input,
+.vehicle-table select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.vehicle-col-status {
+  width: 70px;
+}
+
+.vehicle-col-actions {
+  width: 90px;
+}
+
+.vehicle-status {
+  text-transform: capitalize;
+  font-size: 12px;
 }

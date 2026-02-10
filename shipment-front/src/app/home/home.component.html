@@ -1,88 +1,98 @@
-<div class="container">
-  <aside class="sidebar">
+<div class="layout">
+  <header class="topbar">
     <div class="welcome">
       <h3><i class="fas fa-user-circle"></i> Welcome, {{ username }}, {{ email }}</h3>
- 
-      <!-- Branch Dropdown --> 
+
+      <!-- Branch Dropdown -->
       <select
         [(ngModel)]="selectedoriginLocId"
         (change)="onBranchChange($event)"
         [disabled]="!isAdmin && branchOptions.length <= 1"
-      > 
+      >
         <option *ngFor="let b of branchOptions" [value]="b.id">{{ b.label }}</option>
       </select>
- 
     </div>
-    <ul>
-      <li><a routerLink="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-      <li><a routerLink="new-shipment"><i class="fas fa-plus-circle"></i> New Shipment</a></li>
 
-      <!-- Shipments -->
-      <li class="menu-item" (click)="toggleMenu('shipments')">
-        <span><i class="fas fa-truck"></i> Shipments</span>
-        <i class="fas fa-caret-down"></i>
-      </li>
-      <ul *ngIf="showShipments" class="submenu">
-        <li><a routerLink="shipments">View Shipments</a></li>
-        <li><a routerLink="Stocks">Stocks</a></li>
-        <li><a routerLink="Manifest">Manifest</a></li>
-        <li><a routerLink="BranchVehicles">Branch Vehicles</a></li>
-        <li><a routerLink="Delivered">Delivered/Pre-Invoice</a></li>
-        <li><a routerLink="Invoiced">Invoiced</a></li>
-      </ul>
+    <nav class="topbar-nav">
+      <ul>
+        <li><a class="nav-link" routerLink="dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+        <li><a class="nav-link" routerLink="new-shipment"><i class="fas fa-plus-circle"></i> New Shipment</a></li>
 
-      <!-- Admin -->
-      <ng-container *ngIf="isAdmin; else noAdminMenu">
-        <li class="menu-item" (click)="toggleMenu('admin')">
-          <span><i class="fas fa-user-shield"></i> Admin</span>
-          <i class="fas fa-caret-down"></i>
+        <li class="nav-group">
+          <button type="button" class="nav-link dropdown-toggle" (click)="toggleMenu('shipments')">
+            <span><i class="fas fa-truck"></i> Shipments</span>
+            <i class="fas fa-caret-down"></i>
+          </button>
+          <ul *ngIf="showShipments" class="submenu">
+            <li><a routerLink="shipments">View Shipments</a></li>
+            <li><a routerLink="Stocks">Stocks</a></li>
+            <li><a routerLink="Manifest">Manifest</a></li>
+            <li><a routerLink="Delivered">Delivered/Pre-Invoice</a></li>
+            <li><a routerLink="Invoiced">Invoiced</a></li>
+            <li><a routerLink="BranchVehicles">Branch Vehicles</a></li>
+          </ul>
         </li>
-        <ul *ngIf="showAdmin" class="submenu">
-          <li><a routerLink="Clients">Clients</a></li>
-          <li><a routerLink="Guests">Guests</a></li>
-          <li><a routerLink="Branches">Branches</a></li>
-          <li><a routerLink="Hubs">Hubs</a></li>
-          <li><a routerLink="Tpartners">Transport Partners</a></li>
-          <li><a routerLink="Payments">Payments</a></li>
-          <li><a routerLink="Categories">Running cost</a></li>
-          <li><a routerLink="Pkgs">Packages</a></li>
-          <li><a routerLink="Products">Products</a></li>
-          <li><a routerLink="RoleSettings">Roles Settings</a></li>
-        </ul>
-      </ng-container>
 
-      <ng-template #noAdminMenu>
-        <li class="menu-item" style="opacity: 0.55; cursor: not-allowed;">
-          <span><i class="fas fa-user-shield"></i> Admin (No privileges)</span>
+        <ng-container *ngIf="isAdmin; else noAdminMenu">
+          <li class="nav-group">
+            <button type="button" class="nav-link dropdown-toggle" (click)="toggleMenu('admin')">
+              <span><i class="fas fa-user-shield"></i> Admin</span>
+              <i class="fas fa-caret-down"></i>
+            </button>
+            <ul *ngIf="showAdmin" class="submenu">
+              <li><a routerLink="Clients">Clients</a></li>
+              <li><a routerLink="Guests">Guests</a></li>
+              <li><a routerLink="Branches">Branches</a></li>
+              <li><a routerLink="Hubs">Hubs</a></li>
+              <li><a routerLink="Tpartners">Transport Partners</a></li>
+              <li><a routerLink="Payments">Payments</a></li>
+              <li><a routerLink="Categories">Running cost</a></li>
+              <li><a routerLink="Pkgs">Packages</a></li>
+              <li><a routerLink="Products">Products</a></li>
+              <li><a routerLink="RoleSettings">Roles Settings</a></li>
+            </ul>
+          </li>
+        </ng-container>
+
+        <ng-template #noAdminMenu>
+          <li class="nav-group disabled">
+            <span class="nav-link"><i class="fas fa-user-shield"></i> Admin (No privileges)</span>
+          </li>
+        </ng-template>
+
+        <li class="nav-group">
+          <button type="button" class="nav-link dropdown-toggle" (click)="toggleMenu('settings')">
+            <span><i class="fas fa-cog"></i> Settings</span>
+            <i class="fas fa-caret-down"></i>
+          </button>
+          <ul *ngIf="showSettings" class="submenu">
+            <li><a routerLink="Configuration">Configuration</a></li>
+            <li><a routerLink="Logs">Logs</a></li>
+            <li><a routerLink="Locations">Locations</a></li>
+          </ul>
         </li>
-      </ng-template>
 
-      <!-- Settings -->
-      <li class="menu-item" (click)="toggleMenu('settings')">
-        <span><i class="fas fa-cog"></i> Settings</span>
-        <i class="fas fa-caret-down"></i>
-      </li>
-      <ul *ngIf="showSettings" class="submenu">
-        <li><a routerLink="Configuration">Configuration</a></li>
-        <li><a routerLink="Logs">Logs</a></li>
-        <li><a routerLink="Locations">Locations</a></li>
+        <li class="nav-group">
+          <button type="button" class="nav-link dropdown-toggle" (click)="toggleMenu('profile')">
+            <span><i class="fas fa-id-badge"></i> Profile</span>
+            <i class="fas fa-caret-down"></i>
+          </button>
+          <ul *ngIf="showProfile" class="submenu">
+            <li><a routerLink="profile">My Profile</a></li>
+            <li><a routerLink="changePass">Change Password</a></li>
+            <li><a routerLink="roles">Roles</a></li>
+          </ul>
+        </li>
+
+        <li><a class="nav-link" routerLink="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
+        <li>
+          <button type="button" class="nav-link" (click)="openLogoutModal()">
+            <i class="fas fa-sign-out-alt"></i> Logout
+          </button>
+        </li>
       </ul>
-
-      <!-- Profile -->
-      <li class="menu-item" (click)="toggleMenu('profile')">
-        <span><i class="fas fa-id-badge"></i> Profile</span>
-        <i class="fas fa-caret-down"></i>
-      </li>
-      <ul *ngIf="showProfile" class="submenu">
-        <li><a routerLink="profile">My Profile</a></li>
-        <li><a routerLink="changePass">Change Password</a></li>
-        <li><a routerLink="roles">Roles</a></li>
-      </ul>
-
-      <li><a routerLink="notifications"><i class="fas fa-bell"></i> Notifications</a></li>
-      <li><a (click)="openLogoutModal()"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-    </ul>
-  </aside>
+    </nav>
+  </header>
 
   <main class="content">
     <router-outlet></router-outlet>

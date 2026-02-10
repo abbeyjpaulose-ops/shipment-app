@@ -176,30 +176,37 @@ textarea {
 
 .tab-buttons {
   display: inline-flex;
-  background: #e5e7eb;
-  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
   padding: 4px;
   gap: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
-.tab-buttons button {
+.tab-buttons .tab-button {
   border: none;
   background: transparent;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
   cursor: pointer;
-  color: var(--muted);
+  color: #475569;
   font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.tab-buttons button.active {
-  background: #fff;
-  color: var(--primary-strong);
-  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+.tab-buttons .tab-button:hover:not(.active) {
+  background: #e2e8f0;
+}
+
+.tab-buttons .tab-button.active {
+  background: #2c3e50;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(44, 62, 80, 0.25);
 }
 
 .tab-buttons.ghost {
-  background: #f8fafc;
+  background: #eef2f7;
 }
 
 .party-grid {
@@ -680,9 +687,31 @@ button.ghost {
 }
 
 .product-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.product-head {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 6px 0 4px;
+}
+
+.product-cell {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
+}
+
+.product-cell-product select,
+.product-cell-qty input {
+  width: 100%;
 }
 
 .rate-input {
@@ -694,6 +723,19 @@ button.ghost {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.product-cell-rate .rate-inline {
+  width: 100%;
+}
+
+.product-cell-rate .rate-inline .rate-input {
+  max-width: none;
+  width: 100%;
+}
+
+.product-cell-delete {
+  justify-content: flex-start;
 }
 
 .suggested-rate {
@@ -723,6 +765,18 @@ button.ghost {
     flex-direction: column;
     align-items: flex-start;
   }
+  .product-row {
+    grid-template-columns: 1fr;
+  }
+  .product-head {
+    display: none;
+  }
+  .product-cell {
+    width: 100%;
+  }
+  .product-cell-rate .rate-inline {
+    flex-wrap: wrap;
+  }
 }
 
 @media (max-width: 520px) {
@@ -734,5 +788,9 @@ button.ghost {
   }
   .compact-row {
     grid-template-columns: 1fr;
+  }
+  .product-cell-rate .rate-inline {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

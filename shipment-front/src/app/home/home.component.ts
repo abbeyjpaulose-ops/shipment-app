@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, HostListener, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink } from '@angular/router';
 import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -103,10 +103,36 @@ export class HomeComponent implements OnInit {
   }
 
   toggleMenu(menu: string) {
-    if (menu === 'shipments') this.showShipments = !this.showShipments;
-    if (menu === 'admin' && this.isAdmin) this.showAdmin = !this.showAdmin;
-    if (menu === 'settings') this.showSettings = !this.showSettings;
-    if (menu === 'profile') this.showProfile = !this.showProfile;
+    const wasOpen =
+      (menu === 'shipments' && this.showShipments) ||
+      (menu === 'admin' && this.showAdmin) ||
+      (menu === 'settings' && this.showSettings) ||
+      (menu === 'profile' && this.showProfile);
+
+    this.closeMenus();
+
+    if (wasOpen) return;
+
+    if (menu === 'shipments') this.showShipments = true;
+    if (menu === 'admin' && this.isAdmin) this.showAdmin = true;
+    if (menu === 'settings') this.showSettings = true;
+    if (menu === 'profile') this.showProfile = true;
+  }
+
+  closeMenus() {
+    this.showShipments = false;
+    this.showAdmin = false;
+    this.showSettings = false;
+    this.showProfile = false;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest('.submenu')) return;
+    if (target.closest('.dropdown-toggle')) return;
+    this.closeMenus();
   }
 
   private syncSelectedBranch() {

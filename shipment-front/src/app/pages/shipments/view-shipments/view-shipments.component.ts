@@ -1096,6 +1096,44 @@ export class ViewShipmentsComponent implements OnInit {
     this.editingShipment.charges.consignorDiscount = this.roundCurrency(Math.max(0, safePercent));
   }
 
+  getEditBillingAddressOptions(): Array<{ value: string; label: string }> {
+    const shipment = this.editingShipment;
+    if (!shipment) return [];
+    const options: Array<{ value: string; label: string }> = [];
+    const used = new Set<string>();
+    const pushOption = (value: any, labelPrefix: string) => {
+      const text = String(value ?? '').trim();
+      if (!text || text === '-' || used.has(text)) return;
+      used.add(text);
+      options.push({ value: text, label: `${labelPrefix}: ${text}` });
+    };
+
+    const billingAddress = String(shipment.billingAddress || '').trim();
+    const billingFallback = billingAddress || String(shipment.billingLocationId || '').trim();
+    if (billingFallback) {
+      pushOption(billingFallback, 'Billing');
+    }
+
+    const billingType = String(shipment.billingType || '').trim().toLowerCase();
+    if (billingType === 'consignor') {
+      pushOption(shipment.consignorAddress, 'Consignor');
+      pushOption(shipment.consigneeAddress, 'Consignee');
+    }
+
+    return options;
+  }
+
+  getShipmentEwaybills(shipment: any): any[] {
+    if (!shipment) return [];
+    const ewaybills = Array.isArray(shipment.ewaybills) ? shipment.ewaybills : [];
+    if (ewaybills.length) return ewaybills;
+    const invoices = Array.isArray(shipment.invoices) ? shipment.invoices : [];
+    if (invoices.length) {
+      return [{ number: '', date: null, invoices }];
+    }
+    return [];
+  }
+
   private computeEditTotals(invoices: any[], charges: any): { subtotal: number } {
     let invoiceTotal = 0;
     let packageTotal = 0;
