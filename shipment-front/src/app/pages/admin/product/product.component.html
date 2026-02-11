@@ -1,105 +1,212 @@
 <div class="products-container">
-  <h2>Manage Standard Products Pricing</h2>
-
-  <!-- Add Product Button -->
-  <button class="add-product-btn" type="button" (click)="openAddProductPopup()">+ Add Product</button>
+  <div class="products-header">
+    <h2>Manage Standard Products Pricing</h2>
+    <button class="add-product-btn" type="button" (click)="openAddProductPopup()">+ Add Product</button>
+  </div>
 
   <!-- Add Product Popup -->
-  <div class="modal-backdrop" *ngIf="showAddProductPopup">
-    <div class="modal">
-      <div class="modal-head">
-        <h3>Add Product</h3>
-        <button class="icon-btn" type="button" (click)="closeAddProductPopup()">x</button>
+  <div class="modal theme-modal" *ngIf="showAddProductPopup">
+    <div class="modal-content product-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Add Product</h3>
+          <p class="modal-subtitle">Create a new product pricing</p>
+        </div>
+        <button class="close" type="button" (click)="closeAddProductPopup()">&times;</button>
       </div>
-      <label>HSN Number* <input [(ngModel)]="newProduct.hsnNum" /></label>
-      <label>Product Name* <input [(ngModel)]="newProduct.productName" /></label>
-      <h4>Rates by Route</h4>
-      <div *ngFor="let rateEntry of newProduct.rates; let i = index" class="inline-fields">
-        <input placeholder="Pickup Address Id" [(ngModel)]="rateEntry.pickupLocationId" list="rate-addresses" />
-        <input placeholder="Delivery Address Id" [(ngModel)]="rateEntry.deliveryLocationId" list="rate-addresses" />
-        <input type="number" placeholder="Rate / Box" [(ngModel)]="rateEntry.rate.ratePerNum" />
-        <input type="number" placeholder="Rate / cmA3" [(ngModel)]="rateEntry.rate.ratePerVolume" />
-        <input type="number" placeholder="Rate / Kg" [(ngModel)]="rateEntry.rate.ratePerKg" />
-        <button class="tiny-btn" type="button" (click)="removeRateRow(newProduct, i)">Remove</button>
+
+      <div class="modal-body">
+        <div class="product-form-grid">
+          <label class="field">
+            <span>HSN Number</span>
+            <input [(ngModel)]="newProduct.hsnNum" placeholder="HSN Number" required>
+          </label>
+          <label class="field">
+            <span>Product Name</span>
+            <input [(ngModel)]="newProduct.productName" placeholder="Product Name" required>
+          </label>
+        </div>
+
+        <div class="rates-section">
+          <label class="rates-label">Rates by Route</label>
+
+          <div class="rate-card" *ngFor="let rateEntry of newProduct.rates; let i = index">
+            <div class="rate-row">
+              <input placeholder="Pickup Address Id" [(ngModel)]="rateEntry.pickupLocationId" list="rate-addresses" />
+              <input placeholder="Delivery Address Id" [(ngModel)]="rateEntry.deliveryLocationId" list="rate-addresses" />
+              <input type="number" placeholder="Rate / Box" [(ngModel)]="rateEntry.rate.ratePerNum" />
+              <input type="number" placeholder="Rate / cm3" [(ngModel)]="rateEntry.rate.ratePerVolume" />
+              <input type="number" placeholder="Rate / Kg" [(ngModel)]="rateEntry.rate.ratePerKg" />
+              <button class="remove-btn" type="button" (click)="removeRateRow(newProduct, i)">Remove</button>
+            </div>
+          </div>
+          <button class="add-rate-btn" type="button" (click)="addRateRow(newProduct)">+ Add Rate</button>
+          <datalist id="rate-addresses">
+            <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
+          </datalist>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeAddProductPopup()">Cancel</button>
+          <button type="button" (click)="addProduct()">+ Add Product</button>
+        </div>
       </div>
-      <button class="tiny-btn" type="button" (click)="addRateRow(newProduct)">+ Add Rate</button>
-      <datalist id="rate-addresses">
-        <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
-      </datalist>
-      <div class="modal-actions">
-        <button (click)="addProduct()">Save</button>
-        <button (click)="closeAddProductPopup()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Edit Product Popup -->
+  <div class="modal theme-modal" *ngIf="showEditProductPopup && editingProduct">
+    <div class="modal-content edit-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Edit Product</h3>
+          <p class="modal-subtitle">Product: {{ editingProduct?.productName || '-' }}</p>
+        </div>
+        <button class="close" type="button" (click)="closeEditProductPopup()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="product-form-grid">
+          <label class="field">
+            <span>HSN Number</span>
+            <input [(ngModel)]="editingProduct.hsnNum" placeholder="HSN Number" required>
+          </label>
+          <label class="field">
+            <span>Product Name</span>
+            <input [(ngModel)]="editingProduct.productName" placeholder="Product Name" required>
+          </label>
+        </div>
+
+        <div class="rates-section">
+          <label class="rates-label">Rates by Route</label>
+
+          <div class="rate-card" *ngFor="let rateEntry of editingProduct.rates; let i = index">
+            <div class="rate-row">
+              <input placeholder="Pickup Address Id" [(ngModel)]="rateEntry.pickupLocationId" list="rate-addresses" />
+              <input placeholder="Delivery Address Id" [(ngModel)]="rateEntry.deliveryLocationId" list="rate-addresses" />
+              <input type="number" placeholder="Rate / Box" [(ngModel)]="rateEntry.rate.ratePerNum" />
+              <input type="number" placeholder="Rate / cm3" [(ngModel)]="rateEntry.rate.ratePerVolume" />
+              <input type="number" placeholder="Rate / Kg" [(ngModel)]="rateEntry.rate.ratePerKg" />
+              <button class="remove-btn" type="button" (click)="removeRateRow(editingProduct, i)">Remove</button>
+            </div>
+          </div>
+          <button class="add-rate-btn" type="button" (click)="addRateRow(editingProduct)">+ Add Rate</button>
+          <datalist id="rate-addresses">
+            <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
+          </datalist>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeEditProductPopup()">Cancel</button>
+          <button type="button" (click)="saveEdit()">Save</button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Products List -->
   <div class="products-table-wrapper">
-    <table>
-      <tr>
-        <th>HSN number</th>
-        <th>Product Type</th>
-        <th>Rates by Route</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
+    <table class="products-table">
+      <thead>
+        <tr>
+          <th>HSN Number</th>
+          <th>Product Type</th>
+          <th>Rates by Route</th>
+          <th>Status</th>
+        </tr>
+      </thead>
 
-      <tr *ngFor="let b of filteredProducts">
-
-        <!-- HSN number -->
-        <td>
-          <span *ngIf="editingProduct?._id !== b._id">{{ b.hsnNum }}</span>
-          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingProduct.hsnNum">
-          </div>
-        </td>
-
-        <!-- Product Name -->
-        <td>
-          <span *ngIf="editingProduct?._id !== b._id">{{ b.productName }}</span>
-          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingProduct.productName">
-          </div>
-        </td>
-
-        <!-- Rates -->
-        <td>
-          <div *ngIf="editingProduct?._id !== b._id" class="rate-list">
-            <div class="rate-item" *ngFor="let rateEntry of b.rates">
-              <span>Pickup: {{ getRateAddressLabel(rateEntry.pickupLocationId) }}</span>
-              <span>Delivery: {{ getRateAddressLabel(rateEntry.deliveryLocationId) }}</span>
-              <span>Box: {{ rateEntry.rate?.ratePerNum }}</span>
-              <span>cmA3: {{ rateEntry.rate?.ratePerVolume }}</span>
-              <span>Kg: {{ rateEntry.rate?.ratePerKg }}</span>
+      <tbody>
+        <tr *ngFor="let p of filteredProducts" (click)="openProductDetailsPopup(p)">
+          <td>{{ p.hsnNum }}</td>
+          <td>{{ p.productName }}</td>
+          <td>
+            <div class="rate-list">
+              <div class="rate-tag" *ngFor="let rateEntry of p.rates">
+                <div class="rate-title">
+                  {{ getRateAddressLabel(rateEntry.pickupLocationId) }} → {{ getRateAddressLabel(rateEntry.deliveryLocationId) }}
+                </div>
+                <div class="rate-values">
+                  Box: {{ rateEntry.rate?.ratePerNum ?? 0 }} | cm3: {{ rateEntry.rate?.ratePerVolume ?? 0 }} | Kg: {{ rateEntry.rate?.ratePerKg ?? 0 }}
+                </div>
+              </div>
             </div>
-          </div>
-          <div *ngIf="editingProduct?._id === b._id" class="edit-field">
-            <div class="rate-row" *ngFor="let rateEntry of editingProduct.rates; let i = index">
-              <input [(ngModel)]="rateEntry.pickupLocationId" placeholder="Pickup Address Id" list="rate-addresses">
-              <input [(ngModel)]="rateEntry.deliveryLocationId" placeholder="Delivery Address Id" list="rate-addresses">
-              <input type="number" [(ngModel)]="rateEntry.rate.ratePerNum" placeholder="Rate / Box" required>
-              <input type="number" [(ngModel)]="rateEntry.rate.ratePerVolume" placeholder="Rate / cmA3" required>
-              <input type="number" [(ngModel)]="rateEntry.rate.ratePerKg" placeholder="Rate / Kg" required>
-              <button type="button" (click)="removeRateRow(editingProduct, i)">Remove</button>
-            </div>
-            <button type="button" (click)="addRateRow(editingProduct)">+ Add Rate</button>
-          </div>
-        </td>
-
-        <!-- Status Toggle -->
-        <td>
-          <button (click)="toggleStatus(b)">
-            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
-          </button>
-        </td>
-
-        <!-- Actions -->
-        <td>
-          <button *ngIf="editingProduct?._id !== b._id" (click)="editProduct(b)">Edit</button>
-          <button *ngIf="editingProduct?._id === b._id" (click)="saveEdit()">Save</button>
-        </td>
-
-      </tr>
+          </td>
+          <td class="status-cell">
+            <button (click)="toggleStatus(p); $event.stopPropagation()"
+                    [ngClass]="p.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ p.status === 'active' ? 'Active' : 'Deactivated' }}
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="filteredProducts.length === 0">
+          <td colspan="4">No products found.</td>
+        </tr>
+      </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Product Details Popup -->
+<div class="modal theme-modal" *ngIf="showProductDetailsPopup">
+  <div class="modal-content product-details-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Product Details</h3>
+        <p class="modal-subtitle">Product: {{ selectedProduct?.productName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editProductFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closeProductDetailsPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-section">
+        <div class="details-row">
+          <span class="details-label">HSN Number</span>
+          <span class="details-value">{{ selectedProduct?.hsnNum || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Product Name</span>
+          <span class="details-value">{{ selectedProduct?.productName || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Status</span>
+          <span class="details-value">{{ selectedProduct?.status === 'active' ? 'Active' : 'Deactivated' }}</span>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <h4>Rates by Route</h4>
+        <div class="details-list" *ngIf="selectedProduct?.rates?.length; else noProductRates">
+          <div class="details-list-item" *ngFor="let rateEntry of selectedProduct.rates; let i = index">
+            <div class="details-pair">
+              <span class="details-label">Pickup</span>
+              <span class="details-value">{{ getRateAddressLabel(rateEntry.pickupLocationId) }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Delivery</span>
+              <span class="details-value">{{ getRateAddressLabel(rateEntry.deliveryLocationId) }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Rate / Box</span>
+              <span class="details-value">{{ rateEntry.rate?.ratePerNum ?? 0 }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Rate / cm3</span>
+              <span class="details-value">{{ rateEntry.rate?.ratePerVolume ?? 0 }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Rate / Kg</span>
+              <span class="details-value">{{ rateEntry.rate?.ratePerKg ?? 0 }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noProductRates>
+          <div class="details-empty">No rates configured.</div>
+        </ng-template>
+      </div>
+    </div>
   </div>
 </div>

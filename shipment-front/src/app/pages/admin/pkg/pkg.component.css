@@ -1,32 +1,333 @@
+:host {
+  --pkg-bg: #f6f8fb;
+  --pkg-card: #ffffff;
+  --pkg-border: #e5e7eb;
+  --pkg-text: #0f172a;
+  --pkg-muted: #6b7280;
+  --pkg-primary: #2563eb;
+  --pkg-primary-strong: #1e3a8a;
+}
+
 .pkgs-container {
   padding: 15px;
   max-width: 100%;
   box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.pkgs-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.pkgs-header h2 {
+  margin: 0;
+}
+
+.add-pkg-btn {
+  margin: 0;
 }
 
 .pkgs-table-wrapper {
   overflow-x: auto;
+  border: 1px solid var(--pkg-border);
+  border-radius: 12px;
+  background: var(--pkg-card);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.05);
 }
 
-table {
+.pkgs-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--pkg-card);
+  color: var(--pkg-text);
+  font-size: 13px;
 }
 
-th, td {
-  padding: 8px;
-  border: 1px solid #ddd;
+.pkgs-table th,
+.pkgs-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--pkg-border);
+  border-right: 1px solid var(--pkg-border);
   vertical-align: top;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: center;
 }
 
-.edit-field {
+.pkgs-table th:last-child,
+.pkgs-table td:last-child {
+  border-right: none;
+}
+
+.pkgs-table th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: var(--pkg-text);
+  font-size: 12px;
+}
+
+.pkgs-table tbody tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.pkgs-table tbody tr:hover {
+  background: #eef2ff;
+  cursor: pointer;
+}
+
+.status-active {
+  background-color: #16a34a;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.status-inactive {
+  background-color: #000;
+  color: #fff;
+  font-weight: bold;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+}
+
+.pkgs-table .status-active,
+.pkgs-table .status-inactive {
+  color: #fff;
+}
+
+.pkgs-table .status-active {
+  background-color: #16a34a;
+  border: 1px solid #15803d;
+}
+
+.pkgs-table .status-inactive {
+  background-color: #000;
+  border: 1px solid #000;
+}
+
+.status-cell {
+  text-align: center;
+}
+
+.status-cell button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  white-space: normal;
+  word-break: break-word;
+  padding: 6px 8px;
+}
+
+.modal {
   display: flex;
-  flex-direction: column; /* stack input fields vertically */
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  justify-content: center;
+  align-items: center;
 }
 
-.edit-field input {
-  width: 100%;       /* fit inside the cell */
-  max-width: 200px;  /* prevent pushing sidebar */
-  margin-bottom: 5px;
-  box-sizing: border-box;
+.modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 6px;
+  border: 1px solid var(--pkg-border);
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  width: 400px;
+  max-width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.pkg-modal {
+  width: min(720px, 94vw);
+}
+
+.pkg-details-modal {
+  width: min(720px, 92vw);
+  border-radius: 12px;
+  border: 1px solid var(--pkg-border);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.15);
+}
+
+.edit-modal-content {
+  width: min(720px, 96vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.modal-title h3 {
+  margin: 0;
+}
+
+.modal-subtitle {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--pkg-muted);
+}
+
+.modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-header-actions .link-button {
+  background: var(--pkg-primary);
+  border: none;
+  padding: 6px 12px;
+  color: #fff;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.modal-header-actions .close {
+  position: static;
+}
+
+.modal-body {
+  padding: 4px 4px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.close {
+  font-size: 24px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: var(--pkg-text);
+}
+
+.modal-content button {
+  background-color: var(--pkg-primary);
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.modal-content button:hover {
+  background-color: var(--pkg-primary-strong);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.modal-actions .ghost-btn {
+  background: #f8fafc;
+  color: var(--pkg-text);
+  border: 1px solid var(--pkg-border);
+}
+
+.modal-actions .ghost-btn:hover {
+  background: #eef2f7;
+}
+
+.pkg-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.pkg-form-grid .field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pkg-text);
+}
+
+.pkg-form-grid .field span {
+  color: var(--pkg-muted);
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.pkg-form-grid input {
+  padding: 10px;
+  border: 1px solid var(--pkg-border);
+  border-radius: 8px;
+  font-size: 14px;
+  color: var(--pkg-text);
+  background: #fff;
+}
+
+.details-section {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--pkg-border);
+}
+
+.details-row {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px dashed var(--pkg-border);
+}
+
+.details-row:last-child {
+  border-bottom: none;
+}
+
+.details-label {
+  font-size: 12px;
+  color: var(--pkg-muted);
+  font-weight: 600;
+}
+
+.details-value {
+  color: var(--pkg-text);
+  font-weight: 600;
+  text-align: left;
+}
+
+@media (max-width: 900px) {
+  .pkg-form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .details-row {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+  }
+
+  .details-value {
+    text-align: left;
+  }
 }

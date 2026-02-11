@@ -13,6 +13,9 @@ import { FormsModule } from '@angular/forms';
 export class GuestsComponent implements OnInit {
   guests: any[] = [];
   showAddGuestPopup = false;
+  showEditGuestPopup = false;
+  showGuestDetailsPopup = false;
+  selectedGuest: any | null = null;
   newGuest: any = {
     guestName: '',
     address: '',
@@ -62,7 +65,8 @@ export class GuestsComponent implements OnInit {
         console.log('✅ Guest saved', res);
         alert('Guest added successfully!');
         this.closeAddGuestPopup();
-        window.location.reload();
+        this.resetNewGuest();
+        this.loadGuests();
       },
       error: (err) => {
         console.error('❌ Error saving guest:', err);
@@ -72,19 +76,70 @@ export class GuestsComponent implements OnInit {
   }
 
   editGuest(guest: any) {
+    this.openEditGuestPopup(guest);
+  }
+
+  openEditGuestPopup(guest: any) {
     this.editingGuest = { ...guest };
+    this.showEditGuestPopup = true;
+  }
+
+  closeEditGuestPopup() {
+    this.showEditGuestPopup = false;
+    this.editingGuest = null;
   }
 
   saveEdit() {
+    if (!this.editingGuest?._id) return;
     this.http.put(`http://localhost:3000/api/guests/${this.editingGuest._id}`, this.editingGuest)
       .subscribe(() => {
         this.loadGuests();
-        this.editingGuest = null;
+        this.closeEditGuestPopup();
       });
   }
 
   toggleStatus(guest: any) {
     this.http.patch(`http://localhost:3000/api/guests/${guest._id}/status`, {})
       .subscribe(() => this.loadGuests());
+  }
+
+  openGuestDetailsPopup(guest: any) {
+    this.selectedGuest = guest;
+    this.showGuestDetailsPopup = true;
+  }
+
+  closeGuestDetailsPopup() {
+    this.showGuestDetailsPopup = false;
+    this.selectedGuest = null;
+  }
+
+  editGuestFromDetails() {
+    if (!this.selectedGuest) return;
+    this.openEditGuestPopup(this.selectedGuest);
+    this.closeGuestDetailsPopup();
+  }
+
+  getGuestAddress(guest: any): string {
+    const address = String(guest?.address || '').trim();
+    const city = String(guest?.city || '').trim();
+    const state = String(guest?.state || '').trim();
+    const pin = String(guest?.pinCode || '').trim();
+    const parts = [address, city, state, pin].filter(Boolean);
+    return parts.length ? parts.join(', ') : '-';
+  }
+
+  private resetNewGuest() {
+    this.newGuest = {
+      guestName: '',
+      address: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      phoneNum: '',
+      perDis: '',
+      status: 'active',
+      email: localStorage.getItem('email'),
+      username: localStorage.getItem('username')
+    };
   }
 }

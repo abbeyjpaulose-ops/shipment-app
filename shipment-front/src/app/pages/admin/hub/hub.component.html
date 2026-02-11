@@ -1,119 +1,207 @@
 <div class="hubs-container">
-  <h2>Manage Hubs</h2>
-
-  <!-- Add Hub Button -->
-  <button class="add-hub-btn" type="button" (click)="openAddHubPopup()">+ Add Hub</button>
+  <div class="hubs-header">
+    <h2>Manage Hubs</h2>
+    <button class="add-hub-btn" type="button" (click)="openAddHubPopup()">+ Add Hub</button>
+  </div>
 
   <!-- Add Hub Popup -->
-  <div class="modal" *ngIf="showAddHubPopup">
-    <div class="modal-content">
-      <span class="close" (click)="closeAddHubPopup()">&times;</span>
-      <h3>Add Hub</h3>
-      <div class="add-hub-form">
-        <input [(ngModel)]="newHub.hubName" (ngModelChange)="handleHubNameChange()" placeholder="Hub Name" required>
-        <input [(ngModel)]="newHub.address" placeholder="Address" required>
-        <input [(ngModel)]="newHub.city" placeholder="City">
-        <input [(ngModel)]="newHub.state" placeholder="State">
-        <input [(ngModel)]="newHub.pinCode" placeholder="Pin Code">
-        <input [(ngModel)]="newHub.phoneNum" placeholder="Phone Number" required>
-        <input [(ngModel)]="newHub.perRev" placeholder="% of Revenue" required>
+  <div class="modal theme-modal" *ngIf="showAddHubPopup">
+    <div class="modal-content hub-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Add Hub</h3>
+          <p class="modal-subtitle">Create a new hub</p>
+        </div>
+        <button type="button" class="close" (click)="closeAddHubPopup()">&times;</button>
+      </div>
 
-        <!-- Delivery / Pickup Addresses (each address contains vehicles) -->
+      <div class="modal-body">
+        <div class="hub-form-grid">
+          <label class="field">
+            <span>Hub Name</span>
+            <input [(ngModel)]="newHub.hubName" (ngModelChange)="handleHubNameChange()" placeholder="Hub Name" required>
+          </label>
+          <label class="field">
+            <span>Address</span>
+            <input [(ngModel)]="newHub.address" placeholder="Address" required>
+          </label>
+          <label class="field">
+            <span>City</span>
+            <input [(ngModel)]="newHub.city" placeholder="City">
+          </label>
+          <label class="field">
+            <span>State</span>
+            <input [(ngModel)]="newHub.state" placeholder="State">
+          </label>
+          <label class="field">
+            <span>Pin Code</span>
+            <input [(ngModel)]="newHub.pinCode" placeholder="Pin Code">
+          </label>
+          <label class="field">
+            <span>Phone Number</span>
+            <input [(ngModel)]="newHub.phoneNum" placeholder="Phone Number" required>
+          </label>
+          <label class="field">
+            <span>% of Revenue</span>
+            <input [(ngModel)]="newHub.perRev" placeholder="% of Revenue" required>
+          </label>
+        </div>
+
         <div class="delivery-wrapper">
-          <label>Delivery / Pickup Addresses</label>
+          <label class="delivery-label">Delivery / Pickup Addresses</label>
 
-          <div *ngFor="let addr of newHub.deliveryAddresses; let a = index" class="addr-block">
+          <div *ngFor="let addr of newHub.deliveryAddresses; let a = index" class="addr-card">
             <div class="addr-row">
-              <input [(ngModel)]="addr.location" placeholder="Address / Location" />
-
+              <input [(ngModel)]="addr.location" placeholder="Address / Location">
               <button *ngIf="newHub.deliveryAddresses.length > 1"
-                      class="delete-btn"
-                      (click)="removeAddress(a)">dY-`â€¹,?</button>
+                      class="remove-btn"
+                      (click)="removeAddress(a)">Remove</button>
             </div>
 
-            <!-- Vehicles for this delivery address -->
-            <div class="vehicles-for-address">
-              <label>Vehicles for this address</label>
+            <table class="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Vehicle No.</th>
+                  <th>Driver Phone</th>
+                  <th class="vehicle-col-status">Status</th>
+                  <th>Current Location</th>
+                  <th class="vehicle-col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let v of addr.vehicles; let vIdx = index">
+                  <td><input [(ngModel)]="addr.vehicles[vIdx].vehicleNo" placeholder="Vehicle No"></td>
+                  <td><input [(ngModel)]="addr.vehicles[vIdx].driverPhone" placeholder="Driver Phone"></td>
+                  <td class="vehicle-col-status">
+                    <span class="vehicle-status">{{ addr.vehicles[vIdx].vehicleStatus || 'online' }}</span>
+                  </td>
+                  <td>
+                    <select [(ngModel)]="addr.vehicles[vIdx].currentLocationId">
+                      <option [ngValue]="''">Use this hub</option>
+                      <option *ngFor="let option of getHubBranchOptions()" [ngValue]="option.id">{{ option.label }}</option>
+                    </select>
+                  </td>
+                  <td class="vehicle-col-actions">
+                    <button *ngIf="addr.vehicles.length > 1"
+                            class="remove-btn"
+                            (click)="removeVehicle(a, vIdx)">Remove</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-              <div *ngFor="let v of addr.vehicles; let vIdx = index" class="vehicle-row">
-                <input [(ngModel)]="addr.vehicles[vIdx].vehicleNo" placeholder="Vehicle No" />
-                <input [(ngModel)]="addr.vehicles[vIdx].driverPhone" placeholder="Driver Phone" />
-                <span>{{ addr.vehicles[vIdx].vehicleStatus || 'online' }}</span>
-                <select [(ngModel)]="addr.vehicles[vIdx].currentLocationId">
-                  <option [ngValue]="''">Use this hub</option>
-                  <option *ngFor="let option of getHubBranchOptions()" [ngValue]="option.id">{{ option.label }}</option>
-                </select>
-                <button *ngIf="addr.vehicles.length > 1"
-                        class="delete-btn"
-                        (click)="removeVehicle(a, vIdx)">dY-`â€¹,?</button>
-              </div>
-
-              <button class="add-vehicle-btn" type="button" (click)="addVehicle(a)">+ Add Vehicle</button>
-            </div>
+            <button class="add-vehicle-btn" type="button" (click)="addVehicle(a)">+ Add Vehicle</button>
           </div>
 
           <button class="add-addr-btn" type="button" (click)="addAddress()">+ Add Address</button>
         </div>
 
-        <button class="add-btn" type="button" (click)="addHub()">+ Add Hub</button>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeAddHubPopup()">Cancel</button>
+          <button type="button" (click)="addHub()">+ Add Hub</button>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Edit Hub Popup -->
-  <div class="modal" *ngIf="showEditHubPopup && editingHub">
-    <div class="modal-content">
-      <span class="close" (click)="closeEditHubPopup()">&times;</span>
-      <h3>Edit Hub</h3>
-      <div class="add-hub-form">
-        <input [(ngModel)]="editingHub.hubName" placeholder="Hub Name" required>
-        <input [(ngModel)]="editingHub.address" placeholder="Address" required>
-        <input [(ngModel)]="editingHub.city" placeholder="City">
-        <input [(ngModel)]="editingHub.state" placeholder="State">
-        <input [(ngModel)]="editingHub.pinCode" placeholder="Pin Code">
-        <input [(ngModel)]="editingHub.phoneNum" placeholder="Phone Number" required>
-        <input [(ngModel)]="editingHub.perRev" placeholder="% of Revenue" required>
+  <div class="modal theme-modal" *ngIf="showEditHubPopup && editingHub">
+    <div class="modal-content edit-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Edit Hub</h3>
+          <p class="modal-subtitle">Hub: {{ editingHub?.hubName || '-' }}</p>
+        </div>
+        <button type="button" class="close" (click)="closeEditHubPopup()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="hub-form-grid">
+          <label class="field">
+            <span>Hub Name</span>
+            <input [(ngModel)]="editingHub.hubName" placeholder="Hub Name" required>
+          </label>
+          <label class="field">
+            <span>Address</span>
+            <input [(ngModel)]="editingHub.address" placeholder="Address" required>
+          </label>
+          <label class="field">
+            <span>City</span>
+            <input [(ngModel)]="editingHub.city" placeholder="City">
+          </label>
+          <label class="field">
+            <span>State</span>
+            <input [(ngModel)]="editingHub.state" placeholder="State">
+          </label>
+          <label class="field">
+            <span>Pin Code</span>
+            <input [(ngModel)]="editingHub.pinCode" placeholder="Pin Code">
+          </label>
+          <label class="field">
+            <span>Phone Number</span>
+            <input [(ngModel)]="editingHub.phoneNum" placeholder="Phone Number" required>
+          </label>
+          <label class="field">
+            <span>% of Revenue</span>
+            <input [(ngModel)]="editingHub.perRev" placeholder="% of Revenue" required>
+          </label>
+        </div>
 
         <div class="delivery-wrapper">
-          <label>Delivery / Pickup Addresses</label>
+          <label class="delivery-label">Delivery / Pickup Addresses</label>
 
-          <div *ngFor="let addr of editingHub.deliveryAddresses; let ai = index" class="addr-block">
+          <div *ngFor="let addr of editingHub.deliveryAddresses; let ai = index" class="addr-card">
             <div class="addr-row">
-              <input [(ngModel)]="editingHub.deliveryAddresses[ai].location" placeholder="Address / Location" />
+              <input [(ngModel)]="editingHub.deliveryAddresses[ai].location" placeholder="Address / Location">
               <button *ngIf="editingHub.deliveryAddresses.length > 1"
-                      class="delete-btn"
-                      (click)="removeAddressEdit(ai)">dY-`ƒ?1,?</button>
+                      class="remove-btn"
+                      (click)="removeAddressEdit(ai)">Remove</button>
             </div>
 
-            <div class="vehicles-for-address">
-              <label>Vehicles for this address</label>
-              <div *ngFor="let v of addr.vehicles; let vi = index" class="vehicle-row">
-                <input [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].vehicleNo" placeholder="Vehicle No" />
-                <input [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].driverPhone" placeholder="Driver Phone" />
-                <button type="button" (click)="toggleEditVehicleStatus(editingHub.deliveryAddresses[ai].vehicles[vi])">
-                  {{ (editingHub.deliveryAddresses[ai].vehicles[vi].vehicleStatus || 'online') === 'offline' ? 'offline' : 'online' }}
-                </button>
-                <div class="current-branch-inline">
-                  <label>Current Branch</label>
-                  <select [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].currentLocationId">
-                    <option *ngFor="let option of getEditHubBranchOptions(editingHub.deliveryAddresses[ai].vehicles[vi].currentLocationId)" [ngValue]="option.id">{{ option.label }}</option>
-                  </select>
-                </div>
-                <button *ngIf="editingHub.deliveryAddresses[ai].vehicles.length > 1"
-                        class="delete-btn"
-                        (click)="removeVehicleEdit(ai, vi)">dY-`ƒ?1,?</button>
-              </div>
+            <table class="vehicle-table">
+              <thead>
+                <tr>
+                  <th>Vehicle No.</th>
+                  <th>Driver Phone</th>
+                  <th class="vehicle-col-status">Status</th>
+                  <th>Current Location</th>
+                  <th class="vehicle-col-actions">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let v of addr.vehicles; let vi = index">
+                  <td><input [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].vehicleNo" placeholder="Vehicle No"></td>
+                  <td><input [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].driverPhone" placeholder="Driver Phone"></td>
+                  <td class="vehicle-col-status">
+                    <button type="button"
+                            class="vehicle-status-btn"
+                            (click)="toggleEditVehicleStatus(editingHub.deliveryAddresses[ai].vehicles[vi])">
+                      {{ (editingHub.deliveryAddresses[ai].vehicles[vi].vehicleStatus || 'online') === 'offline' ? 'offline' : 'online' }}
+                    </button>
+                  </td>
+                  <td>
+                    <select [(ngModel)]="editingHub.deliveryAddresses[ai].vehicles[vi].currentLocationId">
+                      <option *ngFor="let option of getEditHubBranchOptions(editingHub.deliveryAddresses[ai].vehicles[vi].currentLocationId)" [ngValue]="option.id">{{ option.label }}</option>
+                    </select>
+                  </td>
+                  <td class="vehicle-col-actions">
+                    <button *ngIf="editingHub.deliveryAddresses[ai].vehicles.length > 1"
+                            class="remove-btn"
+                            (click)="removeVehicleEdit(ai, vi)">Remove</button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
 
-              <button class="add-vehicle-btn" type="button" (click)="addVehicleEdit(ai)">+ Add Vehicle</button>
-            </div>
+            <button class="add-vehicle-btn" type="button" (click)="addVehicleEdit(ai)">+ Add Vehicle</button>
           </div>
 
           <button class="add-addr-btn" type="button" (click)="addAddressEdit()">+ Add Address</button>
         </div>
 
-        <div class="terminal-buttons">
-          <button class="add-btn" type="button" (click)="saveEdit()">Save</button>
-          <button type="button" (click)="closeEditHubPopup()">Cancel</button>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeEditHubPopup()">Cancel</button>
+          <button type="button" (click)="saveEdit()">Save</button>
         </div>
       </div>
     </div>
@@ -121,83 +209,154 @@
 
   <!-- Hubs List Table -->
   <div class="hubs-table-wrapper">
-    <table>
+    <table class="hubs-table">
       <thead>
         <tr>
           <th>Hub Name</th>
           <th>Address</th>
-          <th>City</th>
           <th>Phone</th>
           <th>Delivery / Pickup (with Vehicles)</th>
           <th>% of Revenue</th>
           <th>Status</th>
-          <th>Actions</th>
         </tr>
       </thead>
 
       <tbody>
-        <tr *ngFor="let h of hubs">
-
-          <!-- Hub Name -->
-          <td>
-            <span>{{ h.hubName }}</span>
-          </td>
-
-          <!-- Hub Address -->
-          <td>
-            <span>{{ h.address }}</span>
-          </td>
-
-          <!-- City -->
-          <td>
-            <span>{{ h.city }}</span>
-          </td>
-
-          <!-- Phone -->
-          <td>
-            <span>{{ h.phoneNum }}</span>
-          </td>
-
-          <!-- Delivery / Pickup Addresses column (each with nested vehicles) -->
+        <tr *ngFor="let h of hubs" (click)="openHubDetailsPopup(h)">
+          <td>{{ h.hubName }}</td>
+          <td>{{ getHubAddress(h) }}</td>
+          <td>{{ h.phoneNum }}</td>
           <td>
             <div class="addr-list-view">
               <div *ngFor="let addr of h.deliveryAddresses" class="addr-view-block">
-                <div class="addr-title">dY"? {{ addr.location }}</div>
+                <div class="addr-title">{{ addr.location || '-' }}</div>
                 <ng-container *ngIf="getFilteredVehicles(addr.vehicles) as filtered">
                   <div *ngIf="filtered.length" class="vehicles-list-view">
                     <div *ngFor="let v of filtered" class="vehicle-view">
-                      dYs> {{ v.vehicleNo }} ’'?" dY"z {{ v.driverPhone }}
+                      <span class="vehicle-label">Vehicle:</span> {{ v.vehicleNo || '-' }}
+                      <span class="vehicle-sep">|</span>
+                      <span class="vehicle-label">Driver:</span> {{ v.driverPhone || '-' }}
                     </div>
                   </div>
                   <div *ngIf="!filtered.length" class="no-vehicles">
-                    ’'?" No vehicles assigned ’'?"
+                    No vehicles assigned.
                   </div>
                 </ng-container>
               </div>
             </div>
           </td>
-
-          <!-- % of Revenue -->
-          <td>
-            <span>{{ h.perRev }}%</span>
-          </td>
-
-          <!-- Status -->
-          <td>
-            <button (click)="toggleStatus(h)"
-                    [ngClass]="{ 'active-btn': h.status === 'active', 'inactive-btn': h.status === 'inactive' }">
-              {{ h.status === 'active' ? 'Active' : 'Inactive' }}
+          <td>{{ h.perRev }}%</td>
+          <td class="status-cell">
+            <button (click)="toggleStatus(h); $event.stopPropagation()"
+                    [ngClass]="h.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ h.status === 'active' ? 'Active' : 'Deactivated' }}
             </button>
           </td>
-
-          <!-- Actions -->
-          <td>
-            <button (click)="editHub(h)">Edit</button>
-          </td>
+        </tr>
+        <tr *ngIf="hubs.length === 0">
+          <td colspan="6">No hubs found.</td>
         </tr>
       </tbody>
     </table>
   </div>
 </div>
 
+<!-- Hub Details Popup -->
+<div class="modal theme-modal" *ngIf="showHubDetailsPopup">
+  <div class="modal-content hub-details-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Hub Details</h3>
+        <p class="modal-subtitle">Hub: {{ selectedHub?.hubName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editHubFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closeHubDetailsPopup()">&times;</button>
+      </div>
+    </div>
 
+    <div class="modal-body">
+      <div class="details-section">
+        <div class="details-row">
+          <span class="details-label">Hub Name</span>
+          <span class="details-value">{{ selectedHub?.hubName || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Phone</span>
+          <span class="details-value">{{ selectedHub?.phoneNum || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">% of Revenue</span>
+          <span class="details-value">{{ selectedHub?.perRev ?? '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Status</span>
+          <span class="details-value">{{ selectedHub?.status === 'active' ? 'Active' : 'Deactivated' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Origin Branch</span>
+          <span class="details-value">{{ getOriginLabel(selectedHub) }}</span>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <h4>Address</h4>
+        <div class="details-grid">
+          <div>
+            <div class="details-label">Address</div>
+            <div class="details-value">{{ selectedHub?.address || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">City</div>
+            <div class="details-value">{{ selectedHub?.city || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">State</div>
+            <div class="details-value">{{ selectedHub?.state || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">Pin</div>
+            <div class="details-value">{{ selectedHub?.pinCode || '-' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <h4>Delivery / Pickup Addresses</h4>
+        <div class="details-list" *ngIf="selectedHub?.deliveryAddresses?.length; else noHubAddresses">
+          <div class="details-list-item" *ngFor="let addr of selectedHub.deliveryAddresses; let i = index">
+            <div class="details-pair">
+              <span class="details-label">Address {{ i + 1 }}</span>
+              <span class="details-value">{{ addr?.location || '-' }}</span>
+            </div>
+
+            <div class="details-vehicles" *ngIf="addr?.vehicles?.length">
+              <div class="details-vehicle-card" *ngFor="let v of addr.vehicles">
+                <div class="details-pair">
+                  <span class="details-label">Vehicle No</span>
+                  <span class="details-value">{{ v?.vehicleNo || '-' }}</span>
+                </div>
+                <div class="details-pair">
+                  <span class="details-label">Driver Phone</span>
+                  <span class="details-value">{{ v?.driverPhone || '-' }}</span>
+                </div>
+                <div class="details-pair">
+                  <span class="details-label">Status</span>
+                  <span class="details-value">{{ v?.vehicleStatus || 'online' }}</span>
+                </div>
+                <div class="details-pair">
+                  <span class="details-label">Current Location</span>
+                  <span class="details-value">{{ getVehicleLocationLabel(v) }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="details-empty" *ngIf="!addr?.vehicles?.length">No vehicles assigned.</div>
+          </div>
+        </div>
+        <ng-template #noHubAddresses>
+          <div class="details-empty">No delivery addresses found.</div>
+        </ng-template>
+      </div>
+    </div>
+  </div>
+</div>

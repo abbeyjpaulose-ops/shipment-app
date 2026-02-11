@@ -14,6 +14,8 @@ import { forkJoin } from 'rxjs';
 export class ProductComponent implements OnInit {
   products: any[] = [];
   showAddProductPopup = false;
+  showEditProductPopup = false;
+  showProductDetailsPopup = false;
   rateAddressOptions: Array<{ id: string; label: string }> = [];
   private rateAddressLabelById = new Map<string, string>();
   newProduct: any = {
@@ -31,6 +33,7 @@ export class ProductComponent implements OnInit {
     username: localStorage.getItem('username')
   };
   editingProduct: any = null;
+  selectedProduct: any = null;
 
   get filteredProducts(): any[] {
     const originLocId = localStorage.getItem('originLocId') || 'all';
@@ -131,6 +134,23 @@ export class ProductComponent implements OnInit {
     this.showAddProductPopup = false;
   }
 
+  openProductDetailsPopup(product: any) {
+    this.selectedProduct = product;
+    this.showProductDetailsPopup = true;
+  }
+
+  closeProductDetailsPopup() {
+    this.selectedProduct = null;
+    this.showProductDetailsPopup = false;
+  }
+
+  editProductFromDetails() {
+    if (!this.selectedProduct) return;
+    const product = this.selectedProduct;
+    this.closeProductDetailsPopup();
+    this.editProduct(product);
+  }
+
   addProduct() {
     this.newProduct.originLocId = localStorage.getItem('originLocId') || 'all';
     if (this.newProduct.originLocId === 'all') {
@@ -155,6 +175,7 @@ export class ProductComponent implements OnInit {
   editProduct(product: any) {
     this.editingProduct = JSON.parse(JSON.stringify(product));
     this.ensureRates(this.editingProduct);
+    this.showEditProductPopup = true;
   }
 
   saveEdit() {
@@ -162,7 +183,13 @@ export class ProductComponent implements OnInit {
       .subscribe(() => {
         this.loadProducts();
         this.editingProduct = null;
+        this.showEditProductPopup = false;
       });
+  }
+
+  closeEditProductPopup() {
+    this.editingProduct = null;
+    this.showEditProductPopup = false;
   }
 
   toggleStatus(product: any) {

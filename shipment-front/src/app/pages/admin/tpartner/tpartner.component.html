@@ -1,177 +1,351 @@
 <div class="tpartner-container">
-  <h2>Transport Partners</h2>
+  <div class="tpartner-header">
+    <h2>Transport Partners</h2>
+    <button class="add-partner-btn" type="button" (click)="openAddPartnerPopup()">+ Add Partner</button>
+  </div>
 
-  <button class="add-partner-btn" type="button" (click)="openAddPartnerPopup()">+ Add Partner</button>
+  <!-- Add Partner Popup -->
+  <div class="modal theme-modal" *ngIf="showAddPartnerPopup">
+    <div class="modal-content tpartner-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Add Partner</h3>
+          <p class="modal-subtitle">Create a new transport partner</p>
+        </div>
+        <button type="button" class="close" (click)="closeAddPartnerPopup()">&times;</button>
+      </div>
 
-  <div class="modal" *ngIf="showAddPartnerPopup">
-    <div class="modal-content">
-      <span class="close" (click)="closeAddPartnerPopup()">&times;</span>
-      <h3>Add Partner</h3>
-      <div class="add-partner-form">
-        <div class="form-row">
-          <input [(ngModel)]="newPartner.partnerName" placeholder="Partner Name*" required>
-          <input [(ngModel)]="newPartner.GSTIN" placeholder="GSTIN*" required>
+      <div class="modal-body">
+        <div class="tpartner-form-grid">
+          <label class="field">
+            <span>Partner Name</span>
+            <input [(ngModel)]="newPartner.partnerName" placeholder="Partner Name" required>
+          </label>
+          <label class="field">
+            <span>GSTIN</span>
+            <input [(ngModel)]="newPartner.GSTIN" placeholder="GSTIN" required>
+          </label>
+          <label class="field">
+            <span>Address</span>
+            <input [(ngModel)]="newPartner.address" placeholder="Address" required>
+          </label>
+          <label class="field">
+            <span>City</span>
+            <input [(ngModel)]="newPartner.city" placeholder="City">
+          </label>
+          <label class="field">
+            <span>State</span>
+            <input [(ngModel)]="newPartner.state" placeholder="State">
+          </label>
+          <label class="field">
+            <span>Pin Code</span>
+            <input [(ngModel)]="newPartner.pinCode" placeholder="Pin Code">
+          </label>
         </div>
 
-        <div class="form-row">
-          <input [(ngModel)]="newPartner.address" placeholder="Address*" required>
-          <input [(ngModel)]="newPartner.city" placeholder="City">
+        <div class="vehicles-section">
+          <label class="vehicles-label">Vehicles</label>
+
+          <div class="vehicle-list" *ngIf="newPartner.vehicleNumbers?.length; else noNewVehicles">
+            <div class="vehicle-card" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
+              <div class="vehicle-info">
+                <div class="vehicle-pair">
+                  <span class="vehicle-label">Vehicle No</span>
+                  <span class="vehicle-value">{{ v.number || '-' }}</span>
+                </div>
+                <div class="vehicle-pair">
+                  <span class="vehicle-label">Driver Phone</span>
+                  <span class="vehicle-value">{{ v.phone || '-' }}</span>
+                </div>
+                <div class="vehicle-pair">
+                  <span class="vehicle-label">Rate</span>
+                  <span class="vehicle-value">{{ formatVehicleRate(v) }}</span>
+                </div>
+              </div>
+              <div class="vehicle-actions">
+                <button type="button" class="ghost-btn" (click)="startEditNewVehicle(i)">Edit</button>
+                <button type="button" class="remove-btn" (click)="removeVehicle(i)">Remove</button>
+              </div>
+            </div>
+          </div>
+          <ng-template #noNewVehicles>
+            <div class="details-empty">No vehicles added yet.</div>
+          </ng-template>
+
+          <div class="vehicle-entry">
+            <input [(ngModel)]="newVehicle.number" placeholder="Vehicle Number">
+            <input [(ngModel)]="newVehicle.phone" placeholder="Driver Phone">
+            <select [(ngModel)]="newVehicle.rateType" required>
+              <option value="km">Rate / Km</option>
+              <option value="day">Rate / Day</option>
+            </select>
+            <input type="number" [(ngModel)]="newVehicle.rateValue" placeholder="Rate Value" required>
+            <button type="button" (click)="addVehicle()">
+              {{ editingNewVehicleIndex !== null ? 'Update Vehicle' : '+ Add Vehicle' }}
+            </button>
+          </div>
         </div>
 
-        <div class="form-row">
-          <input [(ngModel)]="newPartner.state" placeholder="State">
-          <input [(ngModel)]="newPartner.pinCode" placeholder="Pin Code">
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeAddPartnerPopup()">Cancel</button>
+          <button type="button" (click)="addPartner()">+ Add Partner</button>
         </div>
-
-        <div class="vehicle-tag" *ngFor="let v of newPartner.vehicleNumbers; let i=index">
-          {{ v.number }} | {{ v.phone }} | {{ v.rateValue || 0 }} / {{ v.rateType === 'km' ? 'Km' : 'Day' }}
-          <button type="button" (click)="startEditNewVehicle(i)">Edit</button>
-          <button type="button" (click)="removeVehicle(i)">Delete</button>
-        </div>
-
-        <div class="vehicle-entry">
-          <input [(ngModel)]="newVehicle.number" placeholder="Vehicle Number">
-          <input [(ngModel)]="newVehicle.phone" placeholder="Driver Phone">
-          <select [(ngModel)]="newVehicle.rateType" required>
-            <option value="km">Rate / Km</option>
-            <option value="day">Rate / Day</option>
-          </select>
-          <input type="number" [(ngModel)]="newVehicle.rateValue" placeholder="Rate Value*" required>
-          <button type="button" (click)="addVehicle()">
-            {{ editingNewVehicleIndex !== null ? 'Update Vehicle' : '+ Vehicle' }}
-          </button>
-        </div>
-
-        <button class="btn-add" type="button" (click)="addPartner()">+ Add Partner</button>
       </div>
     </div>
   </div>
 
-  <div class="modal" *ngIf="showEditPartnerPopup">
-    <div class="modal-content">
-      <span class="close" (click)="closeEditPartnerPopup()">&times;</span>
-      <h3>Edit Partner</h3>
-      <div class="add-partner-form" *ngIf="editing">
-        <div class="form-row">
-          <input [(ngModel)]="editing.partnerName" placeholder="Partner Name*" required>
-          <input [(ngModel)]="editing.GSTIN" placeholder="GSTIN*" required>
+  <!-- Edit Partner Popup -->
+  <div class="modal theme-modal" *ngIf="showEditPartnerPopup && editing">
+    <div class="modal-content edit-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Edit Partner</h3>
+          <p class="modal-subtitle">Partner: {{ editing?.partnerName || '-' }}</p>
+        </div>
+        <button type="button" class="close" (click)="closeEditPartnerPopup()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="tpartner-form-grid">
+          <label class="field">
+            <span>Partner Name</span>
+            <input [(ngModel)]="editing.partnerName" placeholder="Partner Name" required>
+          </label>
+          <label class="field">
+            <span>GSTIN</span>
+            <input [(ngModel)]="editing.GSTIN" placeholder="GSTIN" required>
+          </label>
+          <label class="field">
+            <span>Address</span>
+            <input [(ngModel)]="editing.address" placeholder="Address" required>
+          </label>
+          <label class="field">
+            <span>City</span>
+            <input [(ngModel)]="editing.city" placeholder="City">
+          </label>
+          <label class="field">
+            <span>State</span>
+            <input [(ngModel)]="editing.state" placeholder="State">
+          </label>
+          <label class="field">
+            <span>Pin Code</span>
+            <input [(ngModel)]="editing.pinCode" placeholder="Pin Code">
+          </label>
         </div>
 
-        <div class="form-row">
-          <input [(ngModel)]="editing.address" placeholder="Address*" required>
-          <input [(ngModel)]="editing.city" placeholder="City">
+        <div class="vehicles-section">
+          <label class="vehicles-label">Vehicles</label>
+
+          <div class="vehicle-list" *ngIf="editing?.vehicleNumbers?.length; else noEditVehicles">
+            <div class="vehicle-card" *ngFor="let v of editing.vehicleNumbers; let i=index">
+              <div class="vehicle-info">
+                <div class="vehicle-pair">
+                  <span class="vehicle-label">Vehicle No</span>
+                  <span class="vehicle-value">{{ v.number || '-' }}</span>
+                </div>
+                <div class="vehicle-pair">
+                  <span class="vehicle-label">Driver Phone</span>
+                  <span class="vehicle-value">{{ v.phone || '-' }}</span>
+                </div>
+                <div class="vehicle-pair">
+                  <span class="vehicle-label">Rate</span>
+                  <span class="vehicle-value">{{ formatVehicleRate(v) }}</span>
+                </div>
+              </div>
+              <div class="vehicle-actions">
+                <button type="button" class="ghost-btn" (click)="startEditExistingVehicle(i)">Edit</button>
+                <button type="button" class="remove-btn" (click)="removeEditingVehicle(i)">Remove</button>
+              </div>
+            </div>
+          </div>
+          <ng-template #noEditVehicles>
+            <div class="details-empty">No vehicles added yet.</div>
+          </ng-template>
+
+          <div class="vehicle-entry">
+            <input [(ngModel)]="editVehicleField.number" placeholder="Vehicle Number">
+            <input [(ngModel)]="editVehicleField.phone" placeholder="Driver Phone">
+            <select [(ngModel)]="editVehicleField.rateType" required>
+              <option value="km">Rate / Km</option>
+              <option value="day">Rate / Day</option>
+            </select>
+            <input type="number" [(ngModel)]="editVehicleField.rateValue" placeholder="Rate Value" required>
+            <button type="button" (click)="addEditingVehicle()">
+              {{ editingExistingVehicleIndex !== null ? 'Update Vehicle' : '+ Add Vehicle' }}
+            </button>
+          </div>
         </div>
 
-        <div class="form-row">
-          <input [(ngModel)]="editing.state" placeholder="State">
-          <input [(ngModel)]="editing.pinCode" placeholder="Pin Code">
-        </div>
-
-        <div class="vehicle-tag" *ngFor="let v of editing.vehicleNumbers; let i=index">
-          {{ v.number }} | {{ v.phone }} | {{ v.rateValue || 0 }} / {{ v.rateType === 'km' ? 'Km' : 'Day' }}
-          <button type="button" (click)="startEditExistingVehicle(i)">Edit</button>
-          <button type="button" (click)="removeEditingVehicle(i)">Delete</button>
-        </div>
-
-        <div class="vehicle-entry">
-          <input [(ngModel)]="editVehicleField.number" placeholder="Vehicle Number">
-          <input [(ngModel)]="editVehicleField.phone" placeholder="Driver Phone">
-          <select [(ngModel)]="editVehicleField.rateType" required>
-            <option value="km">Rate / Km</option>
-            <option value="day">Rate / Day</option>
-          </select>
-          <input type="number" [(ngModel)]="editVehicleField.rateValue" placeholder="Rate Value*" required>
-          <button type="button" (click)="addEditingVehicle()">
-            {{ editingExistingVehicleIndex !== null ? 'Update Vehicle' : '+ Vehicle' }}
-          </button>
-        </div>
-
-        <div class="terminal-buttons">
-          <button class="btn-add" type="button" (click)="saveEdit()">Save Changes</button>
-          <button type="button" (click)="closeEditPartnerPopup()">Cancel</button>
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeEditPartnerPopup()">Cancel</button>
+          <button type="button" (click)="saveEdit()">Save</button>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Transport Partners List -->
   <div class="tpartner-table-wrapper">
-    <table>
-      <tr>
-        <th>Partner</th>
-        <th>GSTIN</th>
-        <th>Address</th>
-        <th>Vehicles</th>
-        <th>Vehicle Status</th>
-        <th>Rate</th>
-        <th>Status</th>
-        <th>Vehicle daily cost</th>
-        <th>Actions</th>
-      </tr>
+    <table class="tpartner-table">
+      <thead>
+        <tr>
+          <th>Partner</th>
+          <th>GSTIN</th>
+          <th>Address</th>
+          <th>Vehicles</th>
+          <th>Vehicle Status</th>
+          <th>Rate</th>
+          <th>Status</th>
+          <th>Vehicle Daily Cost</th>
+        </tr>
+      </thead>
 
-      <tr *ngFor="let p of partners">
-        <td>
-          <span>{{ p.partnerName }}</span>
-        </td>
-
-        <td>
-          <span>{{ p.GSTIN }}</span>
-        </td>
-
-        <td>
-          <span>{{ p.address }}</span>
-        </td>
-
-        <td>
-          <div class="tag" *ngFor="let v of p.vehicleNumbers">
-            {{ v.number }} <br> {{ v.phone }}
-          </div>
-        </td>
-
-        <td>
-          <div class="tag" *ngFor="let v of p.vehicleNumbers">
-            <ng-container *ngIf="(v.vehicleStatus || 'online') === 'online'; else statusSelect">
-              {{ v.vehicleStatus || 'online' }}
-            </ng-container>
-            <ng-template #statusSelect>
-              <select [(ngModel)]="v.vehicleStatus" (change)="updateVehicleStatus(p, v)">
-                <option value="scheduled">scheduled</option>
-                <option value="delivering">delivering</option>
-                <option value="completed">completed</option>
-              </select>
-            </ng-template>
-          </div>
-        </td>
-
-        <td>
-          <div class="tag" *ngFor="let v of p.vehicleNumbers">
-            {{ v.rateValue || 0 }} / {{ v.rateType === 'km' ? 'Km' : 'Day' }}
-          </div>
-        </td>
-
-        <td>
-          <button
-            [class.active]="p.status === 'active'"
-            [class.inactive]="p.status !== 'active'"
-            (click)="toggleStatus(p)">
-            {{ p.status === 'active' ? 'Active' : 'Inactive' }}
-          </button>
-        </td>
-
-        <td>
-          <div class="tag" *ngFor="let v of p.vehicleNumbers">
-            <input
-              type="number"
-              min="0"
-              [(ngModel)]="v.vehicleDailyCost"
-              [disabled]="true"
-              placeholder="Daily cost">
-          </div>
-        </td>
-
-        <td>
-          <button (click)="editPartner(p)">Edit</button>
-        </td>
-      </tr>
+      <tbody>
+        <tr *ngFor="let p of partners" (click)="openPartnerDetailsPopup(p)">
+          <td>{{ p.partnerName }}</td>
+          <td>{{ p.GSTIN }}</td>
+          <td>{{ getPartnerAddress(p) }}</td>
+          <td>
+            <div class="tag-list">
+              <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                <div class="tag-title">{{ v.number || '-' }}</div>
+                <div class="tag-sub">{{ v.phone || '-' }}</div>
+              </div>
+            </div>
+          </td>
+          <td (click)="$event.stopPropagation()">
+            <div class="tag-list">
+              <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                <ng-container *ngIf="(v.vehicleStatus || 'online') === 'online'; else statusSelect">
+                  {{ v.vehicleStatus || 'online' }}
+                </ng-container>
+                <ng-template #statusSelect>
+                  <select [(ngModel)]="v.vehicleStatus"
+                          (click)="$event.stopPropagation()"
+                          (change)="updateVehicleStatus(p, v); $event.stopPropagation()">
+                    <option value="scheduled">scheduled</option>
+                    <option value="delivering">delivering</option>
+                    <option value="completed">completed</option>
+                  </select>
+                </ng-template>
+              </div>
+            </div>
+          </td>
+          <td>
+            <div class="tag-list">
+              <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                {{ formatVehicleRate(v) }}
+              </div>
+            </div>
+          </td>
+          <td class="status-cell">
+            <button (click)="toggleStatus(p); $event.stopPropagation()"
+                    [ngClass]="p.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ p.status === 'active' ? 'Active' : 'Inactive' }}
+            </button>
+          </td>
+          <td (click)="$event.stopPropagation()">
+            <div class="tag-list">
+              <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                {{ v.vehicleDailyCost ?? 0 }}
+              </div>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="partners.length === 0">
+          <td colspan="8">No transport partners found.</td>
+        </tr>
+      </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Partner Details Popup -->
+<div class="modal theme-modal" *ngIf="showPartnerDetailsPopup">
+  <div class="modal-content tpartner-details-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Partner Details</h3>
+        <p class="modal-subtitle">Partner: {{ selectedPartner?.partnerName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editPartnerFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closePartnerDetailsPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-section">
+        <div class="details-row">
+          <span class="details-label">Partner Name</span>
+          <span class="details-value">{{ selectedPartner?.partnerName || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">GSTIN</span>
+          <span class="details-value">{{ selectedPartner?.GSTIN || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Status</span>
+          <span class="details-value">{{ selectedPartner?.status === 'active' ? 'Active' : 'Inactive' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Branch</span>
+          <span class="details-value">{{ selectedPartner?.branch || '-' }}</span>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <h4>Address</h4>
+        <div class="details-grid">
+          <div>
+            <div class="details-label">Address</div>
+            <div class="details-value">{{ selectedPartner?.address || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">City</div>
+            <div class="details-value">{{ selectedPartner?.city || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">State</div>
+            <div class="details-value">{{ selectedPartner?.state || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">Pin</div>
+            <div class="details-value">{{ selectedPartner?.pinCode || '-' }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <h4>Vehicles</h4>
+        <div class="details-list" *ngIf="selectedPartner?.vehicleNumbers?.length; else noVehicles">
+          <div class="details-list-item" *ngFor="let v of selectedPartner.vehicleNumbers; let i = index">
+            <div class="details-pair">
+              <span class="details-label">Vehicle {{ i + 1 }}</span>
+              <span class="details-value">{{ v?.number || '-' }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Driver Phone</span>
+              <span class="details-value">{{ v?.phone || '-' }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Rate</span>
+              <span class="details-value">{{ formatVehicleRate(v) }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Status</span>
+              <span class="details-value">{{ v?.vehicleStatus || 'online' }}</span>
+            </div>
+            <div class="details-pair">
+              <span class="details-label">Daily Cost</span>
+              <span class="details-value">{{ v?.vehicleDailyCost ?? 0 }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noVehicles>
+          <div class="details-empty">No vehicles found.</div>
+        </ng-template>
+      </div>
+    </div>
   </div>
 </div>

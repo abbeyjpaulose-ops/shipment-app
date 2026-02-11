@@ -17,6 +17,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   partners: any[] = [];
   showAddPartnerPopup = false;
   showEditPartnerPopup = false;
+  showPartnerDetailsPopup = false;
   branch: string = localStorage.getItem('branch') || 'All Branches';
   originLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchSub?: Subscription;
@@ -39,6 +40,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   editingNewVehicleIndex: number | null = null;
   editingExistingVehicleIndex: number | null = null;
   editing: any = null;
+  selectedPartner: any = null;
 
   constructor(private http: HttpClient, private branchService: BranchService) {}
 
@@ -194,6 +196,23 @@ export class TpartnerComponent implements OnInit, OnDestroy {
     this.editingExistingVehicleIndex = null;
   }
 
+  openPartnerDetailsPopup(partner: any) {
+    this.selectedPartner = partner;
+    this.showPartnerDetailsPopup = true;
+  }
+
+  closePartnerDetailsPopup() {
+    this.selectedPartner = null;
+    this.showPartnerDetailsPopup = false;
+  }
+
+  editPartnerFromDetails() {
+    if (!this.selectedPartner) return;
+    const partner = this.selectedPartner;
+    this.closePartnerDetailsPopup();
+    this.editPartner(partner);
+  }
+
   startEditNewVehicle(i: number) {
     const vehicle = this.newPartner.vehicleNumbers[i];
     if (!vehicle) return;
@@ -252,4 +271,15 @@ export class TpartnerComponent implements OnInit, OnDestroy {
       }
     }
   };
+
+  getPartnerAddress(partner: any): string {
+    const parts = [partner?.address, partner?.city, partner?.state, partner?.pinCode].filter(Boolean);
+    return parts.length ? parts.join(', ') : '-';
+  }
+
+  formatVehicleRate(vehicle: any): string {
+    const rateValue = vehicle?.rateValue ?? 0;
+    const unit = String(vehicle?.rateType || '').toLowerCase() === 'day' ? 'Day' : 'Km';
+    return `${rateValue} / ${unit}`;
+  }
 }

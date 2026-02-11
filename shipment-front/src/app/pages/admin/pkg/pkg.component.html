@@ -1,50 +1,130 @@
 <div class="pkgs-container">
-  <h2>Manage Packages</h2>
-
-  <!-- Add Pkg Form -->
-  <div class="add-pkg-form">
-    <input [(ngModel)]="newPkg.pkgName" placeholder="Package Type" required>
-    <input [(ngModel)]="newPkg.rate" type="number" placeholder="Rate" required>
-    <button (click)="addPkg()">+ Add Package</button>
+  <div class="pkgs-header">
+    <h2>Manage Packages</h2>
+    <button class="add-pkg-btn" type="button" (click)="openAddPkgPopup()">+ Add Package</button>
   </div>
 
-  <!-- Pkgs List -->
+  <!-- Add Package Popup -->
+  <div class="modal theme-modal" *ngIf="showAddPkgPopup">
+    <div class="modal-content pkg-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Add Package</h3>
+          <p class="modal-subtitle">Create a new package type</p>
+        </div>
+        <button type="button" class="close" (click)="closeAddPkgPopup()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="pkg-form-grid">
+          <label class="field">
+            <span>Package Type</span>
+            <input [(ngModel)]="newPkg.pkgName" placeholder="Package Type" required>
+          </label>
+          <label class="field">
+            <span>Rate</span>
+            <input [(ngModel)]="newPkg.rate" type="number" placeholder="Rate" required>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeAddPkgPopup()">Cancel</button>
+          <button type="button" (click)="addPkg()">+ Add Package</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Package Popup -->
+  <div class="modal theme-modal" *ngIf="showEditPkgPopup && editingPkg">
+    <div class="modal-content edit-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Edit Package</h3>
+          <p class="modal-subtitle">Package: {{ editingPkg?.pkgName || '-' }}</p>
+        </div>
+        <button type="button" class="close" (click)="closeEditPkgPopup()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="pkg-form-grid">
+          <label class="field">
+            <span>Package Type</span>
+            <input [(ngModel)]="editingPkg.pkgName" placeholder="Package Type" required>
+          </label>
+          <label class="field">
+            <span>Rate</span>
+            <input [(ngModel)]="editingPkg.rate" type="number" placeholder="Rate" required>
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="ghost-btn" (click)="closeEditPkgPopup()">Cancel</button>
+          <button type="button" (click)="saveEdit()">Save</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Packages List -->
   <div class="pkgs-table-wrapper">
-    <table>
-      <tr>
-        <th>Package Type</th>
-        <th>Rate</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-      <tr *ngFor="let b of pkgs">
-        <!-- Pkg Name -->
-        <td>
-          <span *ngIf="editingPkg?._id !== b._id">{{ b.pkgName }}</span>
-          <div *ngIf="editingPkg?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingPkg.pkgName">
-          </div>
-        </td>
-        <td>
-          <span *ngIf="editingPkg?._id !== b._id">{{ b.rate }}</span>
-          <div *ngIf="editingPkg?._id === b._id" class="edit-field">
-            <input type="number" [(ngModel)]="editingPkg.rate">
-          </div>
-        </td>
+    <table class="pkgs-table">
+      <thead>
+        <tr>
+          <th>Package Type</th>
+          <th>Rate</th>
+          <th>Status</th>
+        </tr>
+      </thead>
 
-        <!-- Status -->
-        <td>
-          <button (click)="toggleStatus(b)">
-            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
-          </button>
-        </td>
-
-        <!-- Actions -->
-        <td>
-          <button *ngIf="editingPkg?._id !== b._id" (click)="editPkg(b)">Edit</button>
-          <button *ngIf="editingPkg?._id === b._id" (click)="saveEdit()">Save</button>
-        </td>
-      </tr>
+      <tbody>
+        <tr *ngFor="let b of pkgs" (click)="openPkgDetailsPopup(b)">
+          <td>{{ b.pkgName }}</td>
+          <td>{{ b.rate }}</td>
+          <td class="status-cell">
+            <button (click)="toggleStatus(b); $event.stopPropagation()"
+                    [ngClass]="b.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ b.status === 'active' ? 'Active' : 'Deactivated' }}
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="pkgs.length === 0">
+          <td colspan="3">No packages found.</td>
+        </tr>
+      </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Package Details Popup -->
+<div class="modal theme-modal" *ngIf="showPkgDetailsPopup">
+  <div class="modal-content pkg-details-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Package Details</h3>
+        <p class="modal-subtitle">Package: {{ selectedPkg?.pkgName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editPkgFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closePkgDetailsPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-section">
+        <div class="details-row">
+          <span class="details-label">Package Type</span>
+          <span class="details-value">{{ selectedPkg?.pkgName || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Rate</span>
+          <span class="details-value">{{ selectedPkg?.rate ?? '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Status</span>
+          <span class="details-value">{{ selectedPkg?.status === 'active' ? 'Active' : 'Deactivated' }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>

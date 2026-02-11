@@ -15,6 +15,7 @@ export class BranchComponent implements OnInit {
   hubs: any[] = [];
   showAddBranchPopup = false;
   showEditBranchPopup = false;
+  showBranchDetailsPopup = false;
   private lastHeadingBranchName = '';
 
   newBranch: any = {
@@ -30,6 +31,7 @@ export class BranchComponent implements OnInit {
   };
 
   editingBranch: any = null;
+  selectedBranch: any = null;
 
   constructor(private http: HttpClient) {}
 
@@ -69,6 +71,23 @@ export class BranchComponent implements OnInit {
   closeEditBranchPopup() {
     this.showEditBranchPopup = false;
     this.editingBranch = null;
+  }
+
+  openBranchDetailsPopup(branch: any) {
+    this.selectedBranch = branch;
+    this.showBranchDetailsPopup = true;
+  }
+
+  closeBranchDetailsPopup() {
+    this.showBranchDetailsPopup = false;
+    this.selectedBranch = null;
+  }
+
+  editBranchFromDetails() {
+    if (!this.selectedBranch) return;
+    const branch = this.selectedBranch;
+    this.closeBranchDetailsPopup();
+    this.editBranch(branch);
   }
 
   // Add Vehicle in Add Form
@@ -234,7 +253,7 @@ export class BranchComponent implements OnInit {
     return options;
   }
 
-  private getCurrentLocationLabel(value: string): string {
+  getCurrentLocationLabel(value: string): string {
     const raw = String(value || '').trim();
     if (!raw) return '';
     const branch = (this.branches || []).find((b: any) => this.normalizeId(b?._id) === raw);
@@ -245,7 +264,7 @@ export class BranchComponent implements OnInit {
     return raw;
   }
 
-  private getBranchLabel(branch: any): string {
+  getBranchLabel(branch: any): string {
     const prefix = String(branch?.prefix || '').trim();
     if (prefix) return prefix;
     const branchName = String(branch?.branchName || '').trim();
@@ -279,6 +298,16 @@ export class BranchComponent implements OnInit {
     if (value?._id) return String(value._id);
     if (value?.$oid) return String(value.$oid);
     return String(value);
+  }
+
+  getVehicleLocationLabel(vehicle: any): string {
+    const raw = String(vehicle?.currentLocationId || vehicle?.currentBranch || '').trim();
+    if (!raw) {
+      const fallback = this.getBranchLabel(this.selectedBranch);
+      return fallback || 'This branch';
+    }
+    const normalized = this.normalizeLocationId(raw);
+    return this.getCurrentLocationLabel(normalized || raw) || 'This branch';
   }
 
   // Reset Form

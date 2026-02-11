@@ -16,6 +16,7 @@ export class HubComponent implements OnInit, OnDestroy {
   branches: any[] = [];
   showAddHubPopup = false;
   showEditHubPopup = false;
+  showHubDetailsPopup = false;
   private lastHubName = '';
   private currentoriginLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchCheck: any;
@@ -41,6 +42,7 @@ export class HubComponent implements OnInit, OnDestroy {
   };
 
   editingHub: any = null;
+  selectedHub: any = null;
 
   constructor(private http: HttpClient) {}
 
@@ -107,6 +109,23 @@ export class HubComponent implements OnInit, OnDestroy {
   closeEditHubPopup() {
     this.showEditHubPopup = false;
     this.editingHub = null;
+  }
+
+  openHubDetailsPopup(hub: any) {
+    this.selectedHub = hub;
+    this.showHubDetailsPopup = true;
+  }
+
+  closeHubDetailsPopup() {
+    this.showHubDetailsPopup = false;
+    this.selectedHub = null;
+  }
+
+  editHubFromDetails() {
+    if (!this.selectedHub) return;
+    const hub = this.selectedHub;
+    this.closeHubDetailsPopup();
+    this.editHub(hub);
   }
 
   addHub() {
@@ -365,7 +384,7 @@ export class HubComponent implements OnInit, OnDestroy {
     });
   }
 
-  private getLocationLabel(value: any): string {
+  getLocationLabel(value: any): string {
     const raw = String(value || '').trim();
     if (!raw) return '';
     const hub = (this.hubs || []).find((h: any) => this.normalizeId(h?._id) === raw);
@@ -373,6 +392,30 @@ export class HubComponent implements OnInit, OnDestroy {
     const branch = (this.branches || []).find((b: any) => this.normalizeId(b?._id) === raw);
     if (branch?.branchName) return branch.branchName;
     return raw;
+  }
+
+  getHubAddress(hub: any): string {
+    const parts = [hub?.address, hub?.city, hub?.state, hub?.pinCode].filter(Boolean);
+    if (parts.length) return parts.join(', ');
+    const firstAddress = Array.isArray(hub?.addresses) ? hub.addresses[0] : null;
+    const fallback = [firstAddress?.address, firstAddress?.city, firstAddress?.state, firstAddress?.pinCode].filter(Boolean);
+    return fallback.join(', ');
+  }
+
+  getOriginLabel(hub: any): string {
+    const raw = String(hub?.originLocId || '').trim();
+    if (!raw || raw === 'all' || raw === 'all-hubs') return '-';
+    const label = this.getLocationLabel(raw);
+    return label || raw;
+  }
+
+  getVehicleLocationLabel(vehicle: any): string {
+    const raw = String(vehicle?.currentLocationId || vehicle?.currentBranch || '').trim();
+    if (!raw) {
+      return this.selectedHub?.hubName ? this.selectedHub.hubName : 'This hub';
+    }
+    const normalized = this.normalizeLocationId(raw);
+    return this.getLocationLabel(normalized || raw) || 'This hub';
   }
 
   private normalizeLocationId(value: any): string {

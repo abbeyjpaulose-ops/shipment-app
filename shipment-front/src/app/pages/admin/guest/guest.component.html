@@ -1,111 +1,181 @@
 <div class="guests-container">
-  <h2>Manage Guests</h2>
-
-  <!-- Add Guest Button -->
-  <button class="add-guest-btn" type="button" (click)="openAddGuestPopup()">+ Add Guest</button>
+  <div class="guests-header">
+    <h2>Manage Guests</h2>
+    <button class="add-guest-btn" type="button" (click)="openAddGuestPopup()">+ Add Guest</button>
+  </div>
 
   <!-- Add Guest Popup -->
   <div class="modal theme-modal" *ngIf="showAddGuestPopup">
-    <div class="modal-content">
-      <span class="close" (click)="closeAddGuestPopup()">&times;</span>
-      <h3>Add Guest</h3>
-      <div class="add-guest-form">
-        <input [(ngModel)]="newGuest.guestName" placeholder="Guest Name" required>
-        <input [(ngModel)]="newGuest.address" placeholder="Address" required>
-        <input [(ngModel)]="newGuest.city" placeholder="City">
-        <input [(ngModel)]="newGuest.state" placeholder="State">
-        <input [(ngModel)]="newGuest.pinCode" placeholder="Pin Code">
-        <input [(ngModel)]="newGuest.phoneNum" placeholder="Contact Number" required>
-        <input [(ngModel)]="newGuest.perDis" placeholder="% of Discount" required>
-        <button type="button" (click)="addGuest()">+ Add Guest</button>
+    <div class="modal-content guest-modal">
+      <div class="modal-header">
+        <div class="modal-title">
+          <h3>Add Guest</h3>
+          <p class="modal-subtitle">Create a new guest</p>
+        </div>
+        <button type="button" class="close" (click)="closeAddGuestPopup()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="add-guest-form">
+          <input [(ngModel)]="newGuest.guestName" placeholder="Guest Name" required>
+          <input [(ngModel)]="newGuest.address" placeholder="Address" required>
+          <input [(ngModel)]="newGuest.city" placeholder="City">
+          <input [(ngModel)]="newGuest.state" placeholder="State">
+          <input [(ngModel)]="newGuest.pinCode" placeholder="Pin Code">
+          <input [(ngModel)]="newGuest.phoneNum" placeholder="Contact Number" required>
+          <input [(ngModel)]="newGuest.perDis" placeholder="% of Discount" required>
+
+          <div class="modal-actions">
+            <button type="button" class="ghost-btn" (click)="closeAddGuestPopup()">Cancel</button>
+            <button type="button" (click)="addGuest()">+ Add Guest</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Guests List -->
   <div class="guests-table-wrapper">
-    <table>
-      <tr>
-        <th>Guest Name</th>
-        <th>Address</th>
-        <th>City</th>
-        <th>State</th>
-        <th>Pin</th>
-        <th>Contact Number</th>
-        <th>% of Discount</th>
-        <th>Status</th>
-        <th>Actions</th>
-      </tr>
-      <tr *ngFor="let b of guests">
-        <!-- Guest Name -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.guestName }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.guestName">
-          </div>
-        </td>
+    <table class="guests-table">
+      <thead>
+        <tr>
+          <th>Guest Name</th>
+          <th>Address</th>
+          <th>Contact Number</th>
+          <th>% Discount</th>
+          <th>Status</th>
+        </tr>
+      </thead>
 
-        <!-- Address -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.address }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.address">
-          </div>
-        </td>
-
-        <!-- City -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.city }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.city">
-          </div>
-        </td>
-
-        <!-- State -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.state }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.state">
-          </div>
-        </td>
-
-        <!-- Pin Code -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.pinCode }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.pinCode">
-          </div>
-        </td>
-
-        <!-- phoneNum -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.phoneNum }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.phoneNum">
-          </div>
-        </td>
-
-        <!-- % of Discount -->
-        <td>
-          <span *ngIf="editingGuest?._id !== b._id">{{ b.perDis }}</span>
-          <div *ngIf="editingGuest?._id === b._id" class="edit-field">
-            <input [(ngModel)]="editingGuest.perDis">
-          </div>
-        </td>
-
-        <!-- Status -->
-        <td>
-          <button (click)="toggleStatus(b)">
-            {{ b.status === 'active' ? 'Deactivate' : 'Activate' }}
-          </button>
-        </td>
-
-        <!-- Actions -->
-        <td>
-          <button *ngIf="editingGuest?._id !== b._id" (click)="editGuest(b)">Edit</button>
-          <button *ngIf="editingGuest?._id === b._id" (click)="saveEdit()">Save</button>
-        </td>
-      </tr>
+      <tbody>
+        <tr *ngFor="let b of guests" (click)="openGuestDetailsPopup(b)">
+          <td>{{ b.guestName }}</td>
+          <td>{{ getGuestAddress(b) }}</td>
+          <td>{{ b.phoneNum }}</td>
+          <td>{{ b.perDis }}</td>
+          <td class="status-cell">
+            <button (click)="toggleStatus(b); $event.stopPropagation()"
+              [ngClass]="b.status === 'active' ? 'status-active' : 'status-inactive'">
+              {{ b.status === 'active' ? 'Active' : 'Deactivated' }}
+            </button>
+          </td>
+        </tr>
+        <tr *ngIf="guests.length === 0">
+          <td colspan="5">No guests found.</td>
+        </tr>
+      </tbody>
     </table>
+  </div>
+</div>
+
+<!-- Guest Details Popup -->
+<div class="modal theme-modal" *ngIf="showGuestDetailsPopup">
+  <div class="modal-content guest-details-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Guest Details</h3>
+        <p class="modal-subtitle">Guest: {{ selectedGuest?.guestName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editGuestFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closeGuestDetailsPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-section">
+        <div class="details-row">
+          <span class="details-label">Guest Name</span>
+          <span class="details-value">{{ selectedGuest?.guestName || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Contact Number</span>
+          <span class="details-value">{{ selectedGuest?.phoneNum || '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">% Discount</span>
+          <span class="details-value">{{ selectedGuest?.perDis ?? '-' }}</span>
+        </div>
+        <div class="details-row">
+          <span class="details-label">Status</span>
+          <span class="details-value">{{ selectedGuest?.status === 'active' ? 'Active' : 'Deactivated' }}</span>
+        </div>
+      </div>
+
+      <div class="details-section">
+        <h4>Address</h4>
+        <div class="details-grid">
+          <div>
+            <div class="details-label">Address</div>
+            <div class="details-value">{{ selectedGuest?.address || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">City</div>
+            <div class="details-value">{{ selectedGuest?.city || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">State</div>
+            <div class="details-value">{{ selectedGuest?.state || '-' }}</div>
+          </div>
+          <div>
+            <div class="details-label">Pin</div>
+            <div class="details-value">{{ selectedGuest?.pinCode || '-' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Guest Popup -->
+<div class="modal theme-modal" *ngIf="showEditGuestPopup">
+  <div class="modal-content edit-modal-content">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Edit Guest</h3>
+        <p class="modal-subtitle">Guest: {{ editingGuest?.guestName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="close" (click)="closeEditGuestPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="edit-guest-grid">
+        <label class="field">
+          <span>Guest Name</span>
+          <input [(ngModel)]="editingGuest.guestName" required>
+        </label>
+        <label class="field">
+          <span>Address</span>
+          <input [(ngModel)]="editingGuest.address" required>
+        </label>
+        <label class="field">
+          <span>City</span>
+          <input [(ngModel)]="editingGuest.city">
+        </label>
+        <label class="field">
+          <span>State</span>
+          <input [(ngModel)]="editingGuest.state">
+        </label>
+        <label class="field">
+          <span>Pin Code</span>
+          <input [(ngModel)]="editingGuest.pinCode">
+        </label>
+        <label class="field">
+          <span>Contact Number</span>
+          <input [(ngModel)]="editingGuest.phoneNum" required>
+        </label>
+        <label class="field">
+          <span>% of Discount</span>
+          <input [(ngModel)]="editingGuest.perDis" required>
+        </label>
+      </div>
+
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" (click)="closeEditGuestPopup()">Cancel</button>
+        <button type="button" (click)="saveEdit()">Save</button>
+      </div>
+    </div>
   </div>
 </div>
