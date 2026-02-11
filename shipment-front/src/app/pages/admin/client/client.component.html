@@ -1,8 +1,10 @@
 ﻿<div class="clients-container">
-  <h2>Manage Clients</h2>
+  <div class="clients-header">
+    <h2>Manage Clients</h2>
+    <button class="add-client-btn" (click)="openAddClientPopup()">+ Add Client</button>
+  </div>
 
   <div class="client-actions">
-    <button class="add-client-btn" (click)="openAddClientPopup()">+ Add Client</button>
     <div class="hub-filter" *ngIf="cbranch === 'All Hubs'">
       <label>
         <span>Hub</span>
@@ -52,30 +54,36 @@
         <br><br>
 
         <!-- Product Pricing Section -->
-        <h4>Product Pricing</h4>
-        <div class="product-form" *ngFor="let p of newClient.products; let i = index">
+      <h4>Product Pricing</h4>
+      <div class="product-form" *ngFor="let p of newClient.products; let i = index">
+        <div class="product-row-header">
           <select [(ngModel)]="p.productName" (change)="onProductSelect(p)" required>
             <option value="">Select Product</option>
             <option *ngFor="let prod of productOptions" [value]="prod.productName">
               {{ prod.hsnNum }} - {{ prod.productName }}
             </option>
-          </select><br>
-          <div class="rate-rows">
-            <div class="rate-row" *ngFor="let rateEntry of p.rates; let r = index">
-              <input [(ngModel)]="rateEntry.pickupLocationId" placeholder="Pickup Address Id" list="rate-addresses">
-              <input [(ngModel)]="rateEntry.deliveryLocationId" placeholder="Delivery Address Id" list="rate-addresses">
-              <input [(ngModel)]="rateEntry.rate.ratePerNum" type="number" placeholder="Rate per Box">
-              <input [(ngModel)]="rateEntry.rate.ratePerVolume" type="number" placeholder="Rate per Volume">
-              <input [(ngModel)]="rateEntry.rate.ratePerKg" type="number" placeholder="Rate per Kg">
-              <button type="button" (click)="removeRateRow(p, r)">Remove</button>
-            </div>
-            <button type="button" (click)="addRateRow(p)">+ Add Rate</button>
-            <datalist id="rate-addresses">
-              <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
-            </datalist>
+          </select>
+          <div class="product-actions">
+            <button type="button" class="ghost-btn" (click)="addRateRow(p)">+ Add Rate</button>
+            <button type="button" class="icon-btn" (click)="removeProduct(i)" aria-label="Remove product" title="Remove">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
-          <button type="button" (click)="removeProduct(i)">Remove Product</button>
         </div>
+        <div class="rate-rows">
+          <div class="rate-row" *ngFor="let rateEntry of p.rates; let r = index">
+            <input [(ngModel)]="rateEntry.pickupLocationId" placeholder="Pickup Address Id" list="rate-addresses">
+            <input [(ngModel)]="rateEntry.deliveryLocationId" placeholder="Delivery Address Id" list="rate-addresses">
+            <input [(ngModel)]="rateEntry.rate.ratePerNum" type="number" placeholder="Rate per Box">
+            <input [(ngModel)]="rateEntry.rate.ratePerVolume" type="number" placeholder="Rate per Volume">
+            <input [(ngModel)]="rateEntry.rate.ratePerKg" type="number" placeholder="Rate per Kg">
+            <button type="button" (click)="removeRateRow(p, r)">Remove</button>
+          </div>
+          <datalist id="rate-addresses">
+            <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
+          </datalist>
+        </div>
+      </div>
         <button type="button" (click)="addProduct()">+ Add Product</button>
         <br><br>
 
@@ -86,36 +94,26 @@
 
   <!-- Clients List -->
   <div class="clients-table-wrapper">
-    <table>
+    <table class="clients-table">
       <thead>
         <tr>
           <th>Client Name</th>
           <th>Address</th>
-          <th>City</th>
-          <th>State</th>
-          <th>Pin</th>
           <th>GSTIN</th>
           <th>Contact Number</th>
           <th>% Discount</th>
           <th>Credit Type</th>
           <th>Delivery Locations</th>
           <th>Status</th>
-          <th>Actions</th>
         </tr>
       </thead>
 
       <tbody>
-        <tr *ngFor="let b of clients">
+        <tr *ngFor="let b of clients" (click)="openClientDetailsPopup(b)">
 
           <td>{{ b.clientName }}</td>
 
-          <td>{{ b.address }}</td>
-
-          <td>{{ b.city }}</td>
-
-          <td>{{ b.state }}</td>
-
-          <td>{{ b.pinCode }}</td>
+          <td>{{ getClientPrimaryAddress(b) }}</td>
 
           <td>{{ b.GSTIN }}</td>
 
@@ -124,9 +122,9 @@
           <td>{{ b.perDis }}</td>
 
           <!-- Credit Toggle -->
-          <td>
+          <td class="credit-cell">
             <button 
-              (click)="toggleCreditType(b)"
+              (click)="toggleCreditType(b); $event.stopPropagation()"
               [ngClass]="b.creditType === 'credit' ? 'credit-active' : 'credit-inactive'">
               {{ b.creditType === 'credit' ? 'Credit' : 'No Credit' }}
             </button>
@@ -140,15 +138,11 @@
           </td>
 
           <!-- Status -->
-          <td>
-            <button (click)="toggleStatus(b)"
+          <td class="status-cell">
+            <button (click)="toggleStatus(b); $event.stopPropagation()"
               [ngClass]="b.status === 'active' ? 'status-active' : 'status-inactive'">
               {{ b.status === 'active' ? 'Active' : 'Deactivated' }}
             </button>
-          </td>
-
-          <td>
-            <button (click)="openEditClientPopup(b)">Edit</button>
           </td>
 
         </tr>
@@ -157,12 +151,138 @@
   </div>
 </div>
 
+<!-- Client Details Popup -->
+<div class="modal theme-modal" *ngIf="showClientDetailsPopup">
+  <div class="modal-content client-details-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Client Details</h3>
+        <p class="modal-subtitle">Client: {{ selectedClient?.clientName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editSelectedClientFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closeClientDetailsPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+    <div class="details-section">
+      <div class="details-row">
+        <span class="details-label">Client Name</span>
+        <span class="details-value">{{ selectedClient?.clientName || '-' }}</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">GSTIN</span>
+        <span class="details-value">{{ selectedClient?.GSTIN || '-' }}</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">Contact Number</span>
+        <span class="details-value">{{ selectedClient?.phoneNum || '-' }}</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">% Discount</span>
+        <span class="details-value">{{ selectedClient?.perDis ?? '-' }}</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">Credit Type</span>
+        <span class="details-value">{{ selectedClient?.creditType === 'credit' ? 'Credit' : 'No Credit' }}</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">Status</span>
+        <span class="details-value">{{ selectedClient?.status === 'active' ? 'Active' : 'Deactivated' }}</span>
+      </div>
+      <div class="details-row">
+        <span class="details-label">Branch</span>
+        <span class="details-value">{{ selectedClient?.branchName || '-' }}</span>
+      </div>
+    </div>
+
+    <div class="details-section">
+      <h4>Primary Address</h4>
+      <div class="details-grid">
+        <div>
+          <div class="details-label">Address</div>
+          <div class="details-value">{{ selectedClient?.address || selectedClient?.deliveryLocations?.[0]?.address || selectedClient?.deliveryLocations?.[0]?.location || '-' }}</div>
+        </div>
+        <div>
+          <div class="details-label">City</div>
+          <div class="details-value">{{ selectedClient?.city || selectedClient?.deliveryLocations?.[0]?.city || '-' }}</div>
+        </div>
+        <div>
+          <div class="details-label">State</div>
+          <div class="details-value">{{ selectedClient?.state || selectedClient?.deliveryLocations?.[0]?.state || '-' }}</div>
+        </div>
+        <div>
+          <div class="details-label">Pin</div>
+          <div class="details-value">{{ selectedClient?.pinCode || selectedClient?.deliveryLocations?.[0]?.pinCode || '-' }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="details-section">
+      <h4>Delivery Locations</h4>
+      <div class="details-list" *ngIf="selectedClient?.deliveryLocations?.length; else noDeliveryLocations">
+        <div class="details-list-item" *ngFor="let loc of selectedClient.deliveryLocations; let i = index">
+          <div class="details-label">Location {{ i + 1 }}</div>
+          <div class="details-value">
+            {{ loc?.address || loc?.location || '-' }}, {{ loc?.city || '-' }}, {{ loc?.state || '-' }} {{ loc?.pinCode || '-' }}
+          </div>
+        </div>
+      </div>
+      <ng-template #noDeliveryLocations>
+        <div class="details-empty">No delivery locations found.</div>
+      </ng-template>
+    </div>
+
+    <div class="details-section">
+      <h4>Product Pricing</h4>
+      <div class="details-list" *ngIf="selectedClient?.products?.length; else noProducts">
+        <div class="details-list-item" *ngFor="let p of selectedClient.products; let i = index">
+          <div class="details-label">{{ p?.productName || 'Product ' + (i + 1) }}</div>
+          <div class="details-value">HSN: {{ p?.hsnNum || '-' }}</div>
+          <div class="rate-table" *ngIf="p?.rates?.length; else noRates">
+            <div class="rate-row head">
+              <span>Pickup</span>
+              <span>Delivery</span>
+              <span>Rate/Box</span>
+              <span>Rate/cm3</span>
+              <span>Rate/Kg</span>
+            </div>
+            <div class="rate-row" *ngFor="let r of p.rates">
+              <span>{{ getRateAddressLabel(r?.pickupLocationId) }}</span>
+              <span>{{ getRateAddressLabel(r?.deliveryLocationId) }}</span>
+              <span>{{ r?.rate?.ratePerNum ?? 0 }}</span>
+              <span>{{ r?.rate?.ratePerVolume ?? 0 }}</span>
+              <span>{{ r?.rate?.ratePerKg ?? 0 }}</span>
+            </div>
+          </div>
+          <ng-template #noRates>
+            <div class="details-empty">No rates configured.</div>
+          </ng-template>
+        </div>
+      </div>
+      <ng-template #noProducts>
+        <div class="details-empty">No product pricing found.</div>
+      </ng-template>
+    </div>
+    </div>
+  </div>
+</div>
+
 <!-- Edit Client Popup -->
 <div class="modal theme-modal" *ngIf="showEditClientPopup">
   <div class="modal-content edit-modal-content">
-    <span class="close" (click)="closeEditClientPopup()">&times;</span>
-    <h3>Edit Client</h3>
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Edit Client</h3>
+        <p class="modal-subtitle">Client: {{ editingClient?.clientName || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="close" (click)="closeEditClientPopup()">&times;</button>
+      </div>
+    </div>
 
+    <div class="modal-body">
     <div class="add-client-form">
       <input [(ngModel)]="editingClient.clientName" placeholder="Client Name" required>
       <input [(ngModel)]="editingClient.address" placeholder="Address" required>
@@ -191,32 +311,44 @@
 
       <h4>Product Pricing</h4>
       <div class="product-form" *ngFor="let p of editingClient.products; let i = index">
-        <select [(ngModel)]="p.productName" (change)="onProductSelect(p)" required>
-          <option value="">Select Product</option>
-          <option *ngFor="let prod of productOptions" [value]="prod.productName">
-            {{ prod.hsnNum }} - {{ prod.productName }}
-          </option>
-        </select><br>
+        <div class="product-row-header">
+          <select [(ngModel)]="p.productName" (change)="onProductSelect(p)" required>
+            <option value="">Select Product</option>
+            <option *ngFor="let prod of productOptions" [value]="prod.productName">
+              {{ prod.hsnNum }} - {{ prod.productName }}
+            </option>
+          </select>
+          <div class="product-actions">
+            <button type="button" class="ghost-btn" (click)="addRateRow(p)">+ Add Rate</button>
+            <button type="button" class="icon-btn" (click)="removeProductEdit(i)" aria-label="Remove product" title="Remove">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </div>
         <div class="rate-rows">
-          <div class="rate-row" *ngFor="let rateEntry of p.rates; let r = index">
+          <div class="rate-row edit-rate-row" *ngFor="let rateEntry of p.rates; let r = index">
             <input [(ngModel)]="rateEntry.pickupLocationId" placeholder="Pickup Address Id" list="rate-addresses">
             <input [(ngModel)]="rateEntry.deliveryLocationId" placeholder="Delivery Address Id" list="rate-addresses">
             <input [(ngModel)]="rateEntry.rate.ratePerNum" type="number" placeholder="Rate per Box">
             <input [(ngModel)]="rateEntry.rate.ratePerVolume" type="number" placeholder="Rate per Volume">
             <input [(ngModel)]="rateEntry.rate.ratePerKg" type="number" placeholder="Rate per Kg">
-            <button type="button" (click)="removeRateRow(p, r)">Remove</button>
+            <button type="button" class="icon-btn" (click)="removeRateRow(p, r)" aria-label="Remove rate" title="Remove">
+              <i class="fas fa-trash"></i>
+            </button>
           </div>
-          <button type="button" (click)="addRateRow(p)">+ Add Rate</button>
           <datalist id="rate-addresses">
             <option *ngFor="let opt of rateAddressOptions" [value]="opt.id" [label]="opt.label"></option>
           </datalist>
         </div>
-        <button type="button" (click)="removeProductEdit(i)">Remove Product</button>
       </div>
       <button type="button" (click)="addProductEdit()">+ Add Product</button>
       <br><br>
 
-      <button (click)="saveEdit()">Save</button>
+      <div class="modal-actions">
+        <button type="button" class="ghost-btn" (click)="closeEditClientPopup()">Cancel</button>
+        <button (click)="saveEdit()">Save</button>
+      </div>
+    </div>
     </div>
   </div>
 </div>

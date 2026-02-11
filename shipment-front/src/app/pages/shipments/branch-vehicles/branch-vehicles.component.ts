@@ -54,6 +54,8 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
   showEditLocationPopup = false;
   editLocationVehicle: any = null;
   editLocationValue = '';
+  showVehicleDetailsPopup = false;
+  selectedVehicle: any = null;
 
   constructor(private http: HttpClient) {}
 
@@ -289,6 +291,23 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     }
     this.loadVehicleManifestsForEdit(vehicle.vehicleNo);
     this.showEditLocationPopup = true;
+  }
+
+  openVehicleDetails(vehicle: any) {
+    if (!vehicle) return;
+    this.selectedVehicle = vehicle;
+    this.showVehicleDetailsPopup = true;
+  }
+
+  closeVehicleDetailsPopup() {
+    this.showVehicleDetailsPopup = false;
+    this.selectedVehicle = null;
+  }
+
+  editVehicleFromDetails() {
+    if (!this.selectedVehicle) return;
+    this.openEditLocation(this.selectedVehicle);
+    this.closeVehicleDetailsPopup();
   }
 
   closeEditLocationPopup() {

@@ -69,11 +69,24 @@ function normalizeClientPayload(payload = {}) {
 
 async function withBranchNames(records = []) {
   const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
+  const enhanced = data.map((rec) => {
+    const safe = rec || {};
+    const firstLocation = Array.isArray(safe?.deliveryLocations)
+      ? safe.deliveryLocations[0]
+      : null;
+    return {
+      ...safe,
+      address: safe.address || firstLocation?.address || firstLocation?.location || '',
+      city: safe.city || firstLocation?.city || '',
+      state: safe.state || firstLocation?.state || '',
+      pinCode: safe.pinCode || firstLocation?.pinCode || ''
+    };
+  });
   const originLocIds = Array.from(
-    new Set(data.map((rec) => String(rec?.originLocId || '')).filter(Boolean))
+    new Set(enhanced.map((rec) => String(rec?.originLocId || '')).filter(Boolean))
   );
   if (!originLocIds.length) {
-    return data.map((rec) => ({ ...rec, branchName: '' }));
+    return enhanced.map((rec) => ({ ...rec, branchName: '' }));
   }
   const branches = await Branch.find({ _id: { $in: originLocIds } })
     .select('_id branchName')
@@ -87,7 +100,7 @@ async function withBranchNames(records = []) {
       .lean();
     hubNameById = new Map((hubs || []).map((h) => [String(h._id), h.hubName || '']));
   }
-  return data.map((rec) => ({
+  return enhanced.map((rec) => ({
     ...rec,
     branchName:
       branchNameById.get(String(rec?.originLocId || '')) ||

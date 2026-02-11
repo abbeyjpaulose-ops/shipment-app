@@ -2,8 +2,10 @@
   <h2>View Shipments</h2>
 
   <div class="tabs">
-    <button type="button" (click)="activeTab='all'" [class.active]="activeTab==='all'">All Shipments</button>
-    <button type="button" (click)="activeTab='received'" [class.active]="activeTab==='received'">Received Shipments</button>
+    <div class="tab-buttons">
+      <button type="button" class="tab-button" (click)="activeTab='all'" [class.active]="activeTab==='all'">All Shipments</button>
+      <button type="button" class="tab-button" (click)="activeTab='received'" [class.active]="activeTab==='received'">Received Shipments</button>
+    </div>
   </div>
 
   <div *ngIf="activeTab==='all'" class="tab-panel tab-panel--all">
@@ -662,74 +664,178 @@
           <p class="eyebrow">Items</p>
           <h3>E-Waybills & Invoices</h3>
         </div>
+        <div class="head-actions" *ngIf="isEditingConsignment">
+          <div class="rate-unit">
+            <span>Rate Unit</span>
+            <select [(ngModel)]="editRateUnit" (change)="onEditRateUnitChange()">
+              <option value="box">Rate / Box</option>
+              <option value="cm3">Rate / cmA3</option>
+              <option value="kg">Rate / Kg</option>
+            </select>
+          </div>
+          <button class="tiny-btn primary black" (click)="addEditEwaybill()">+ E-Waybill</button>
+        </div>
       </div>
-      <ng-container *ngIf="getShipmentEwaybills(isEditingConsignment ? editingShipment : selectedShipment) as ewaybills">
-        <ng-container *ngIf="ewaybills.length; else noEwaybills">
-          <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill">
+      <ng-container *ngIf="isEditingConsignment; else viewEwaybills">
+        <div class="edit-ewaybills">
+        <div *ngFor="let ewb of editingShipment?.ewaybills; let e = index" class="ewaybill">
+          <div class="line-header">
+            <div class="eyebrow">E-Waybill {{ e + 1 }}</div>
+            <button *ngIf="e > 0" class="icon-btn" (click)="deleteEditEwaybill(e)" aria-label="Delete e-waybill" title="Delete">
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+          <div class="grid-3 compact">
+            <input placeholder="Customer Eway-bill No" [(ngModel)]="ewb.number">
+            <input type="date" [(ngModel)]="ewb.date">
+          </div>
+
+          <div class="invoice-block" *ngFor="let invoice of ewb.invoices; let i = index">
             <div class="line-header">
-              <div class="eyebrow">E-Waybill {{ e + 1 }}</div>
+              <div>
+                <div class="eyebrow">Invoice {{ i + 1 }}</div>
+              </div>
+              <button *ngIf="i > 0" class="icon-btn" (click)="deleteEditInvoice(e, i)" aria-label="Delete invoice" title="Delete">
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
             <div class="grid-3 compact">
-              <input
-                placeholder="Customer Eway-bill No"
-                [ngModel]="ewb?.number"
-                readonly>
-              <input
-                type="date"
-                [ngModel]="ewb?.date | date:'yyyy-MM-dd'"
-                readonly>
+              <input placeholder="Customer INV No" [(ngModel)]="invoice.number">
+              <input type="number" placeholder="Value" [(ngModel)]="invoice.value" (ngModelChange)="recalculateEditTotals()">
             </div>
 
-            <div class="invoice-block" *ngFor="let invoice of (ewb?.invoices || []); let i = index">
+            <div class="subsection">
+              <div class="subsection-head">
+                <div class="subsection-title">Products</div>
+              </div>
+              <div class="product-head">
+                <span>Product</span>
+                <span>Qty</span>
+                <span>Rate</span>
+                <span></span>
+              </div>
+              <div *ngFor="let product of invoice.products; let p=index" class="product-row">
+                <div class="product-cell product-cell-product">
+                  <select [(ngModel)]="product.type" (change)="onEditProductTypeChange(product)">
+                    <option *ngFor="let prod of productList" [value]="prod.productName">
+                      {{ prod.hsnNum }} - {{ prod.productName }}
+                    </option>
+                  </select>
+                </div>
+                <div class="product-cell product-cell-qty">
+                  <input type="number" placeholder="Qty" [(ngModel)]="product.amount" (ngModelChange)="recalculateEditTotals()">
+                </div>
+                <div class="product-cell product-cell-rate">
+                  <div class="rate-inline">
+                    <input type="number" class="rate-input" placeholder="Rate / Unit" [(ngModel)]="product.ratePer" (ngModelChange)="recalculateEditTotals()">
+                    <span *ngIf="getEditSuggestedRate(product) !== null" class="suggested-rate">
+                      Suggested: {{ getEditSuggestedRate(product) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="product-cell product-cell-delete">
+                  <button *ngIf="p > 0" class="icon-btn" (click)="deleteEditProduct(e, i, p)" aria-label="Delete product" title="Delete">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <button class="tiny-btn" (click)="addEditProduct(e, i)">+ Product</button>
+            </div>
+
+            <div class="subsection">
+              <div class="subsection-title">Packages</div>
+              <div *ngFor="let pkg of invoice.packages; let j=index" class="compact-row">
+                <select [(ngModel)]="pkg.type">
+                  <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
+                </select>
+                <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount" (ngModelChange)="recalculateEditTotals()">
+                <button class="icon-btn" (click)="deleteEditPackage(e, i, j)" aria-label="Delete package" title="Delete">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+              <button class="tiny-btn" (click)="addEditPackage(e, i)">+ Package</button>
+            </div>
+          </div>
+
+          <button class="tiny-btn primary ghost" (click)="addEditInvoice(e)">+ Invoice</button>
+        </div>
+
+        <div class="inline-actions" style="margin-top:8px;">
+          <span class="muted">Need another e-waybill?</span>
+          <button class="tiny-btn primary black" (click)="addEditEwaybill()">+ E-Waybill</button>
+        </div>
+        </div>
+      </ng-container>
+
+      <ng-template #viewEwaybills>
+        <ng-container *ngIf="getShipmentEwaybills(selectedShipment) as ewaybills">
+          <ng-container *ngIf="ewaybills.length; else noEwaybills">
+            <div *ngFor="let ewb of ewaybills; let e = index" class="ewaybill">
               <div class="line-header">
-                <div class="eyebrow">Invoice {{ i + 1 }}</div>
+                <div class="eyebrow">E-Waybill {{ e + 1 }}</div>
               </div>
               <div class="grid-3 compact">
                 <input
-                  placeholder="Customer INV No"
-                  [ngModel]="invoice?.number"
+                  placeholder="Customer Eway-bill No"
+                  [ngModel]="ewb?.number"
                   readonly>
                 <input
-                  type="number"
-                  placeholder="Value"
-                  [ngModel]="invoice?.value"
+                  type="date"
+                  [ngModel]="ewb?.date | date:'yyyy-MM-dd'"
                   readonly>
               </div>
 
-              <div class="subsection">
-                <div class="subsection-head">
-                  <div class="subsection-title">Products</div>
+              <div class="invoice-block" *ngFor="let invoice of (ewb?.invoices || []); let i = index">
+                <div class="line-header">
+                  <div class="eyebrow">Invoice {{ i + 1 }}</div>
                 </div>
-                <div *ngFor="let product of (invoice?.products || []); let p = index" class="product-row">
-                  <div class="compact-row">
-                    <input [ngModel]="product?.type || product?.productName" readonly>
-                    <input type="number" placeholder="Qty" [ngModel]="product?.amount" readonly>
-                  </div>
-                  <div class="rate-inline">
-                    <input
-                      type="number"
-                      class="rate-input"
-                      placeholder="Rate / Unit"
-                      [ngModel]="product?.ratePer"
-                      readonly>
-                  </div>
+                <div class="grid-3 compact">
+                  <input
+                    placeholder="Customer INV No"
+                    [ngModel]="invoice?.number"
+                    readonly>
+                  <input
+                    type="number"
+                    placeholder="Value"
+                    [ngModel]="invoice?.value"
+                    readonly>
                 </div>
-                <div class="muted" *ngIf="!invoice?.products?.length">No products found.</div>
-              </div>
 
-              <div class="subsection">
-                <div class="subsection-title">Packages</div>
-                <div *ngFor="let pkg of (invoice?.packages || []); let j = index" class="compact-row">
-                  <input [ngModel]="pkg?.type || pkg?.pkgName" readonly>
-                  <input type="number" placeholder="Qty" [ngModel]="pkg?.amount" readonly>
+                <div class="subsection">
+                  <div class="subsection-head">
+                    <div class="subsection-title">Products</div>
+                  </div>
+                  <div *ngFor="let product of (invoice?.products || []); let p = index" class="product-row">
+                    <div class="compact-row">
+                      <input [ngModel]="product?.type || product?.productName" readonly>
+                      <input type="number" placeholder="Qty" [ngModel]="product?.amount" readonly>
+                    </div>
+                    <div class="rate-inline">
+                      <input
+                        type="number"
+                        class="rate-input"
+                        placeholder="Rate / Unit"
+                        [ngModel]="product?.ratePer"
+                        readonly>
+                    </div>
+                  </div>
+                  <div class="muted" *ngIf="!invoice?.products?.length">No products found.</div>
                 </div>
-                <div class="muted" *ngIf="!invoice?.packages?.length">No packages found.</div>
+
+                <div class="subsection">
+                  <div class="subsection-title">Packages</div>
+                  <div *ngFor="let pkg of (invoice?.packages || []); let j = index" class="compact-row">
+                    <input [ngModel]="pkg?.type || pkg?.pkgName" readonly>
+                    <input type="number" placeholder="Qty" [ngModel]="pkg?.amount" readonly>
+                  </div>
+                  <div class="muted" *ngIf="!invoice?.packages?.length">No packages found.</div>
+                </div>
               </div>
+              <div class="muted" *ngIf="!ewb?.invoices?.length">No invoices found.</div>
             </div>
-            <div class="muted" *ngIf="!ewb?.invoices?.length">No invoices found.</div>
-          </div>
+          </ng-container>
         </ng-container>
-      </ng-container>
+      </ng-template>
       <ng-template #noEwaybills>
         <p class="muted">No e-waybills found.</p>
       </ng-template>

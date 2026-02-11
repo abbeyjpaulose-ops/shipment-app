@@ -21,6 +21,8 @@ export class ClientComponent implements OnInit {
   private rateAddressLabelById = new Map<string, string>();
   showAddClientPopup = false;
   showEditClientPopup = false;
+  showClientDetailsPopup = false;
+  selectedClient: any | null = null;
   cbranch: string = localStorage.getItem('branch') || 'All Branches';
   coriginLocId: string = localStorage.getItem('originLocId') || 'all';
   private branchCheck: any;
@@ -196,6 +198,39 @@ export class ClientComponent implements OnInit {
   /** Popup Control */
   openAddClientPopup() {
     this.showAddClientPopup = true;
+  }
+
+  openClientDetailsPopup(client: any) {
+    this.selectedClient = client;
+    this.showClientDetailsPopup = true;
+  }
+
+  closeClientDetailsPopup() {
+    this.showClientDetailsPopup = false;
+    this.selectedClient = null;
+  }
+
+  editSelectedClientFromDetails() {
+    if (!this.selectedClient) return;
+    this.openEditClientPopup(this.selectedClient);
+    this.closeClientDetailsPopup();
+  }
+
+  getRateAddressLabel(value: any): string {
+    const key = String(value || '').trim();
+    if (!key) return '-';
+    return this.rateAddressLabelById.get(key) || key;
+  }
+
+  getClientPrimaryAddress(client: any): string {
+    const source = client || {};
+    const primary = Array.isArray(source.deliveryLocations) ? source.deliveryLocations[0] : null;
+    const address = source.address || primary?.address || primary?.location || '';
+    const city = source.city || primary?.city || '';
+    const state = source.state || primary?.state || '';
+    const pin = source.pinCode || primary?.pinCode || '';
+    const parts = [address, city, state, pin].map((p) => String(p || '').trim()).filter(Boolean);
+    return parts.length ? parts.join(', ') : '-';
   }
 
   closeAddClientPopup() {

@@ -22,7 +22,10 @@ export class ViewShipmentsComponent implements OnInit {
   selectedHubFilterName: string = '';
   clientList: any[] = [];
   guestList: any[] = [];
+  pkgList: any[] = [];
+  productList: any[] = [];
   email: string = '';
+  editRateUnit: 'box' | 'cm3' | 'kg' = 'box';
 
   searchText: string = '';
   filterDate: string = '';
@@ -53,6 +56,7 @@ export class ViewShipmentsComponent implements OnInit {
     this.loadHubs();
     this.loadClients();
     this.loadGuests();
+    this.loadEditLists();
   }
 
   loadShipments(): void {
@@ -140,6 +144,36 @@ export class ViewShipmentsComponent implements OnInit {
           this.guestList = guests || [];
         },
         error: (err: any) => console.error('Error loading guests:', err)
+      });
+  }
+
+  private loadEditLists(): void {
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    const productsoriginLocId = originLocId === 'all-hubs' ? 'all' : originLocId;
+    const branch = localStorage.getItem('branch') || '';
+    const params: any = { branch };
+    const originFilter = this.getSelectedOrigin();
+    if (originFilter) {
+      params.originType = originFilter.originType;
+      params.originLocId = originFilter.originLocId;
+    } else {
+      params.originLocId = productsoriginLocId;
+    }
+
+    this.http.get<any[]>('http://localhost:3000/api/pkgs/pkglist')
+      .subscribe({
+        next: (res) => {
+          this.pkgList = res || [];
+        },
+        error: (err: any) => console.error('Error loading packages:', err)
+      });
+
+    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params })
+      .subscribe({
+        next: (res) => {
+          this.productList = res || [];
+        },
+        error: (err: any) => console.error('Error loading products:', err)
       });
   }
 
@@ -983,6 +1017,7 @@ export class ViewShipmentsComponent implements OnInit {
     if (!this.selectedShipment) return;
     this.isEditingConsignment = true;
     this.editingShipment = this.prepareShipmentForEdit(this.selectedShipment);
+    this.editRateUnit = this.editingShipment?.rateUnit || 'box';
     this.recalculateEditTotals();
   }
 
@@ -993,6 +1028,7 @@ export class ViewShipmentsComponent implements OnInit {
 
   saveConsignmentEdits(): void {
     if (!this.editingShipment) return;
+    this.editingShipment.rateUnit = this.editRateUnit;
     const updatedConsignment = this.buildConsignmentUpdatePayload(this.editingShipment);
     this.isSavingConsignment = true;
     this.http.post('http://localhost:3000/api/newshipments/updateConsignment', { updatedConsignment })
@@ -1017,16 +1053,170 @@ export class ViewShipmentsComponent implements OnInit {
   private prepareShipmentForEdit(shipment: any): any {
     const cloned = JSON.parse(JSON.stringify(shipment || {}));
     cloned.charges = this.normalizeCharges(cloned.charges);
+    cloned.rateUnit = cloned.rateUnit || 'box';
+    const fallbackDate = this.getEditDateValue(cloned?.date);
+    const baseEwaybills = this.getShipmentEwaybills(cloned);
+    const normalizedEwaybills = this.normalizeEditEwaybills(baseEwaybills, fallbackDate);
+    cloned.ewaybills = normalizedEwaybills.length
+      ? normalizedEwaybills
+      : [{ number: '', date: fallbackDate, invoices: [] }];
     return cloned;
+  }
+
+  private getEditDateValue(value: any): string {
+    if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      return value;
+    }
+    if (value) {
+      const parsed = new Date(value);
+      if (!Number.isNaN(parsed.getTime())) {
+        return parsed.toISOString().split('T')[0];
+      }
+    }
+    return new Date().toISOString().split('T')[0];
+  }
+
+  private normalizeEditEwaybills(ewaybills: any[], fallbackDate: string): any[] {
+    return (ewaybills || []).map((ewb) => ({
+      number: ewb?.number ?? '',
+      date: this.getEditDateValue(ewb?.date ?? fallbackDate),
+      invoices: (ewb?.invoices || []).map((inv: any) => ({
+        number: inv?.number ?? '',
+        value: Number(inv?.value || 0),
+        packages: (inv?.packages || []).map((pkg: any) => ({
+          type: pkg?.type || pkg?.pkgName || '',
+          amount: Number(pkg?.amount || 0)
+        })),
+        products: (inv?.products || []).map((prod: any) => ({
+          type: prod?.type || prod?.productName || '',
+          amount: Number(prod?.amount || 0),
+          ratePer: Number(prod?.ratePer || 0),
+          instock: Number(prod?.instock || prod?.amount || 0),
+          intransitstock: Number(prod?.intransitstock || 0),
+          deliveredstock: Number(prod?.deliveredstock || 0)
+        }))
+      }))
+    }));
+  }
+
+  private ensureEditEwaybills(): any[] {
+    if (!this.editingShipment) return [];
+    if (!Array.isArray(this.editingShipment.ewaybills)) {
+      this.editingShipment.ewaybills = [];
+    }
+    return this.editingShipment.ewaybills;
+  }
+
+  addEditEwaybill(): void {
+    if (!this.editingShipment) return;
+    const ewaybills = this.ensureEditEwaybills();
+    ewaybills.push({ number: '', date: this.getEditDateValue(this.editingShipment.date), invoices: [] });
+    this.recalculateEditTotals();
+  }
+
+  deleteEditEwaybill(index: number): void {
+    if (!this.editingShipment) return;
+    const ewaybills = this.ensureEditEwaybills();
+    ewaybills.splice(index, 1);
+    this.recalculateEditTotals();
+  }
+
+  addEditInvoice(ewaybillIndex: number): void {
+    const ewaybills = this.ensureEditEwaybills();
+    const ewaybill = ewaybills[ewaybillIndex];
+    if (!ewaybill) return;
+    if (!Array.isArray(ewaybill.invoices)) {
+      ewaybill.invoices = [];
+    }
+    ewaybill.invoices.push({ number: '', value: 0, packages: [], products: [] });
+    this.recalculateEditTotals();
+  }
+
+  deleteEditInvoice(ewaybillIndex: number, invoiceIndex: number): void {
+    const ewaybills = this.ensureEditEwaybills();
+    const ewaybill = ewaybills[ewaybillIndex];
+    if (!ewaybill?.invoices) return;
+    ewaybill.invoices.splice(invoiceIndex, 1);
+    this.recalculateEditTotals();
+  }
+
+  addEditPackage(ewaybillIndex: number, invoiceIndex: number): void {
+    const ewaybills = this.ensureEditEwaybills();
+    const invoice = ewaybills?.[ewaybillIndex]?.invoices?.[invoiceIndex];
+    if (!invoice) return;
+    if (!Array.isArray(invoice.packages)) {
+      invoice.packages = [];
+    }
+    invoice.packages.push({ type: '', amount: 0 });
+    this.recalculateEditTotals();
+  }
+
+  deleteEditPackage(ewaybillIndex: number, invoiceIndex: number, packageIndex: number): void {
+    const ewaybills = this.ensureEditEwaybills();
+    const invoice = ewaybills?.[ewaybillIndex]?.invoices?.[invoiceIndex];
+    if (!invoice?.packages) return;
+    invoice.packages.splice(packageIndex, 1);
+    this.recalculateEditTotals();
+  }
+
+  addEditProduct(ewaybillIndex: number, invoiceIndex: number): void {
+    const ewaybills = this.ensureEditEwaybills();
+    const invoice = ewaybills?.[ewaybillIndex]?.invoices?.[invoiceIndex];
+    if (!invoice) return;
+    if (!Array.isArray(invoice.products)) {
+      invoice.products = [];
+    }
+    invoice.products.push({
+      type: '',
+      amount: 1,
+      ratePer: 0,
+      instock: 1,
+      intransitstock: 0,
+      deliveredstock: 0
+    });
+    this.recalculateEditTotals();
+  }
+
+  deleteEditProduct(ewaybillIndex: number, invoiceIndex: number, productIndex: number): void {
+    const ewaybills = this.ensureEditEwaybills();
+    const invoice = ewaybills?.[ewaybillIndex]?.invoices?.[invoiceIndex];
+    if (!invoice?.products) return;
+    invoice.products.splice(productIndex, 1);
+    this.recalculateEditTotals();
+  }
+
+  onEditProductTypeChange(product: any): void {
+    if (!product) return;
+    const name = String(product.type || product.productName || '').trim();
+    if (!name) return;
+    const match = (this.productList || []).find((p) => p?.productName === name);
+    if (match) {
+      product.type = match.productName;
+    }
+  }
+
+  getEditSuggestedRate(_product: any): number | null {
+    return null;
+  }
+
+  onEditRateUnitChange(): void {
+    if (this.editingShipment) {
+      this.editingShipment.rateUnit = this.editRateUnit;
+    }
+    this.recalculateEditTotals();
   }
 
   private buildConsignmentUpdatePayload(editing: any): any {
     const payload = { ...editing };
     delete payload.branch;
     delete payload.invoices;
-    delete payload.ewaybills;
     delete payload._returnSelected;
     delete payload._id;
+    if (Array.isArray(payload.ewaybills)) {
+      payload.ewaybills = this.sanitizeEditEwaybills(payload.ewaybills);
+    } else {
+      delete payload.ewaybills;
+    }
     payload.charges = this.normalizeCharges(payload.charges);
     if (payload.finalAmount !== undefined && payload.finalAmount !== null && payload.finalAmount !== '') {
       payload.finalAmount = Number(payload.finalAmount) || 0;
@@ -1057,10 +1247,21 @@ export class ViewShipmentsComponent implements OnInit {
     };
   }
 
+  private sanitizeEditEwaybills(ewaybills: any[]): any[] {
+    return (ewaybills || []).map((ewb) => ({
+      ...ewb,
+      invoices: (ewb?.invoices || []).map((inv: any) => ({
+        ...inv,
+        packages: (inv?.packages || []).filter((p: any) => p?.type && Number(p?.amount) > 0),
+        products: (inv?.products || []).filter((p: any) => p?.type && Number(p?.amount) > 0)
+      }))
+    }));
+  }
+
   recalculateEditTotals(): void {
     if (!this.editingShipment) return;
     this.editingShipment.charges = this.normalizeCharges(this.editingShipment.charges);
-    const invoices = Array.isArray(this.editingShipment.invoices) ? this.editingShipment.invoices : [];
+    const invoices = this.getEditInvoices();
     const baseTotals = this.computeEditTotals(invoices, this.editingShipment.charges);
     this.editQuoteSubtotal = baseTotals.subtotal;
 
@@ -1132,6 +1333,12 @@ export class ViewShipmentsComponent implements OnInit {
       return [{ number: '', date: null, invoices }];
     }
     return [];
+  }
+
+  private getEditInvoices(): any[] {
+    if (!this.editingShipment) return [];
+    const ewaybills = Array.isArray(this.editingShipment.ewaybills) ? this.editingShipment.ewaybills : [];
+    return ewaybills.flatMap((ewb: any) => Array.isArray(ewb?.invoices) ? ewb.invoices : []);
   }
 
   private computeEditTotals(invoices: any[], charges: any): { subtotal: number } {

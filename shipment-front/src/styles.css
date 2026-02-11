@@ -10,7 +10,7 @@ body {
   --theme-primary-text: #ffffff;
 }
 
-button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button) {
+button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):not(.credit-active):not(.credit-inactive):not(.status-active):not(.status-inactive) {
   background: var(--theme-primary) !important;
   color: var(--theme-primary-text) !important;
   border: 1px solid var(--theme-primary-border) !important;
@@ -21,12 +21,12 @@ button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.cl
   transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
-button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):hover {
+button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):not(.credit-active):not(.credit-inactive):not(.status-active):not(.status-inactive):hover {
   background: var(--theme-primary-hover) !important;
   border-color: var(--theme-primary-hover) !important;
 }
 
-button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):disabled {
+button:not(.nav-link):not(.icon-btn):not(.details-close):not(.close-btn):not(.close):not(.link-button):not(.danger):not(.delete-btn):not(.delete-small):not(.remove-btn):not(.cancel-btn):not(.danger-outline):not(.delete-tag):not(.tab-button):not(.credit-active):not(.credit-inactive):not(.status-active):not(.status-inactive):disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

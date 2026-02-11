@@ -9,22 +9,62 @@
         <th>Phone</th>
         <th>Vehicle Status</th>
         <th>Current Branch</th>
-        <th>Actions</th>
       </tr>
-      <tr *ngFor="let v of vehicles">
+      <tr *ngFor="let v of vehicles" (click)="openVehicleDetails(v)">
         <td>{{ v.branchName }}</td>
         <td>{{ v.vehicleNo }}</td>
         <td>{{ v.driverPhone }}</td>
         <td>{{ formatVehicleStatus(v.vehicleStatus) }}</td>
         <td>{{ getVehicleCurrentBranchLabel(v) }}</td>
-        <td>
-          <button type="button" class="link-button" (click)="openEditLocation(v, $event)">Edit</button>
-        </td>
       </tr>
       <tr *ngIf="vehicles.length === 0">
-        <td colspan="6">No vehicles found.</td>
+        <td colspan="5">No vehicles found.</td>
       </tr>
     </table>
+  </div>
+</div>
+
+<div class="modal theme-modal" *ngIf="showVehicleDetailsPopup">
+  <div class="modal-content vehicle-modal">
+    <div class="modal-header">
+      <div class="modal-title">
+        <h3>Vehicle Details</h3>
+        <p class="modal-subtitle">Vehicle: {{ selectedVehicle?.vehicleNo || '-' }}</p>
+      </div>
+      <div class="modal-header-actions">
+        <button type="button" class="link-button" (click)="editVehicleFromDetails()">Edit</button>
+        <button type="button" class="close" (click)="closeVehicleDetailsPopup()">&times;</button>
+      </div>
+    </div>
+
+    <div class="modal-body">
+      <div class="details-grid">
+        <div class="detail">
+          <span class="label">Branch</span>
+          <span class="value">{{ selectedVehicle?.branchName || '-' }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Source Type</span>
+          <span class="value">{{ selectedVehicle?.sourceType || '-' }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Vehicle No</span>
+          <span class="value">{{ selectedVehicle?.vehicleNo || '-' }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Driver Phone</span>
+          <span class="value">{{ selectedVehicle?.driverPhone || '-' }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Vehicle Status</span>
+          <span class="value">{{ formatVehicleStatus(selectedVehicle?.vehicleStatus) || '-' }}</span>
+        </div>
+        <div class="detail">
+          <span class="label">Current Branch</span>
+          <span class="value">{{ getVehicleCurrentBranchLabel(selectedVehicle) }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

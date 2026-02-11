@@ -100,19 +100,35 @@
   margin-bottom: 15px;
 }
 
-.tabs button {
-  padding: 8px 14px;
+.tabs .tab-buttons {
+  display: inline-flex;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: #ffffff;
-  color: var(--text);
-  cursor: pointer;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
-.tabs button.active {
-  background: var(--primary);
-  color: #ffffff;
-  border-color: var(--primary);
+.tabs .tab-button {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #475569;
+  font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tabs .tab-button:hover:not(.active) {
+  background: #e2e8f0;
+}
+
+.tabs .tab-button.active {
+  background: #2c3e50;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(44, 62, 80, 0.25);
 }
 
 .actions-bar {
@@ -603,6 +619,133 @@
   max-width: 160px;
 }
 
+.products-section .card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.products-section .head-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.products-section .rate-unit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.products-section .rate-unit select {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.products-section .tiny-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.products-section .tiny-btn.primary {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.products-section .tiny-btn.primary.black {
+  background: #000;
+  border-color: #000;
+  color: #fff;
+}
+
+.products-section .tiny-btn.primary.ghost {
+  background: #eef2ff;
+  color: var(--primary-strong);
+}
+
+.products-section .icon-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--muted);
+}
+
+.products-section .inline-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.products-section .muted {
+  color: var(--muted);
+}
+
+.products-section .edit-ewaybills .product-head {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 6px 0 4px;
+}
+
+.products-section .edit-ewaybills .product-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  gap: 8px;
+  align-items: center;
+}
+
+.products-section .edit-ewaybills .product-cell {
+  display: flex;
+  align-items: center;
+}
+
+.products-section .edit-ewaybills .product-cell-product select,
+.products-section .edit-ewaybills .product-cell-qty input {
+  width: 100%;
+}
+
+.products-section .edit-ewaybills .product-cell-rate .rate-inline {
+  width: 100%;
+}
+
+.products-section .edit-ewaybills .product-cell-rate .rate-inline .rate-input {
+  max-width: none;
+  width: 100%;
+}
+
+.products-section .edit-ewaybills .product-cell-delete {
+  justify-content: flex-start;
+}
+
+.products-section .edit-ewaybills .suggested-rate {
+  color: #16a34a;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.products-section .edit-ewaybills .compact-row {
+  grid-template-columns: 1fr 110px auto;
+}
+
 .details-footer {
   position: sticky;
   bottom: 0;
@@ -813,6 +956,22 @@
 
   .products-section .compact-row {
     grid-template-columns: 1fr;
+  }
+
+  .products-section .edit-ewaybills .product-row {
+    grid-template-columns: 1fr;
+  }
+
+  .products-section .edit-ewaybills .product-head {
+    display: none;
+  }
+
+  .products-section .edit-ewaybills .product-cell {
+    width: 100%;
+  }
+
+  .products-section .edit-ewaybills .product-cell-rate .rate-inline {
+    flex-wrap: wrap;
   }
 
   .details-product-list li {

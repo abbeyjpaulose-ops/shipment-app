@@ -31,20 +31,35 @@
   margin-bottom: 12px;
 }
 
-.stocks-tabs button {
-  padding: 6px 14px;
+.stocks-tabs .tab-buttons {
+  display: inline-flex;
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
   border-radius: 999px;
-  border: 1px solid var(--stock-border);
-  background: #ffffff;
-  color: var(--stock-muted);
-  cursor: pointer;
+  padding: 4px;
+  gap: 4px;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
 }
 
-.stocks-tabs button.active {
-  background: #eef2ff;
-  border-color: #c7d2fe;
-  color: var(--stock-primary-strong);
+.stocks-tabs .tab-button {
+  border: none;
+  background: transparent;
+  padding: 6px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  color: #475569;
   font-weight: 600;
+  transition: background-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stocks-tabs .tab-button:hover:not(.active) {
+  background: #e2e8f0;
+}
+
+.stocks-tabs .tab-button.active {
+  background: #2c3e50;
+  color: #fff;
+  box-shadow: 0 4px 10px rgba(44, 62, 80, 0.25);
 }
 
 .filters input,
@@ -273,7 +288,7 @@
   }
 
   .filters button,
-  .stocks-tabs button {
+  .stocks-tabs .tab-button {
     padding: 7px 12px;
     font-size: 13px;
   }
@@ -297,7 +312,7 @@
   }
 
   .filters button,
-  .stocks-tabs button {
+  .stocks-tabs .tab-button {
     padding: 6px 10px;
     font-size: 12px;
   }
@@ -321,7 +336,7 @@
   }
 
   .filters button,
-  .stocks-tabs button {
+  .stocks-tabs .tab-button {
     padding: 5px 8px;
     font-size: 11px;
   }

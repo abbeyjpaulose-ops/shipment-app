@@ -2,16 +2,20 @@
   <h2>Stocks</h2>
 
   <div class="stocks-tabs">
-    <button
-      (click)="setActiveTab('stocks')"
-      [class.active]="activeTab === 'stocks'">
-      Stocks
-    </button>
-    <button
-      (click)="setActiveTab('others-in-branch')"
-      [class.active]="activeTab === 'others-in-branch'">
-      Others stocks in our branch
-    </button>
+    <div class="tab-buttons">
+      <button
+        class="tab-button"
+        (click)="setActiveTab('stocks')"
+        [class.active]="activeTab === 'stocks'">
+        Stocks
+      </button>
+      <button
+        class="tab-button"
+        (click)="setActiveTab('others-in-branch')"
+        [class.active]="activeTab === 'others-in-branch'">
+        Others stocks in our branch
+      </button>
+    </div>
   </div>
 
   <!-- 🔍 Search and Filters (no status filter here) -->
