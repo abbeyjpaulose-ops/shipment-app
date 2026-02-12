@@ -51,6 +51,11 @@
   cursor: not-allowed;
 }
 
+.selected-count {
+  font-size: 12px;
+  color: #475569;
+}
+
 .status {
   padding: 12px;
   background: #f8fafc;
@@ -76,6 +81,11 @@ td {
   padding: 10px 12px;
   text-align: left;
   vertical-align: top;
+}
+
+.check-col {
+  width: 38px;
+  text-align: center;
 }
 
 th {

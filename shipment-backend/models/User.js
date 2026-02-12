@@ -18,6 +18,7 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, default: 'user' },
     companyName: { type: String, trim: true },
     companyType: { type: String, trim: true },
+    invoiceSerialScope: { type: String, trim: true, default: 'company' },
     phoneNumber: { type: String, trim: true },
     billingAddress: { type: String, trim: true },
 

@@ -21,6 +21,10 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   filteredDelivered: any[] = [];
   filteredPreInvoiced: any[] = [];
   filteredPreInvoices: any[] = [];
+  generatedInvoices: any[] = [];
+  filteredGeneratedInvoices: any[] = [];
+  generatedInvoiceSearch = '';
+  generatedInvoiceLoading = false;
   searchText = '';
   filterDate: string = '';
   filterConsignor: string = '';
@@ -61,6 +65,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         this.loadClients();
         this.loadInvoices();
         this.loadPreInvoices();
+        this.loadGeneratedInvoices();
       }
     });
     window.addEventListener('storage', this.onStorageChange);
@@ -69,6 +74,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       this.loadClients();
       this.loadInvoices();
       this.loadPreInvoices();
+      this.loadGeneratedInvoices();
     }));
   }
   ngOnDestroy(): void {
@@ -222,6 +228,27 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     });
   }
 
+  loadGeneratedInvoices() {
+    this.generatedInvoiceLoading = true;
+    this.http.get<any>('http://localhost:3000/api/newshipments/generatedInvoices')
+      .subscribe({
+        next: (res) => {
+          const list = Array.isArray(res?.invoices)
+            ? res.invoices
+            : (Array.isArray(res) ? res : []);
+          this.generatedInvoices = list;
+          this.applyGeneratedInvoiceFilters();
+          this.generatedInvoiceLoading = false;
+        },
+        error: (err) => {
+          console.error('Error loading generated invoices:', err);
+          this.generatedInvoices = [];
+          this.filteredGeneratedInvoices = [];
+          this.generatedInvoiceLoading = false;
+        }
+      });
+  }
+
   private onStorageChange = (e: StorageEvent) => {
     if (e.key === 'branch' || e.key === 'originLocId') {
       const current = localStorage.getItem('branch') || 'All Branches';
@@ -232,6 +259,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         this.loadClients();
         this.loadInvoices();
         this.loadPreInvoices();
+        this.loadGeneratedInvoices();
       }
     }
   };
@@ -756,6 +784,11 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     return String(pre?.status || '').trim().toLowerCase() === 'deleted';
   }
 
+  isPreInvoiceLocked(pre: any): boolean {
+    const status = String(pre?.status || '').trim().toLowerCase();
+    return status === 'deleted' || status === 'invoiced';
+  }
+
   applyFilters() {
     if (!this.hasSpecificBranchSelection()) {
       this.filteredDelivered = [];
@@ -809,6 +842,33 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.filteredPreInvoices = this.preInvoices.filter((p) => matchesPre(p));
   }
 
+  applyGeneratedInvoiceFilters() {
+    const q = String(this.generatedInvoiceSearch || '').trim().toLowerCase();
+    if (!q) {
+      this.filteredGeneratedInvoices = [...this.generatedInvoices];
+      return;
+    }
+    this.filteredGeneratedInvoices = this.generatedInvoices.filter((inv) => {
+      const headerMatch =
+        String(inv.invoiceCode || '').toLowerCase().includes(q) ||
+        String(inv.invoiceNumber || '').toLowerCase().includes(q) ||
+        String(inv.clientName || '').toLowerCase().includes(q) ||
+        String(inv.clientGSTIN || '').toLowerCase().includes(q) ||
+        String(inv.billingAddress || '').toLowerCase().includes(q);
+      if (headerMatch) return true;
+      return (inv.consignments || []).some((c: any) =>
+        String(c.consignmentNumber || '').toLowerCase().includes(q)
+      );
+    });
+  }
+
+  getGeneratedInvoiceTotal(inv: any): number {
+    return (inv?.consignments || []).reduce(
+      (sum: number, c: any) => sum + Number(c?.finalAmount || 0),
+      0
+    );
+  }
+
   toggleAllDeliveredSelection(event: any) {
     const checked = event.target.checked;
     this.filteredDelivered.forEach(i => {
@@ -825,7 +885,10 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   toggleAllPreInvoicesSelection(event: any) {
     const checked = event.target.checked;
     this.filteredPreInvoices.forEach(i => {
-      if (this.isPreInvoiceDeleted(i)) return;
+      if (this.isPreInvoiceLocked(i)) {
+        i.selected = false;
+        return;
+      }
       i.selected = checked;
     });
   }
@@ -916,7 +979,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   deletePreInvoices() {
     const selected = (this.filteredPreInvoices || []).filter(
-      (p: any) => p.selected && !this.isPreInvoiceDeleted(p)
+      (p: any) => p.selected && !this.isPreInvoiceLocked(p)
     );
     if (!selected.length) {
       alert('No pre-invoices selected.');
@@ -980,7 +1043,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   private getSelectedPreInvoices(): any[] {
     return (this.filteredPreInvoices || []).filter(
-      (p) => p.selected && !this.isPreInvoiceDeleted(p)
+      (p) => p.selected && !this.isPreInvoiceLocked(p)
     );
   }
 
@@ -1018,6 +1081,9 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     const consignmentNumbers = source === 'preInvoices'
       ? this.extractConsignmentNumbersFromPreInvoices(selected)
       : selected.map((s) => String(s?.consignmentNumber || '').trim()).filter(Boolean);
+    const preInvoiceIds = source === 'preInvoices'
+      ? selected.map((p: any) => String(p?._id || '')).filter(Boolean)
+      : [];
     if (consignmentNumbers.length === 0) {
       const message = source === 'preInvoices'
         ? 'No consignments found in the selected pre-invoices.'
@@ -1028,7 +1094,9 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     }
 
     this.http.post('http://localhost:3000/api/newshipments/generateInvoices', {
-      consignmentNumbers
+      consignmentNumbers,
+      source,
+      preInvoiceIds
     }).subscribe({
       next: () => {
         this.showGenerateInvoicePopup = false;
@@ -1039,6 +1107,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
           this.filteredPreInvoiced.forEach((i) => i.selected = false);
         }
         this.loadInvoices();
+        this.loadGeneratedInvoices();
       },
       error: (err) => {
         console.error('Error generating invoices:', err);

@@ -48,6 +48,14 @@
         <span>{{ profile.role }}</span>
       </div>
 
+      <div class="form-row" *ngIf="isAdmin()">
+        <label>Invoice Serial Scope:</label>
+        <select [(ngModel)]="profile.invoiceSerialScope">
+          <option value="branch">Branch-wise (separate serial per branch)</option>
+          <option value="company">Company-wide (single serial for all branches)</option>
+        </select>
+      </div>
+
     </div>
   </div>
 

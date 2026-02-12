@@ -38,6 +38,16 @@ function normalizeBusinessType(value) {
   return { value: raw, label: raw };
 }
 
+function normalizeInvoiceSerialScope(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw === 'branch' || raw === 'branch-wise' || raw === 'branchwise') return 'branch';
+  if (raw === 'company' || raw === 'company-wide' || raw === 'companywide' || raw === 'global') {
+    return 'company';
+  }
+  return '';
+}
+
 function toCompanyTypeLabel(value) {
   const info = normalizeBusinessType(value);
   if (info.value === '5') return 'Goods Transport Agency (GTA)';
@@ -49,6 +59,7 @@ function toCompanyTypeLabel(value) {
 // Create or update profile
 router.post('/save', requireAuth, requireAdmin, async (req, res) => {
   try {
+    const invoiceSerialScope = normalizeInvoiceSerialScope(req.body?.invoiceSerialScope);
     console.log('📥 Incoming profile data:', req.body);
 
     // Upsert: if profile exists for email, update; otherwise create new
@@ -82,15 +93,20 @@ router.post('/save', requireAuth, requireAdmin, async (req, res) => {
     await User.findByIdAndUpdate(req.user.id, {
       email: String(req.body.email || '').trim() || undefined,
       phoneNumber: String(req.body.mobile || '').trim() || undefined,
-      billingAddress: String(req.body.address || '').trim() || undefined
+      billingAddress: String(req.body.address || '').trim() || undefined,
+      ...(invoiceSerialScope ? { invoiceSerialScope } : {})
     });
 
     const company = await User.findById(req.user.id).lean();
     const companyTypeInfo = normalizeBusinessType(company?.companyType);
+    const resolvedSerialScope =
+      normalizeInvoiceSerialScope(profile?.invoiceSerialScope || company?.invoiceSerialScope) ||
+      'company';
     res.status(201).json({
       ...profile.toObject(),
       businessType: profile.businessType || companyTypeInfo.value || '',
       businessTypeLabel: companyTypeInfo.label || '',
+      invoiceSerialScope: resolvedSerialScope,
       gstin: company?.GSTIN || ''
     });
   } catch (err) {
@@ -108,6 +124,8 @@ router.get('/', requireAuth, async (req, res) => {
     const profiles = await Profile.find(query).sort({ createdAt: -1 }).lean();
     const gstinId = Number(req.user?.id);
     const company = Number.isFinite(gstinId) ? await User.findById(gstinId).lean() : null;
+    const resolvedSerialScope =
+      normalizeInvoiceSerialScope(company?.invoiceSerialScope) || 'company';
 
     if (!profiles.length) {
       const userQuery = username ? { username } : email ? { email } : {};
@@ -128,6 +146,7 @@ router.get('/', requireAuth, async (req, res) => {
         role: user.role || '',
         businessType: companyTypeInfo.value || '',
         businessTypeLabel: companyTypeInfo.label || '',
+        invoiceSerialScope: resolvedSerialScope,
         GSTIN_ID: user._id,
         gstin: user.GSTIN || ''
       };
@@ -147,6 +166,9 @@ router.get('/', requireAuth, async (req, res) => {
       role: p.role || company?.role || '',
       businessType: p.businessType || companyTypeInfo.value || '',
       businessTypeLabel: companyTypeInfo.label || '',
+      invoiceSerialScope:
+        normalizeInvoiceSerialScope(p.invoiceSerialScope || company?.invoiceSerialScope) ||
+        'company',
       gstin: company?.GSTIN || ''
     }));
 

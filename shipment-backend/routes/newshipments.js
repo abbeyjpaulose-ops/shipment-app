@@ -97,6 +97,50 @@ function normalizeOriginType(value) {
   return 'branch';
 }
 
+function normalizeInvoiceSerialScope(value) {
+  const raw = String(value || '').trim().toLowerCase();
+  if (!raw) return '';
+  if (raw === 'branch' || raw === 'branch-wise' || raw === 'branchwise') return 'branch';
+  if (raw === 'company' || raw === 'company-wide' || raw === 'companywide' || raw === 'global') {
+    return 'company';
+  }
+  return '';
+}
+
+function normalizeInvoiceBranchToken(value) {
+  const raw = String(value || '').trim().toUpperCase();
+  if (!raw) return '';
+  return raw.replace(/[^A-Z0-9]/g, '');
+}
+
+function buildInvoiceCode({ yearToken, billingCategory, branchToken, invoiceNumber, branchScoped }) {
+  const serial = String(invoiceNumber || '').trim();
+  const category = String(billingCategory || 'B').trim().toUpperCase();
+  if (branchScoped) {
+    return `${yearToken}${category}${branchToken}${serial}`;
+  }
+  return `${yearToken}${category}${serial}`;
+}
+
+function buildInvoiceDisplayNumber({ yearToken, billingCategory, branchToken, invoiceNumber, branchScoped }) {
+  const serial = String(invoiceNumber || '').trim();
+  const category = String(billingCategory || 'B').trim().toUpperCase();
+  const parts = [yearToken, category];
+  if (branchScoped && branchToken) parts.push(branchToken);
+  parts.push(serial);
+  return parts.filter(Boolean).join('/');
+}
+
+const GENERATED_INVOICE_DUPLICATE_MESSAGE =
+  'Duplicate invoice number detected. If you recently changed invoice series rules, run: node scripts/fix-generated-invoice-indexes.js';
+
+function isDuplicateKeyError(err) {
+  if (!err) return false;
+  if (err.code === 11000) return true;
+  const writeErrors = Array.isArray(err.writeErrors) ? err.writeErrors : [];
+  return writeErrors.some((e) => e?.code === 11000);
+}
+
 async function resolveBillingCategory(billingEntityId, gstinId) {
   const entityId = String(billingEntityId || '').trim();
   if (!entityId) return 'B';
@@ -940,53 +984,630 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'No consignments found' });
     }
 
-    const missingBilling = shipments
-      .filter((s) => !s.billingClientId || !s.billingLocationId)
-      .map((s) => s.consignmentNumber);
-    if (missingBilling.length) {
-      return res.status(400).json({
-        message: 'Missing billing client/location for consignments',
-        consignments: missingBilling
+    const source = String(req.body?.source || '').trim().toLowerCase();
+    const rawPreInvoiceIds = Array.isArray(req.body?.preInvoiceIds) ? req.body.preInvoiceIds : [];
+    const preInvoiceIds = rawPreInvoiceIds
+      .map((id) => String(id || '').trim())
+      .filter((id) => mongoose.Types.ObjectId.isValid(id));
+    const usePreInvoices = source === 'preinvoices' || preInvoiceIds.length > 0;
+
+    if (usePreInvoices) {
+      const preInvoiceFilter = {
+        GSTIN_ID: gstinId,
+        status: { $ne: 'deleted' }
+      };
+      let targetPreInvoiceIds = [...preInvoiceIds];
+      if (!targetPreInvoiceIds.length) {
+        const itemMatches = await PreInvoiceItem.find({
+          consignmentNumber: { $in: consignmentNumbers }
+        }).select('preInvoiceId').lean();
+        targetPreInvoiceIds = Array.from(
+          new Set(
+            (itemMatches || [])
+              .map((item) => String(item?.preInvoiceId || ''))
+              .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          )
+        );
+      }
+      if (targetPreInvoiceIds.length) {
+        preInvoiceFilter._id = { $in: targetPreInvoiceIds };
+      }
+
+      const preInvoices = await PreInvoice.find(preInvoiceFilter).lean();
+      if (!preInvoices.length) {
+        return res.status(404).json({ message: 'Pre-invoices not found' });
+      }
+
+      const preInvoiceIdList = preInvoices.map((pre) => pre._id);
+      const items = await PreInvoiceItem.find({ preInvoiceId: { $in: preInvoiceIdList } }).lean();
+      if (!items.length) {
+        return res.status(400).json({ message: 'Missing pre-invoice items' });
+      }
+
+      const itemsByPreInvoiceId = new Map();
+      (items || []).forEach((item) => {
+        const key = String(item.preInvoiceId || '');
+        if (!key) return;
+        if (!itemsByPreInvoiceId.has(key)) itemsByPreInvoiceId.set(key, []);
+        itemsByPreInvoiceId.get(key).push({
+          consignmentNumber: item.consignmentNumber,
+          shipmentId: item.shipmentId,
+          taxableValue: Number(item?.taxableValue ?? 0) || 0,
+          igstPercent: Number(item?.igstPercent ?? 0) || 0,
+          igstAmount: Number(item?.igstAmount ?? 0) || 0,
+          finalAmount: Number(item?.finalAmount ?? 0) || 0,
+          initialPaid: Number(item?.initialPaid ?? 0) || 0,
+          charges: {
+            odc: Number(item?.charges?.odc || 0),
+            unloading: Number(item?.charges?.unloading || 0),
+            docket: Number(item?.charges?.docket || 0),
+            other: Number(item?.charges?.other || 0),
+            ccc: Number(item?.charges?.ccc || 0),
+            consignorDiscount: Number(item?.charges?.consignorDiscount || 0)
+          }
+        });
+      });
+
+      const billingEntityIds = preInvoices
+        .map((pre) => String(pre?.billingEntityId || ''))
+        .filter(Boolean);
+      const [clients, hubs, guests] = await Promise.all([
+        billingEntityIds.length
+          ? Client.find({ _id: { $in: billingEntityIds } }).lean()
+          : [],
+        billingEntityIds.length
+          ? Hub.find({ _id: { $in: billingEntityIds } }).lean()
+          : [],
+        billingEntityIds.length
+          ? Guest.find({ _id: { $in: billingEntityIds } }).lean()
+          : []
+      ]);
+      const nameById = new Map();
+      const typeById = new Map();
+      const addressById = new Map();
+      const gstinById = new Map();
+      (clients || []).forEach((client) => {
+        if (!client?._id) return;
+        const id = String(client._id);
+        nameById.set(id, client.clientName || '');
+        typeById.set(id, 'client');
+        if (client?.GSTIN) gstinById.set(id, client.GSTIN);
+        const location = client?.deliveryLocations?.length ? client.deliveryLocations[0] : null;
+        const address = location ? formatLocation(location) : (client?.address || '');
+        if (address) addressById.set(id, address);
+      });
+      (hubs || []).forEach((hub) => {
+        if (!hub?._id) return;
+        const id = String(hub._id);
+        nameById.set(id, hub.hubName || '');
+        typeById.set(id, 'hub');
+        const parts = [hub.address, hub.city, hub.state, hub.pinCode].filter(Boolean);
+        if (parts.length) addressById.set(id, parts.join(', '));
+      });
+      (guests || []).forEach((guest) => {
+        if (!guest?._id) return;
+        const id = String(guest._id);
+        nameById.set(id, guest.guestName || '');
+        typeById.set(id, 'guest');
+        const parts = [guest.address, guest.city, guest.state, guest.pinCode].filter(Boolean);
+        if (parts.length) addressById.set(id, parts.join(', '));
+      });
+
+      const branchIdsForLabel = Array.from(
+        new Set(
+          preInvoices
+            .map((pre) => String(pre?.originLocId || ''))
+            .filter(Boolean)
+        )
+      );
+      const branchesForLabel = branchIdsForLabel.length
+        ? await Branch.find({ _id: { $in: branchIdsForLabel }, GSTIN_ID: gstinId })
+            .select('_id prefix branchName')
+            .lean()
+        : [];
+      const branchLabelById = new Map(
+        (branchesForLabel || []).map((b) => [
+          String(b._id),
+          String(b.prefix || b.branchName || '').trim()
+        ])
+      );
+      const branchNameById = new Map(
+        (branchesForLabel || []).map((b) => [String(b._id), b.branchName || ''])
+      );
+
+      const company = await User.findById(gstinId).select('invoiceSerialScope').lean();
+      const invoiceSerialScope =
+        normalizeInvoiceSerialScope(company?.invoiceSerialScope) || 'company';
+      const branchScoped = invoiceSerialScope === 'branch';
+
+      const { label: fiscalYear, start: fiscalYearStart } = getFiscalYearWindow();
+      const yearToken = String((fiscalYearStart?.getFullYear?.() || new Date().getFullYear()) + 1)
+        .slice(-2);
+      const categories = Array.from(
+        new Set(
+          preInvoices
+            .map((pre) => String(pre?.billingCategory || 'B').trim().toUpperCase() || 'B')
+        )
+      );
+      if (!categories.length) categories.push('B');
+
+      let nextNumberBySeries = new Map();
+
+      if (branchScoped) {
+        const branchObjectIds = branchIdsForLabel
+          .filter((id) => mongoose.Types.ObjectId.isValid(id))
+          .map((id) => new mongoose.Types.ObjectId(id));
+        const lastByBranch = branchObjectIds.length
+          ? await GeneratedInvoice.aggregate([
+              {
+                $match: {
+                  GSTIN_ID: gstinId,
+                  fiscalYear,
+                  invoiceSerialScope: 'branch',
+                  originLocId: { $in: branchObjectIds }
+                }
+              },
+              {
+                $addFields: {
+                  billingCategorySafe: {
+                    $cond: [
+                      { $in: ['$billingCategory', ['B', 'C']] },
+                      '$billingCategory',
+                      'B'
+                    ]
+                  }
+                }
+              },
+              {
+                $group: {
+                  _id: { originLocId: '$originLocId', billingCategory: '$billingCategorySafe' },
+                  maxNumber: { $max: '$invoiceNumber' }
+                }
+              }
+            ])
+          : [];
+        nextNumberBySeries = new Map();
+        branchIdsForLabel.forEach((id) => {
+          categories.forEach((cat) => {
+            nextNumberBySeries.set(`${id}::${cat}`, 0);
+          });
+        });
+        lastByBranch.forEach((row) => {
+          const originKey = String(row?._id?.originLocId || '');
+          const categoryKey = String(row?._id?.billingCategory || 'B').toUpperCase();
+          if (!originKey) return;
+          nextNumberBySeries.set(`${originKey}::${categoryKey}`, Number(row.maxNumber) || 0);
+        });
+      } else {
+        const lastByCategory = await GeneratedInvoice.aggregate([
+          {
+            $match: {
+              GSTIN_ID: gstinId,
+              fiscalYear,
+              $or: [
+                { invoiceSerialScope: 'company' },
+                { invoiceSerialScope: { $exists: false } },
+                { invoiceSerialScope: null },
+                { invoiceSerialScope: '' }
+              ]
+            }
+          },
+          {
+            $addFields: {
+              billingCategorySafe: {
+                $cond: [
+                  { $in: ['$billingCategory', ['B', 'C']] },
+                  '$billingCategory',
+                  'B'
+                ]
+              }
+            }
+          },
+          { $group: { _id: '$billingCategorySafe', maxNumber: { $max: '$invoiceNumber' } } }
+        ]);
+        nextNumberBySeries = new Map(categories.map((cat) => [cat, 0]));
+        lastByCategory.forEach((row) => {
+          const categoryKey = String(row?._id || 'B').toUpperCase();
+          nextNumberBySeries.set(categoryKey, Number(row.maxNumber) || 0);
+        });
+      }
+
+      const invoiceDocs = [];
+      const updates = [];
+      const clientIdSet = new Set((clients || []).map((c) => String(c._id)));
+
+      for (const pre of preInvoices) {
+        const preId = String(pre?._id || '');
+        const consignments = itemsByPreInvoiceId.get(preId) || [];
+        if (!consignments.length) continue;
+
+        const originLocId = String(pre?.originLocId || '');
+        const billingEntityId = pre?.billingEntityId || null;
+        const billingCategory = String(pre?.billingCategory || 'B').trim().toUpperCase() || 'B';
+        const seriesKey = branchScoped ? `${originLocId}::${billingCategory}` : billingCategory;
+        const current = nextNumberBySeries.get(seriesKey) || 0;
+        const invoiceNumber = current + 1;
+        nextNumberBySeries.set(seriesKey, invoiceNumber);
+        const branchLabel = branchLabelById.get(originLocId) || '';
+        const branchToken = normalizeInvoiceBranchToken(branchLabel);
+        const invoiceCode = buildInvoiceCode({
+          yearToken,
+          billingCategory,
+          branchToken,
+          invoiceNumber,
+          branchScoped
+        });
+        const invoiceDisplayNumber = buildInvoiceDisplayNumber({
+          yearToken,
+          billingCategory,
+          branchToken,
+          invoiceNumber,
+          branchScoped
+        });
+        const billingAddress = addressById.get(String(billingEntityId || '')) || '';
+        const clientGSTIN = gstinById.get(String(billingEntityId || '')) || '';
+
+        invoiceDocs.push({
+          GSTIN_ID: gstinId,
+          fiscalYear,
+          fiscalYearStart,
+          invoiceNumber,
+          invoiceSerialScope: invoiceSerialScope,
+          originLocId: branchScoped && mongoose.Types.ObjectId.isValid(originLocId) ? originLocId : undefined,
+          billingCategory,
+          invoiceCode,
+          invoiceDisplayNumber,
+          billingClientId: billingEntityId,
+          clientGSTIN,
+          billingAddress,
+          consignments,
+          createdBy: req.user.username || ''
+        });
+
+        const branchName = branchNameById.get(originLocId) || '';
+        consignments.forEach((consignment) => {
+          updates.push({
+            updateOne: {
+              filter: {
+                GSTIN_ID: gstinId,
+                consignmentNumber: consignment.consignmentNumber
+              },
+              update: {
+                $set: {
+                  shipmentStatus: 'Invoiced',
+                  invoiceStatus: 'invoiced',
+                  shipmentStatusDetails: branchName ? `/${branchName}` : ''
+                }
+              }
+            }
+          });
+        });
+      }
+
+      let created = [];
+      if (invoiceDocs.length) {
+        try {
+          created = await GeneratedInvoice.insertMany(invoiceDocs);
+        } catch (err) {
+          if (isDuplicateKeyError(err)) {
+            return res.status(409).json({ message: GENERATED_INVOICE_DUPLICATE_MESSAGE });
+          }
+          throw err;
+        }
+      }
+      if (updates.length) {
+        await Shipment.bulkWrite(updates);
+      }
+      if (preInvoiceIdList.length) {
+        await PreInvoice.updateMany(
+          { _id: { $in: preInvoiceIdList }, GSTIN_ID: gstinId, status: { $ne: 'deleted' } },
+          { $set: { status: 'invoiced' } }
+        );
+      }
+
+      const clientIds = Array.from(
+        new Set(
+          invoiceDocs
+            .map((inv) => String(inv.billingClientId || ''))
+            .filter((id) => clientIdSet.has(id))
+        )
+      );
+      if (clientIds.length) {
+        await syncPaymentsFromGeneratedInvoices(gstinId, clientIds);
+      }
+
+      return res.json({
+        message: 'Invoices generated',
+        invoices: created
       });
     }
+
+    const missingBillingClient = shipments
+      .filter((s) => !s.billingClientId)
+      .map((s) => s.consignmentNumber);
+    if (missingBillingClient.length) {
+      return res.status(400).json({
+        message: 'Missing billing client for consignments',
+        consignments: missingBillingClient
+      });
+    }
+
+    const consignmentCategoryByNumber = new Map();
+    const preInvoiceItems = await PreInvoiceItem.find({
+      consignmentNumber: { $in: consignmentNumbers }
+    }).select('preInvoiceId consignmentNumber').lean();
+    if (preInvoiceItems.length) {
+      const preInvoiceIds = Array.from(
+        new Set(
+          (preInvoiceItems || [])
+            .map((item) => String(item?.preInvoiceId || ''))
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        )
+      );
+      const preInvoices = preInvoiceIds.length
+        ? await PreInvoice.find({ _id: { $in: preInvoiceIds }, GSTIN_ID: gstinId })
+            .select('_id billingCategory')
+            .lean()
+        : [];
+      const categoryByPreId = new Map(
+        (preInvoices || []).map((pre) => [
+          String(pre._id),
+          String(pre?.billingCategory || 'B').trim().toUpperCase() || 'B'
+        ])
+      );
+      preInvoiceItems.forEach((item) => {
+        const category = categoryByPreId.get(String(item?.preInvoiceId || '')) || '';
+        if (!category) return;
+        consignmentCategoryByNumber.set(String(item.consignmentNumber || ''), category);
+      });
+    }
+
+    const billingClientIds = Array.from(
+      new Set(
+        shipments
+          .map((s) => String(s.billingClientId || ''))
+          .filter(Boolean)
+      )
+    );
+    const clients = billingClientIds.length
+      ? await Client.find({ _id: { $in: billingClientIds } }).lean()
+      : [];
+    const clientsById = new Map((clients || []).map((c) => [String(c._id), c]));
+
+    const billingCategoryById = new Map();
+    if (billingClientIds.length) {
+      const uniqueBillingIds = Array.from(new Set(billingClientIds));
+      const pairs = await Promise.all(
+        uniqueBillingIds.map(async (id) => {
+          const category = await resolveBillingCategory(id, gstinId);
+          return [id, category];
+        })
+      );
+      pairs.forEach(([id, category]) => {
+        billingCategoryById.set(String(id), String(category || 'B').trim().toUpperCase() || 'B');
+      });
+    }
+
+    shipments.forEach((s) => {
+      const consignmentKey = String(s.consignmentNumber || '');
+      const fromPre = consignmentCategoryByNumber.get(consignmentKey);
+      const fromEntity = billingCategoryById.get(String(s.billingClientId || ''));
+      s._billingCategory = (fromPre || fromEntity || 'B');
+    });
+
+    const missingBillingLocation = [];
+    shipments.forEach((s) => {
+      if (s.billingLocationId) return;
+      const client = clientsById.get(String(s.billingClientId || ''));
+      const fallback = client?.deliveryLocations?.[0] || null;
+      const fallbackId = fallback?.delivery_id || fallback?._id || fallback?.id || '';
+      if (fallbackId) {
+        s.billingLocationId = fallbackId;
+        s._resolvedBillingLocationId = fallbackId;
+      } else {
+        missingBillingLocation.push(s.consignmentNumber);
+      }
+    });
+    if (missingBillingLocation.length) {
+      return res.status(400).json({
+        message: 'Missing billing location for consignments',
+        consignments: missingBillingLocation
+      });
+    }
+
+    const company = await User.findById(gstinId).select('invoiceSerialScope').lean();
+    const invoiceSerialScope =
+      normalizeInvoiceSerialScope(company?.invoiceSerialScope) || 'company';
+    const branchScoped = invoiceSerialScope === 'branch';
+
+    const hubIds = shipments
+      .filter((s) => normalizeOriginType(s?.originType) === 'hub')
+      .map((s) => String(s.originLocId || ''))
+      .filter(Boolean);
+    const hubs = hubIds.length
+      ? await Hub.find({ _id: { $in: hubIds }, GSTIN_ID: gstinId }).select('_id originLocId').lean()
+      : [];
+    const hubOriginById = new Map(
+      (hubs || []).map((h) => [String(h._id), String(h.originLocId || '')])
+    );
+
+    const missingBranch = [];
+    shipments.forEach((s) => {
+      const originType = normalizeOriginType(s?.originType);
+      const branchId = originType === 'hub'
+        ? (hubOriginById.get(String(s.originLocId || '')) || '')
+        : String(s.originLocId || '');
+      s._invoiceOriginLocId = branchId;
+      if (branchScoped && !branchId) {
+        missingBranch.push(s.consignmentNumber);
+      }
+    });
+    if (branchScoped && missingBranch.length) {
+      return res.status(400).json({
+        message: 'Missing branch for consignments',
+        consignments: missingBranch
+      });
+    }
+
+    const branchIdsForLabel = Array.from(
+      new Set(
+        shipments
+          .map((s) => String(s._invoiceOriginLocId || ''))
+          .filter(Boolean)
+      )
+    );
+    const branchesForLabel = branchIdsForLabel.length
+      ? await Branch.find({ _id: { $in: branchIdsForLabel }, GSTIN_ID: gstinId })
+          .select('_id prefix branchName')
+          .lean()
+      : [];
+    const branchLabelById = new Map(
+      (branchesForLabel || []).map((b) => [
+        String(b._id),
+        String(b.prefix || b.branchName || '').trim()
+      ])
+    );
 
     const originNameById = await buildOriginNameMap(
       shipments.map((s) => s.originLocId || s.originLocId|| s.originLocId)
     );
     const groups = new Map();
     for (const shipment of shipments) {
-      const key = buildBillingKey(shipment);
+      const categoryKey = String(shipment?._billingCategory || 'B').trim().toUpperCase() || 'B';
+      const key = branchScoped
+        ? `${buildBillingKey(shipment)}::${shipment._invoiceOriginLocId || ''}::${categoryKey}`
+        : `${buildBillingKey(shipment)}::${categoryKey}`;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(shipment);
     }
 
-    const billingClientIds = Array.from(groups.values())
-      .map((group) => group[0]?.billingClientId)
-      .filter(Boolean)
-      .map((id) => String(id));
-    const clients = billingClientIds.length
-      ? await Client.find({ _id: { $in: billingClientIds } }).lean()
-      : [];
-    const clientsById = new Map((clients || []).map((c) => [String(c._id), c]));
-
     const { label: fiscalYear, start: fiscalYearStart } = getFiscalYearWindow();
-    const lastInvoice = await GeneratedInvoice.findOne({
-      GSTIN_ID: gstinId,
-      fiscalYear
-    })
-      .sort({ invoiceNumber: -1 })
-      .select('invoiceNumber')
-      .lean();
-    let nextNumber = Number(lastInvoice?.invoiceNumber) || 0;
+    const yearToken = String((fiscalYearStart?.getFullYear?.() || new Date().getFullYear()) + 1)
+      .slice(-2);
+    const categories = Array.from(
+      new Set(
+        shipments.map((s) => String(s?._billingCategory || 'B').trim().toUpperCase() || 'B')
+      )
+    );
+    if (!categories.length) categories.push('B');
+
+    let nextNumberBySeries = new Map();
+
+    if (branchScoped) {
+      const branchIds = Array.from(
+        new Set(
+          shipments
+            .map((s) => String(s._invoiceOriginLocId || ''))
+            .filter(Boolean)
+        )
+      );
+      const branchObjectIds = branchIds
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+      const lastByBranch = branchObjectIds.length
+        ? await GeneratedInvoice.aggregate([
+            {
+              $match: {
+                GSTIN_ID: gstinId,
+                fiscalYear,
+                invoiceSerialScope: 'branch',
+                originLocId: { $in: branchObjectIds }
+              }
+            },
+            {
+              $addFields: {
+                billingCategorySafe: {
+                  $cond: [
+                    { $in: ['$billingCategory', ['B', 'C']] },
+                    '$billingCategory',
+                    'B'
+                  ]
+                }
+              }
+            },
+            {
+              $group: {
+                _id: { originLocId: '$originLocId', billingCategory: '$billingCategorySafe' },
+                maxNumber: { $max: '$invoiceNumber' }
+              }
+            }
+          ])
+        : [];
+      nextNumberBySeries = new Map();
+      branchIds.forEach((id) => {
+        categories.forEach((cat) => {
+          nextNumberBySeries.set(`${id}::${cat}`, 0);
+        });
+      });
+      lastByBranch.forEach((row) => {
+        const originKey = String(row?._id?.originLocId || '');
+        const categoryKey = String(row?._id?.billingCategory || 'B').toUpperCase();
+        if (!originKey) return;
+        nextNumberBySeries.set(`${originKey}::${categoryKey}`, Number(row.maxNumber) || 0);
+      });
+    } else {
+      const lastByCategory = await GeneratedInvoice.aggregate([
+        {
+          $match: {
+            GSTIN_ID: gstinId,
+            fiscalYear,
+            $or: [
+              { invoiceSerialScope: 'company' },
+              { invoiceSerialScope: { $exists: false } },
+              { invoiceSerialScope: null },
+              { invoiceSerialScope: '' }
+            ]
+          }
+        },
+        {
+          $addFields: {
+            billingCategorySafe: {
+              $cond: [
+                { $in: ['$billingCategory', ['B', 'C']] },
+                '$billingCategory',
+                'B'
+              ]
+            }
+          }
+        },
+        { $group: { _id: '$billingCategorySafe', maxNumber: { $max: '$invoiceNumber' } } }
+      ]);
+      nextNumberBySeries = new Map(categories.map((cat) => [cat, 0]));
+      lastByCategory.forEach((row) => {
+        const categoryKey = String(row?._id || 'B').toUpperCase();
+        nextNumberBySeries.set(categoryKey, Number(row.maxNumber) || 0);
+      });
+    }
 
     const invoiceDocs = [];
     const updates = [];
 
     for (const group of groups.values()) {
-      nextNumber += 1;
       const first = group[0] || {};
+      const originLocId = String(first?._invoiceOriginLocId || '');
       const billingClientId = first.billingClientId || null;
       const billingLocationId = first.billingLocationId || null;
+      const billingCategory = String(first?._billingCategory || 'B').trim().toUpperCase() || 'B';
+      const seriesKey = branchScoped ? `${originLocId}::${billingCategory}` : billingCategory;
+      const current = nextNumberBySeries.get(seriesKey) || 0;
+      const invoiceNumber = current + 1;
+      nextNumberBySeries.set(seriesKey, invoiceNumber);
+      const branchLabel = branchLabelById.get(originLocId) || '';
+      const branchToken = normalizeInvoiceBranchToken(branchLabel);
+      const invoiceCode = buildInvoiceCode({
+        yearToken,
+        billingCategory,
+        branchToken,
+        invoiceNumber,
+        branchScoped
+      });
+      const invoiceDisplayNumber = buildInvoiceDisplayNumber({
+        yearToken,
+        billingCategory,
+        branchToken,
+        invoiceNumber,
+        branchScoped
+      });
       const client = billingClientId ? clientsById.get(String(billingClientId)) : null;
       const location = client?.deliveryLocations?.length
         ? (findLocationById(client.deliveryLocations, billingLocationId) || client.deliveryLocations[0])
@@ -1002,7 +1623,12 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
         GSTIN_ID: gstinId,
         fiscalYear,
         fiscalYearStart,
-        invoiceNumber: nextNumber,
+        invoiceNumber,
+        invoiceSerialScope: invoiceSerialScope,
+        originLocId: branchScoped && mongoose.Types.ObjectId.isValid(originLocId) ? originLocId : undefined,
+        billingCategory,
+        invoiceCode,
+        invoiceDisplayNumber,
         billingClientId,
         billingLocationId,
         clientGSTIN: client?.GSTIN || '',
@@ -1016,6 +1642,14 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
           shipment.originLocId || shipment.originLocId|| shipment.originLocId || ''
         );
         const branchName = originNameById.get(originKey) || '';
+        const updateSet = {
+          shipmentStatus: 'Invoiced',
+          invoiceStatus: 'invoiced',
+          shipmentStatusDetails: branchName ? `/${branchName}` : ''
+        };
+        if (shipment._resolvedBillingLocationId) {
+          updateSet.billingLocationId = shipment._resolvedBillingLocationId;
+        }
         updates.push({
           updateOne: {
             filter: {
@@ -1023,19 +1657,44 @@ router.post('/generateInvoices', requireAuth, async (req, res) => {
               consignmentNumber: shipment.consignmentNumber
             },
             update: {
-              $set: {
-                shipmentStatus: 'Invoiced',
-                shipmentStatusDetails: branchName ? `/${branchName}` : ''
-              }
+              $set: updateSet
             }
           }
         });
       });
     }
 
-    const created = invoiceDocs.length ? await GeneratedInvoice.insertMany(invoiceDocs) : [];
+    let created = [];
+    if (invoiceDocs.length) {
+      try {
+        created = await GeneratedInvoice.insertMany(invoiceDocs);
+      } catch (err) {
+        if (isDuplicateKeyError(err)) {
+          return res.status(409).json({ message: GENERATED_INVOICE_DUPLICATE_MESSAGE });
+        }
+        throw err;
+      }
+    }
     if (updates.length) {
       await Shipment.bulkWrite(updates);
+    }
+    if (consignmentNumbers.length) {
+      const preInvoiceItems = await PreInvoiceItem.find({
+        consignmentNumber: { $in: consignmentNumbers }
+      }).select('preInvoiceId').lean();
+      const preInvoiceIds = Array.from(
+        new Set(
+          (preInvoiceItems || [])
+            .map((item) => String(item?.preInvoiceId || ''))
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        )
+      );
+      if (preInvoiceIds.length) {
+        await PreInvoice.updateMany(
+          { _id: { $in: preInvoiceIds }, GSTIN_ID: gstinId, status: { $ne: 'deleted' } },
+          { $set: { status: 'invoiced' } }
+        );
+      }
     }
 
     const clientIds = Array.from(
@@ -1217,15 +1876,42 @@ router.get('/generatedInvoices', requireAuth, async (req, res) => {
     ]);
 
     const gstPercent = Number(company?.companyType) || 0;
-    const billingClientIds = invoices
+    const billingEntityIds = invoices
       .map((inv) => String(inv?.billingClientId || ''))
       .filter(Boolean);
-    const billingClients = billingClientIds.length
-      ? await Client.find({ _id: { $in: billingClientIds } }).select('_id clientName').lean()
-      : [];
-    const billingClientById = new Map(
-      (billingClients || []).map((c) => [String(c._id), c.clientName || ''])
-    );
+    const [clients, hubs, guests] = await Promise.all([
+      billingEntityIds.length
+        ? Client.find({ _id: { $in: billingEntityIds } }).lean()
+        : [],
+      billingEntityIds.length
+        ? Hub.find({ _id: { $in: billingEntityIds } }).lean()
+        : [],
+      billingEntityIds.length
+        ? Guest.find({ _id: { $in: billingEntityIds } }).lean()
+        : []
+    ]);
+    const nameById = new Map();
+    const typeById = new Map();
+    const gstinById = new Map();
+    (clients || []).forEach((client) => {
+      if (!client?._id) return;
+      const id = String(client._id);
+      nameById.set(id, client.clientName || '');
+      typeById.set(id, 'client');
+      if (client?.GSTIN) gstinById.set(id, client.GSTIN);
+    });
+    (hubs || []).forEach((hub) => {
+      if (!hub?._id) return;
+      const id = String(hub._id);
+      if (!nameById.has(id)) nameById.set(id, hub.hubName || '');
+      if (!typeById.has(id)) typeById.set(id, 'hub');
+    });
+    (guests || []).forEach((guest) => {
+      if (!guest?._id) return;
+      const id = String(guest._id);
+      if (!nameById.has(id)) nameById.set(id, guest.guestName || '');
+      if (!typeById.has(id)) typeById.set(id, 'guest');
+    });
 
     const consignmentNumbers = invoices.flatMap((inv) =>
       (inv.consignments || []).map((c) => c.consignmentNumber)
@@ -1242,15 +1928,24 @@ router.get('/generatedInvoices', requireAuth, async (req, res) => {
 
     const response = invoices.map((inv) => ({
       ...inv,
-      clientName: billingClientById.get(String(inv.billingClientId || '')) || '',
+      clientName: nameById.get(String(inv.billingClientId || '')) || '',
+      billingEntityType: typeById.get(String(inv.billingClientId || '')) || '',
+      clientGSTIN: inv.clientGSTIN || gstinById.get(String(inv.billingClientId || '')) || '',
       consignments: (inv.consignments || []).map((c) => {
         const shipment = shipmentsByNumber.get(String(c.consignmentNumber)) || {};
+        const fallbackTaxable = Number(shipment?.taxableValue || 0);
+        const fallbackIgst = Number(shipment?.igstPercent || 0);
         return {
           ...c,
           consignor: shipment.consignor || '',
           deliveryAddress: shipment.deliveryAddress || '',
-          finalAmount: shipment.finalAmount || 0,
-          charges: shipment.charges || {},
+          taxableValue: Number(c?.taxableValue ?? fallbackTaxable) || 0,
+          igstPercent: Number(c?.igstPercent ?? fallbackIgst) || 0,
+          igstAmount:
+            Number(c?.igstAmount ?? 0) ||
+            (fallbackTaxable * (fallbackIgst / 100)),
+          finalAmount: Number(c?.finalAmount ?? shipment.finalAmount ?? 0) || 0,
+          charges: c?.charges || shipment.charges || {},
           date: shipment.date || null
         };
       })
@@ -1438,7 +2133,7 @@ router.get('/generatedInvoices/years', requireAuth, async (req, res) => {
   }
 });
 
-// Cancel generated invoice and revert consignments
+// Delete generated invoice and revert consignments
 router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
@@ -1447,8 +2142,9 @@ router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
     const invoice = await GeneratedInvoice.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
     if (!invoice) return res.status(404).json({ message: 'Generated invoice not found' });
 
-    if (String(invoice.status || '').toLowerCase() !== 'cancelled') {
-      invoice.status = 'cancelled';
+    const currentStatus = String(invoice.status || '').trim().toLowerCase();
+    if (currentStatus !== 'deleted') {
+      invoice.status = 'deleted';
       await invoice.save();
     }
 
@@ -1483,12 +2179,30 @@ router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
                 update: {
                   $set: {
                     shipmentStatus: 'Pre-Invoiced',
+                    invoiceStatus: 'pre-invoiced',
                     shipmentStatusDetails: branchName ? `/${branchName}` : ''
                   }
                 }
               }
             };
           })
+        );
+      }
+
+      const preInvoiceItems = await PreInvoiceItem.find({
+        consignmentNumber: { $in: consignmentNumbers }
+      }).select('preInvoiceId').lean();
+      const preInvoiceIds = Array.from(
+        new Set(
+          (preInvoiceItems || [])
+            .map((item) => String(item?.preInvoiceId || ''))
+            .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        )
+      );
+      if (preInvoiceIds.length) {
+        await PreInvoice.updateMany(
+          { _id: { $in: preInvoiceIds }, GSTIN_ID: gstinId, status: { $ne: 'deleted' } },
+          { $set: { status: 'pre-invoiced' } }
         );
       }
     }
@@ -1498,7 +2212,7 @@ router.put('/generatedInvoices/:id/cancel', requireAuth, async (req, res) => {
       await syncPaymentsFromGeneratedInvoices(gstinId, clientIds);
     }
 
-    res.json({ message: 'Generated invoice cancelled', invoice });
+    res.json({ message: 'Generated invoice deleted', invoice });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -1516,8 +2230,8 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
     const invoice = await GeneratedInvoice.findOne({ _id: req.params.id, GSTIN_ID: gstinId });
     if (!invoice) return res.status(404).json({ message: 'Generated invoice not found' });
 
-    if (String(invoice.status || '').toLowerCase() === 'cancelled') {
-      return res.status(400).json({ message: 'Cancelled invoices cannot be updated' });
+    if (['cancelled', 'deleted'].includes(String(invoice.status || '').toLowerCase())) {
+      return res.status(400).json({ message: 'Deleted invoices cannot be updated' });
     }
 
     const current = normalizeInvoiceStatus(invoice.status) || 'Active';

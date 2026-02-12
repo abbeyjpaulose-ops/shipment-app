@@ -17,7 +17,16 @@
         (input)="applyFilters()"
       />
       <button type="button" (click)="loadInvoices()">Apply FY</button>
-      <button type="button" (click)="printAllInvoices()" [disabled]="!filteredInvoices.length">Print All</button>
+      <button type="button" (click)="printSelectedInvoices()" [disabled]="!selectedCount">Print</button>
+      <button
+        type="button"
+        class="delete-btn"
+        (click)="openDeletePopupForSelected()"
+        [disabled]="!hasDeletableSelection()"
+      >
+        Delete
+      </button>
+      <span class="selected-count" *ngIf="selectedCount">Selected: {{ selectedCount }}</span>
     </div>
   </div>
 
@@ -27,6 +36,9 @@
     <table>
       <thead>
         <tr>
+          <th class="check-col">
+            <input type="checkbox" (change)="toggleAllSelection($event)" />
+          </th>
           <th>Invoice #</th>
           <th>Client</th>
           <th>GSTIN</th>
@@ -34,12 +46,14 @@
           <th>Consignments</th>
           <th>Status</th>
           <th>Payment</th>
-          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         <tr *ngFor="let inv of filteredInvoices">
-          <td>{{ inv.invoiceNumber }}</td>
+          <td class="check-col">
+            <input type="checkbox" [(ngModel)]="inv.selected" [disabled]="isDeleted(inv)" />
+          </td>
+          <td>{{ inv.invoiceDisplayNumber || inv.invoiceCode || inv.invoiceNumber }}</td>
           <td>{{ inv.clientName || '-' }}</td>
           <td>{{ inv.clientGSTIN || '-' }}</td>
           <td class="address-cell">{{ inv.billingAddress || '-' }}</td>
@@ -49,7 +63,10 @@
             </div>
           </td>
           <td>
-            <span class="status-pill" [class.cancelled]="(inv.status || '') === 'cancelled'">
+            <span
+              class="status-pill"
+              [class.cancelled]="(inv.status || '') === 'cancelled' || (inv.status || '') === 'deleted'"
+            >
               {{ inv.status || 'active' }}
             </span>
           </td>
@@ -59,20 +76,10 @@
               class="payment-btn"
               [class.cancel]="(inv.status || '').toLowerCase() === 'paid'"
               (click)="togglePaymentStatus(inv)"
-              [disabled]="paymentUpdatingId === inv._id || (inv.status || '') === 'cancelled'"
+              [disabled]="paymentUpdatingId === inv._id || isDeleted(inv)"
+              *ngIf="!isDeleted(inv)"
             >
               {{ (inv.status || '').toLowerCase() === 'paid' ? 'Payment got cancelled' : 'Paid' }}
-            </button>
-          </td>
-          <td>
-            <button type="button" class="print-btn" (click)="printInvoice(inv)">Print</button>
-            <button
-              type="button"
-              class="delete-btn"
-              [disabled]="(inv.status || '') === 'cancelled'"
-              (click)="openDeletePopup(inv)"
-            >
-              Delete
             </button>
           </td>
         </tr>
@@ -86,8 +93,11 @@
 
 <div class="popup-overlay" *ngIf="showDeletePopup">
   <div class="popup-card">
-    <h3>Cancel this generated invoice?</h3>
-    <p>This action cannot be reverted. The invoice will be marked as cancelled.</p>
+    <h3>Delete selected generated invoices?</h3>
+    <p>
+      This action cannot be reverted.
+      {{ deleteTargets.length }} invoice{{ deleteTargets.length === 1 ? '' : 's' }} will be marked as deleted.
+    </p>
     <div class="popup-actions">
       <button type="button" (click)="cancelDelete()">Keep</button>
       <button type="button" class="danger" (click)="confirmDelete()" [disabled]="deleting">

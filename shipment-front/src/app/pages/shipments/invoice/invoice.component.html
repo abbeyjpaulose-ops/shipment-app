@@ -78,7 +78,7 @@
               type="checkbox"
               [(ngModel)]="pre.selected"
               (click)="$event.stopPropagation()"
-              [disabled]="isPreInvoiceDeleted(pre)"
+              [disabled]="isPreInvoiceLocked(pre)"
             />
           </td>
           <td>{{ getPreInvoiceDisplayNumber(pre) }}</td>
@@ -96,6 +96,52 @@
     </table>
     <p *ngIf="!filteredPreInvoices.length">No pre-invoices found.</p>
   </div>
+</div>
+
+<div class="invoice-section full-width">
+  <div class="invoice-title">Generated Invoices</div>
+  <div class="action-bar">
+    <input
+      type="text"
+      placeholder="Search by invoice, client, GSTIN, or consignment"
+      [(ngModel)]="generatedInvoiceSearch"
+      (input)="applyGeneratedInvoiceFilters()" />
+    <button type="button" (click)="loadGeneratedInvoices()">Refresh</button>
+  </div>
+  <p *ngIf="generatedInvoiceLoading">Loading generated invoices...</p>
+  <table class="invoice-table" *ngIf="!generatedInvoiceLoading">
+    <thead>
+      <tr>
+        <th>Invoice #</th>
+        <th>Client</th>
+        <th>GSTIN</th>
+        <th>Billing Address</th>
+        <th>Consignments</th>
+        <th>Total</th>
+        <th>Status</th>
+        <th>Created</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr *ngFor="let inv of filteredGeneratedInvoices">
+        <td>{{ inv.invoiceDisplayNumber || inv.invoiceCode || inv.invoiceNumber }}</td>
+        <td>{{ inv.clientName || '-' }}</td>
+        <td>{{ inv.clientGSTIN || '-' }}</td>
+        <td class="wrap-cell">{{ inv.billingAddress || '-' }}</td>
+        <td>
+          <div class="consignment-list">
+            <span *ngFor="let c of inv.consignments">{{ c.consignmentNumber }}</span>
+          </div>
+        </td>
+        <td>{{ getGeneratedInvoiceTotal(inv) | number:'1.0-2' }}</td>
+        <td>{{ inv.status || 'active' }}</td>
+        <td>{{ inv.createdAt | date:'short' }}</td>
+      </tr>
+      <tr *ngIf="!filteredGeneratedInvoices.length">
+        <td colspan="8">No generated invoices found.</td>
+      </tr>
+    </tbody>
+  </table>
 </div>
 </div>
 <!-- Modal for invoice details -->

@@ -21,7 +21,7 @@ export class ReportsComponent implements OnInit {
   gstPercent = 0;
   private invoiceTemplate = '';
   showDeletePopup = false;
-  deleteTarget: any = null;
+  deleteTargets: any[] = [];
   deleting = false;
   paymentUpdatingId: string | null = null;
 
@@ -78,6 +78,8 @@ export class ReportsComponent implements OnInit {
     }
     this.filteredInvoices = this.invoices.filter((inv) => {
       const matchesHeader =
+        String(inv.invoiceDisplayNumber || '').toLowerCase().includes(q) ||
+        String(inv.invoiceCode || '').toLowerCase().includes(q) ||
         String(inv.invoiceNumber || '').toLowerCase().includes(q) ||
         String(inv.clientName || '').toLowerCase().includes(q) ||
         String(inv.clientGSTIN || '').toLowerCase().includes(q) ||
@@ -89,38 +91,96 @@ export class ReportsComponent implements OnInit {
   });
   }
 
-  openDeletePopup(inv: any): void {
-    this.deleteTarget = inv;
+  get selectedCount(): number {
+    return this.filteredInvoices.filter((inv) => inv.selected).length;
+  }
+
+  private getSelectedInvoices(): any[] {
+    return this.filteredInvoices.filter((inv) => inv.selected);
+  }
+
+  hasDeletableSelection(): boolean {
+    return this.filteredInvoices.some(
+      (inv) => inv.selected && !this.isDeleted(inv)
+    );
+  }
+
+  isDeleted(inv: any): boolean {
+    const status = String(inv?.status || '').trim().toLowerCase();
+    return status === 'deleted' || status === 'cancelled';
+  }
+
+  toggleAllSelection(event: any): void {
+    const checked = !!event?.target?.checked;
+    this.filteredInvoices.forEach((inv) => {
+      if (this.isDeleted(inv)) {
+        inv.selected = false;
+      } else {
+        inv.selected = checked;
+      }
+    });
+  }
+
+  clearSelection(): void {
+    this.invoices.forEach((inv) => {
+      inv.selected = false;
+    });
+  }
+
+  openDeletePopupForSelected(): void {
+    const selected = this.getSelectedInvoices().filter((inv) => !this.isDeleted(inv));
+    if (!selected.length) return;
+    this.deleteTargets = selected;
     this.showDeletePopup = true;
   }
 
   cancelDelete(): void {
     this.showDeletePopup = false;
-    this.deleteTarget = null;
+    this.deleteTargets = [];
   }
 
   confirmDelete(): void {
-    if (!this.deleteTarget?._id || this.deleting) return;
+    if (this.deleting) return;
+    const targets = (this.deleteTargets || []).filter(
+      (inv) => inv?._id && !this.isDeleted(inv)
+    );
+    if (!targets.length) {
+      this.cancelDelete();
+      return;
+    }
     this.deleting = true;
-    this.http
-      .put<any>(`http://localhost:3000/api/newshipments/generatedInvoices/${this.deleteTarget._id}/cancel`, {})
-      .subscribe({
-        next: (res) => {
-          const updated = res?.invoice;
-          if (updated?._id) {
-            this.invoices = this.invoices.map((inv) =>
-              String(inv._id) === String(updated._id) ? { ...inv, ...updated } : inv
-            );
-            this.applyFilters();
+    let remaining = targets.length;
+    const finalizeOne = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        this.deleting = false;
+        this.cancelDelete();
+        this.clearSelection();
+      }
+    };
+    targets.forEach((target) => {
+      this.http
+        .put<any>(
+          `http://localhost:3000/api/newshipments/generatedInvoices/${target._id}/cancel`,
+          {}
+        )
+        .subscribe({
+          next: (res) => {
+            const updated = res?.invoice;
+            if (updated?._id) {
+              this.invoices = this.invoices.map((inv) =>
+                String(inv._id) === String(updated._id) ? { ...inv, ...updated } : inv
+              );
+              this.applyFilters();
+            }
+            finalizeOne();
+          },
+          error: (err) => {
+            console.error('Error cancelling generated invoice:', err);
+            finalizeOne();
           }
-          this.deleting = false;
-          this.cancelDelete();
-        },
-        error: (err) => {
-          console.error('Error cancelling generated invoice:', err);
-          this.deleting = false;
-        }
-      });
+        });
+    });
   }
 
   togglePaymentStatus(inv: any): void {
@@ -161,12 +221,22 @@ export class ReportsComponent implements OnInit {
   }
 
   async printAllInvoices(): Promise<void> {
-    if (!this.filteredInvoices.length) {
+    await this.printInvoices(this.filteredInvoices);
+  }
+
+  async printSelectedInvoices(): Promise<void> {
+    const selected = this.getSelectedInvoices();
+    if (!selected.length) return;
+    await this.printInvoices(selected);
+  }
+
+  private async printInvoices(list: any[]): Promise<void> {
+    if (!list.length) {
       return;
     }
     try {
       const template = await this.getTemplate();
-      const pages = this.filteredInvoices.map((inv) => this.buildInvoiceBody(inv));
+      const pages = list.map((inv) => this.buildInvoiceBody(inv));
       const body = pages
         .map((page, idx) => page + (idx < pages.length - 1 ? '<div class="page-break"></div>' : ''))
         .join('');
@@ -203,7 +273,7 @@ export class ReportsComponent implements OnInit {
     `).join('');
 
     return `
-      <h2>Invoice #${inv.invoiceNumber || ''}</h2>
+      <h2>Invoice #${inv.invoiceDisplayNumber || inv.invoiceCode || inv.invoiceNumber || ''}</h2>
       <div class="meta">
         <div>Client: ${inv.clientName || ''}</div>
         <div>GSTIN: ${inv.clientGSTIN || ''}</div>

@@ -22,7 +22,8 @@ export class ProfileComponent implements OnInit {
   businessType: '',
   pricePerNumber: 0,
   pricePerKg: 0,
-  pricePerArea: 0
+  pricePerArea: 0,
+  invoiceSerialScope: 'company'
 };
 
   constructor(private http: HttpClient) {}
@@ -44,6 +45,8 @@ export class ProfileComponent implements OnInit {
       next: (data) => {
         
         this.profile = data[0] || this.profile;
+        const serialScope = String(this.profile?.invoiceSerialScope || '').trim().toLowerCase();
+        this.profile.invoiceSerialScope = serialScope === 'branch' ? 'branch' : 'company';
         if (this.profile?.businessType) {
           localStorage.setItem('companyType', String(this.profile.businessType));
         }
@@ -117,7 +120,8 @@ export class ProfileComponent implements OnInit {
       //email: localStorage.getItem('email')|| '', 
       role: '', 
       photo: '', 
-      businessType: '', 
+      businessType: '',
+      invoiceSerialScope: 'company'
       //username: localStorage.getItem('username')
     };
     console.log('Profile cleared locally.');

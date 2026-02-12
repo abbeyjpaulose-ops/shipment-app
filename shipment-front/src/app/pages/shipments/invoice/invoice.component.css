@@ -103,6 +103,28 @@
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
 }
 
+.invoice-section.full-width {
+  grid-column: 1 / -1;
+}
+
+.consignment-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.consignment-list span {
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
+.wrap-cell {
+  word-break: break-word;
+}
+
 .invoice-section > h3 {
   margin-top: 0;
   font-size: 16px;
@@ -111,6 +133,15 @@
 .invoice-section .action-bar {
   margin: 8px 0 12px;
   flex-wrap: wrap;
+}
+
+.invoice-section .action-bar input {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #ffffff;
+  color: var(--text);
+  font-size: 12px;
 }
 
 .action-bar button {
