@@ -35,6 +35,7 @@
           <th>Vehicle</th>
           <th>Entity</th>
           <th>Consignments</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -52,9 +53,13 @@
           <td>{{ m.vehicleNo || '-' }}</td>
           <td>{{ getManifestEntityName(m) }}</td>
           <td>{{ getManifestItemCount(m) }}</td>
+          <td class="actions-cell">
+            <button *ngIf="canDeliverManifest(m)" (click)="deliverManifest(m); $event.stopPropagation()">Deliver</button>
+            <button *ngIf="canCancelManifest(m)" (click)="cancelManifest(m); $event.stopPropagation()">Cancel</button>
+          </td>
         </tr>
         <tr *ngIf="!filterManifests(manifests).length">
-          <td colspan="7">No manifests found.</td>
+          <td colspan="8">No manifests found.</td>
         </tr>
       </tbody>
     </table>

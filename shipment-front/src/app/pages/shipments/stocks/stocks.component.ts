@@ -1713,6 +1713,8 @@ getBranchVehicles(): string[] {
     const statusValue = String(this.manifestationStatus || 'Manifested').trim();
     const manifestStatus = statusValue === 'Manifestation' ? 'Scheduled' : statusValue;
     const isPickup = statusValue.toLowerCase() === 'will be picked-up';
+    const resolvedVehicleNo = this.resolveManifestVehicleNo();
+    const manifestVehicleNo = isPickup ? '' : resolvedVehicleNo;
     const nextPointName = String(this.selectedNextDeliveryPoint || '').trim();
     const nextPointId = !isPickup && nextPointName ? this.getNextDeliveryPointId(nextPointName) : '';
     const nextPoint = !isPickup && nextPointName ? this.getSelectedNextRoutePoint() : null;
@@ -1739,8 +1741,7 @@ getBranchVehicles(): string[] {
         fallbackType,
         fallbackEntityId
       });
-      const vehicleNo = this.resolveManifestVehicleNo();
-      if (!vehicleNo && !isPickup) {
+      if (!manifestVehicleNo && !isPickup) {
         alert('Cannot create manifest: missing vehicle number.');
         return;
       }
@@ -1754,7 +1755,7 @@ getBranchVehicles(): string[] {
         entityId: fallbackEntityId,
         deliveryType: deliveryType || undefined,
         deliveryId: nextPointId || undefined,
-        vehicleNo,
+        vehicleNo: manifestVehicleNo,
         status: manifestStatus,
         consignments
       };
@@ -1780,8 +1781,7 @@ getBranchVehicles(): string[] {
       });
       return;
     }
-    const vehicleNo = this.resolveManifestVehicleNo();
-    if (!vehicleNo && !isPickup) {
+    if (!manifestVehicleNo && !isPickup) {
       alert('Cannot create manifest: missing vehicle number.');
       return;
     }
@@ -1795,7 +1795,7 @@ getBranchVehicles(): string[] {
       entityId,
       deliveryType: deliveryType || undefined,
       deliveryId: nextPointId || undefined,
-      vehicleNo,
+      vehicleNo: manifestVehicleNo,
       status: manifestStatus,
       consignments
     };
@@ -2133,7 +2133,8 @@ finalizeManifestation() {
     },
     error: (err) => {
       console.error('Error updating consignment status:', err);
-      alert('Failed to update consignment status.');
+      const serverMsg = String(err?.error?.message || '').trim();
+      alert(serverMsg || 'Failed to update consignment status.');
     }
   });
 }

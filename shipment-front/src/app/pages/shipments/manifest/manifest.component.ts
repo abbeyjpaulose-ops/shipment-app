@@ -654,7 +654,7 @@ calculateFinalAmount() {
 
   onManifestEditStatusChange(status: any) {
     if (this.isManifestPickupStatus(status)) {
-      this.manifestEditVehicleNo = this.manifestEditOriginal.vehicleNo;
+      this.manifestEditVehicleNo = '';
       this.manifestEditDeliverySelection = this.manifestEditOriginal.deliverySelection;
       return;
     }
@@ -2449,7 +2449,8 @@ private executeDelivery(consignments: any[], onSuccess?: () => void) {
     },
     error: (err) => {
       console.error('Error updating consignment status:', err);
-      alert('Failed to update consignment status.');
+      const serverMsg = String(err?.error?.message || '').trim();
+      alert(serverMsg || 'Failed to update consignment status.');
     }
   });
 }

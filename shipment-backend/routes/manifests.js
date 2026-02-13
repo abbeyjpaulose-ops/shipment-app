@@ -121,9 +121,10 @@ router.post('/', requireAuth, async (req, res) => {
     const status = statusRaw.toLowerCase() === 'manifestation'
       ? 'Scheduled'
       : statusRaw;
-    const vehicleNo = String(req.body?.vehicleNo || '').trim();
+    const requestedVehicleNo = String(req.body?.vehicleNo || '').trim();
     const isPickup = String(status).toLowerCase() === 'will be picked-up';
-    if (!vehicleNo && !isPickup) {
+    const manifestVehicleNo = isPickup ? '' : requestedVehicleNo;
+    if (!manifestVehicleNo && !isPickup) {
       return res.status(400).json({ message: 'vehicleNo is required' });
     }
 
@@ -227,7 +228,7 @@ router.post('/', requireAuth, async (req, res) => {
 
     const normalizedStatus = String(status || '').trim().toLowerCase();
     const shouldReuseActiveManifest = normalizedStatus === 'scheduled' &&
-      Boolean(vehicleNo && deliveryIdRaw);
+      Boolean(manifestVehicleNo && deliveryIdRaw);
     if (shouldReuseActiveManifest) {
       const now = new Date();
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -239,7 +240,7 @@ router.post('/', requireAuth, async (req, res) => {
         entityId: entityIdRaw,
         deliveryId: deliveryIdRaw,
         ...(deliveryTypeRaw ? { deliveryType: deliveryTypeRaw } : {}),
-        vehicleNo,
+        vehicleNo: manifestVehicleNo,
         // Keep reuse constrained to MF00* manifests requested by manifestation flow.
         manifestNumber: /^MF00/i,
         createdAt: { $gte: startOfDay, $lt: endOfDay },
@@ -303,7 +304,7 @@ router.post('/', requireAuth, async (req, res) => {
           fiscalYearStart,
           manifestSequence,
           manifestNumber,
-          vehicleNo,
+          vehicleNo: manifestVehicleNo,
           status
         });
         break;
@@ -536,11 +537,13 @@ router.get('/', requireAuth, async (req, res) => {
         return !scheduledList.has(String(m._id));
       });
       const normalizedStatus = String(m?.status || '').trim().toLowerCase();
+      const isPickupManifest = normalizedStatus.includes('will be picked-up');
       const canUncancel = normalizedStatus === 'cancelled' &&
         !hasDelivered &&
         !hasOtherScheduled;
       return {
         ...m,
+        vehicleNo: isPickupManifest ? '' : String(m?.vehicleNo || '').trim(),
         items: itemsWithStatus,
         canUncancel
       };
@@ -871,17 +874,27 @@ router.put('/:id/status', requireAuth, async (req, res) => {
     const normalizedStatus = String(status).trim().toLowerCase();
     const deliveredAt = req.body?.deliveredAt ? new Date(req.body.deliveredAt) : new Date();
     const deliveredAtValue = normalizedStatus === 'completed' ? deliveredAt : null;
+    const isPickupStatus = normalizedStatus === 'will be picked-up';
+    const previousVehicle = String(manifest?.vehicleNo || '').trim();
+    const manifestSet = { status, deliveredAt: deliveredAtValue };
+    if (isPickupStatus) {
+      manifestSet.vehicleNo = '';
+    }
 
     await Promise.all([
       Manifest.updateOne(
         { _id: manifestId, GSTIN_ID: gstinId },
-        { $set: { status, deliveredAt: deliveredAtValue } }
+        { $set: manifestSet }
       ),
       ManifestItem.updateMany(
         { manifestId },
         { $set: { status, deliveredAt: deliveredAtValue } }
       )
     ]);
+
+    if (isPickupStatus && previousVehicle) {
+      await updateVehicleStatusByNumber(gstinId, previousVehicle, 'online');
+    }
 
     let cancelStats = null;
     if (normalizedStatus === 'cancelled') {

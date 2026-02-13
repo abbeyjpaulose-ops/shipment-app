@@ -72,11 +72,84 @@ router.get('/summary', requireAuth, async (req, res) => {
     }
 
     const directionFilter = buildDirectionFilter(requestedDirection, true);
-    const summaries = await PaymentEntitySummary.find({
-      GSTIN_ID: gstinId,
-      entityType: { $in: validTypes },
-      ...(directionFilter ? { direction: directionFilter } : {})
-    }).lean();
+    const [summaries, payments] = await Promise.all([
+      PaymentEntitySummary.find({
+        GSTIN_ID: gstinId,
+        entityType: { $in: validTypes },
+        ...(directionFilter ? { direction: directionFilter } : {})
+      }).lean(),
+      Payment.find({
+        GSTIN_ID: gstinId,
+        entityType: { $in: validTypes },
+        ...(directionFilter ? { direction: directionFilter } : {})
+      })
+        .select('entityType entityId direction amountDue amountPaid balance paymentDate')
+        .lean()
+    ]);
+
+    const makeKey = (entityType, entityId, direction) =>
+      `${String(entityType || '').trim().toLowerCase()}$$${String(entityId || '').trim()}$$${String(direction || '').trim().toLowerCase() || 'receivable'}`;
+
+    const summaryByKey = new Map();
+    (summaries || []).forEach((summary) => {
+      const entityType = String(summary?.entityType || '').trim().toLowerCase();
+      const entityId = String(summary?.entityId || '').trim();
+      if (!entityType || !entityId) return;
+      const direction = normalizeDirection(summary?.direction) || requestedDirection || 'receivable';
+      summaryByKey.set(makeKey(entityType, entityId, direction), summary);
+    });
+
+    const paymentAggByKey = new Map();
+    (payments || []).forEach((payment) => {
+      const entityType = String(payment?.entityType || '').trim().toLowerCase();
+      const entityId = String(payment?.entityId || '').trim();
+      if (!entityType || !entityId) return;
+      const direction = normalizeDirection(payment?.direction) || requestedDirection || 'receivable';
+      const key = makeKey(entityType, entityId, direction);
+      const current = paymentAggByKey.get(key) || {
+        entityType,
+        entityId,
+        direction,
+        totalDue: 0,
+        totalPaid: 0,
+        totalBalance: 0,
+        lastPaymentDate: null
+      };
+      current.totalDue += Number(payment?.amountDue || 0);
+      current.totalPaid += Number(payment?.amountPaid || 0);
+      current.totalBalance += Number(payment?.balance || 0);
+      const paymentDate = payment?.paymentDate ? new Date(payment.paymentDate) : null;
+      if (paymentDate && !Number.isNaN(paymentDate.getTime())) {
+        if (!current.lastPaymentDate || paymentDate > new Date(current.lastPaymentDate)) {
+          current.lastPaymentDate = paymentDate;
+        }
+      }
+      paymentAggByKey.set(key, current);
+    });
+
+    const mergedByType = new Map();
+    const mergedKeys = new Set([...summaryByKey.keys(), ...paymentAggByKey.keys()]);
+    mergedKeys.forEach((key) => {
+      const summary = summaryByKey.get(key);
+      const paymentAgg = paymentAggByKey.get(key);
+      const fallbackEntityType = String(summary?.entityType || paymentAgg?.entityType || '').trim().toLowerCase();
+      if (!fallbackEntityType) return;
+      const row = {
+        entityType: fallbackEntityType,
+        entityId: String(summary?.entityId || paymentAgg?.entityId || '').trim(),
+        direction: String(summary?.direction || paymentAgg?.direction || requestedDirection || 'receivable').trim().toLowerCase() || 'receivable',
+        totalDue: paymentAgg ? Number(paymentAgg.totalDue || 0) : Number(summary?.totalDue || 0),
+        totalPaid: paymentAgg ? Number(paymentAgg.totalPaid || 0) : Number(summary?.totalPaid || 0),
+        totalBalance: 0,
+        lastPaymentDate: paymentAgg?.lastPaymentDate || summary?.lastPaymentDate || null
+      };
+      row.totalBalance = Math.max(Number(row.totalDue || 0) - Number(row.totalPaid || 0), 0);
+      row.status = formatPaymentStatus(row.totalBalance <= 0 ? 'Paid' : 'Pending');
+      if (!row.entityId) return;
+      const arr = mergedByType.get(fallbackEntityType) || [];
+      arr.push(row);
+      mergedByType.set(fallbackEntityType, arr);
+    });
 
     const response = {
       clients: [],
@@ -87,7 +160,7 @@ router.get('/summary', requireAuth, async (req, res) => {
 
     for (const entityType of validTypes) {
       const config = ENTITY_CONFIG[entityType];
-      const typedSummaries = summaries.filter((s) => s.entityType === entityType);
+      const typedSummaries = mergedByType.get(entityType) || [];
       const entityIds = typedSummaries.map((s) => String(s.entityId || '')).filter(Boolean);
       const validEntityIds = entityIds.filter((id) => mongoose.Types.ObjectId.isValid(id));
       const entities = validEntityIds.length
@@ -99,10 +172,10 @@ router.get('/summary', requireAuth, async (req, res) => {
         .map((s) => ({
           entityId: String(s.entityId || ''),
           name: names.get(String(s.entityId || '')) || String(s.entityId || ''),
-          direction: s.direction || requestedDirection || 'receivable',
-          totalDue: s.totalDue || 0,
-          totalPaid: s.totalPaid || 0,
-          totalBalance: s.totalBalance || 0,
+          direction: normalizeDirection(s.direction) || requestedDirection || 'receivable',
+          totalDue: Number(s.totalDue || 0),
+          totalPaid: Number(s.totalPaid || 0),
+          totalBalance: Number(s.totalBalance || 0),
           lastPaymentDate: s.lastPaymentDate || null,
           status: formatPaymentStatus(s.status)
         }))
@@ -351,41 +424,71 @@ router.get('/:entityType/:entityId/transactions', requireAuth, async (req, res) 
     }
 
     const baseFilter = { GSTIN_ID: gstinId, entityType, entityId };
-    let payment = null;
     let resolvedDirection = requestedDirection || null;
-
-    if (requestedDirection) {
-      payment = await Payment.findOne({
-        ...baseFilter,
-        direction: buildDirectionFilter(requestedDirection, true)
-      }).lean();
-    } else {
-      payment = await Payment.findOne({
-        ...baseFilter,
-        direction: buildDirectionFilter('receivable', true)
-      }).lean();
-      if (!payment) {
-        payment = await Payment.findOne({ ...baseFilter, direction: 'payable' }).lean();
+    if (!resolvedDirection) {
+      const [hasReceivablePayment, hasPayablePayment, hasReceivableSummary, hasPayableSummary] = await Promise.all([
+        Payment.exists({ ...baseFilter, direction: buildDirectionFilter('receivable', true) }),
+        Payment.exists({ ...baseFilter, direction: 'payable' }),
+        PaymentEntitySummary.exists({ ...baseFilter, direction: buildDirectionFilter('receivable', true) }),
+        PaymentEntitySummary.exists({ ...baseFilter, direction: 'payable' })
+      ]);
+      if (hasReceivablePayment || hasReceivableSummary) {
+        resolvedDirection = 'receivable';
+      } else if (hasPayablePayment || hasPayableSummary) {
+        resolvedDirection = 'payable';
+      } else {
+        resolvedDirection = 'receivable';
       }
     }
 
-    if (!resolvedDirection) {
-      resolvedDirection = payment?.direction || 'receivable';
-    }
+    const directionFilter = buildDirectionFilter(resolvedDirection, true);
+    const [payments, summaryDoc] = await Promise.all([
+      Payment.find({
+        ...baseFilter,
+        direction: directionFilter
+      })
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .lean(),
+      PaymentEntitySummary.findOne({
+        ...baseFilter,
+        direction: directionFilter
+      }).lean()
+    ]);
 
-    const summary = await PaymentEntitySummary.findOne({
-      ...baseFilter,
-      direction: buildDirectionFilter(resolvedDirection, true)
-    }).lean();
-
+    const payment = payments[0] || null;
     if (payment && !payment.direction) payment.direction = resolvedDirection;
-    if (summary && !summary.direction) summary.direction = resolvedDirection;
 
-    const transactions = payment
-      ? await PaymentTransaction.find({ paymentId: payment._id })
+    const paymentIds = (payments || []).map((p) => p?._id).filter(Boolean);
+    const transactions = paymentIds.length
+      ? await PaymentTransaction.find({ paymentId: { $in: paymentIds } })
           .sort({ transactionDate: -1, createdAt: -1 })
           .lean()
       : [];
+
+    const totalDue = payments.length
+      ? (payments || []).reduce((sum, p) => sum + Number(p?.amountDue || 0), 0)
+      : Number(summaryDoc?.totalDue || 0);
+    const totalPaid = payments.length
+      ? (payments || []).reduce((sum, p) => sum + Number(p?.amountPaid || 0), 0)
+      : Number(summaryDoc?.totalPaid || 0);
+    const totalBalance = Math.max(totalDue - totalPaid, 0);
+    const latestPaymentDate = (payments || []).reduce((latest, p) => {
+      const value = p?.paymentDate ? new Date(p.paymentDate) : null;
+      if (!value || Number.isNaN(value.getTime())) return latest;
+      if (!latest) return value;
+      return value > latest ? value : latest;
+    }, null);
+    const summary = (summaryDoc || payments.length)
+      ? {
+          ...(summaryDoc || {}),
+          direction: normalizeDirection(summaryDoc?.direction) || resolvedDirection,
+          totalDue,
+          totalPaid,
+          totalBalance,
+          lastPaymentDate: latestPaymentDate || summaryDoc?.lastPaymentDate || null,
+          status: formatPaymentStatus(totalBalance <= 0 ? 'Paid' : 'Pending')
+        }
+      : null;
 
     res.json({
       payment,

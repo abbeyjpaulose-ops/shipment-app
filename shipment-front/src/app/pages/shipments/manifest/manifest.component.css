@@ -217,6 +217,12 @@
   text-align: center;
 }
 
+.actions-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .manifest-filters {
   display: flex;
   gap: 10px;

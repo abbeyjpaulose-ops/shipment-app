@@ -143,6 +143,7 @@
             <tr>
               <th>Name</th>
               <th>Entity ID</th>
+              <th>Direction</th>
               <th>Total Due</th>
               <th>Paid</th>
               <th>Balance</th>
@@ -155,6 +156,7 @@
             <tr *ngFor="let row of getRowsForTab(tab.key)">
               <td>{{ row.name || '-' }}</td>
               <td class="muted">{{ row.entityId || '-' }}</td>
+              <td>{{ row.direction || 'receivable' }}</td>
               <td>{{ formatAmount(row.totalDue) }}</td>
               <td>{{ formatAmount(row.totalPaid) }}</td>
               <td>{{ formatAmount(row.totalBalance) }}</td>
@@ -286,11 +288,15 @@
 </div>
 
 <div class="drawer-overlay" *ngIf="showDrawer">
-  <div class="drawer">
+  <div class="drawer" [ngClass]="{ 'drawer-payable': isPayableDirection(), 'drawer-receivable': !isPayableDirection() }">
     <div class="drawer-header">
       <div>
         <h3>{{ activeEntity?.name || 'Payments' }}</h3>
         <p class="muted">{{ activeEntity?.entityId }}</p>
+        <div class="drawer-meta">
+          <span class="direction-badge" [ngClass]="getActiveDirection()">{{ getDirectionLabel() }}</span>
+          <span class="direction-note">{{ getDirectionHint() }}</span>
+        </div>
       </div>
       <button type="button" class="close-btn" (click)="closeDrawer()">X</button>
     </div>
@@ -311,10 +317,10 @@
     </div>
 
     <div class="drawer-section">
-      <h4>Set Due Amount</h4>
+      <h4>{{ isPayableDirection() ? 'Set Payable Amount' : 'Set Receivable Amount' }}</h4>
       <div class="form-grid">
         <label>
-          Total Due
+          {{ isPayableDirection() ? 'Total payable' : 'Total receivable' }}
           <input type="number" min="0" [(ngModel)]="dueAmount" />
         </label>
       </div>
@@ -325,10 +331,10 @@
     </div>
 
     <div class="drawer-section">
-      <h4>Record Payment</h4>
+      <h4>{{ isPayableDirection() ? 'Record Outgoing Payment' : 'Record Incoming Payment' }}</h4>
       <div class="form-grid">
         <label>
-          Amount
+          {{ isPayableDirection() ? 'Paid amount' : 'Received amount' }}
           <input type="number" min="0" [(ngModel)]="recordForm.amount" />
         </label>
         <label>
@@ -356,10 +362,14 @@
         </label>
       </div>
       <button type="button" class="primary" (click)="submitPayment()" [disabled]="transactionsLoading">
-        {{ transactionsLoading ? 'Saving...' : 'Save payment' }}
+        {{ transactionsLoading ? 'Saving...' : (isPayableDirection() ? 'Save payout' : 'Save receipt') }}
       </button>
       <p class="form-error" *ngIf="recordError">{{ recordError }}</p>
-      <p class="form-hint">These entries update balances and are irreversible.</p>
+      <p class="form-hint">
+        {{ isPayableDirection()
+            ? 'Payout entries reduce payable balance and are irreversible.'
+            : 'Receipt entries reduce receivable balance and are irreversible.' }}
+      </p>
     </div>
 
     <div class="drawer-section">

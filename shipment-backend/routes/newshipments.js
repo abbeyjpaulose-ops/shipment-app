@@ -17,6 +17,7 @@ import Payment from '../models/Payment/Payment.js';
 import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
 import PaymentTransaction from '../models/Payment/PaymentTransaction.js';
 import Branch from '../models/Branch.js';
+import ManifestItem from '../models/Manifest/ManifestItem.js';
 import { requireAuth } from '../middleware/auth.js';
 import { syncPaymentsFromGeneratedInvoices } from '../services/paymentSync.js';
 
@@ -824,48 +825,124 @@ router.post('/add', requireAuth, async (req, res) => {
         if (!client && hub) {
           entityType = 'hub';
         }
-        const amountDue = Number(shipment.finalAmount) || 0;
-        const amountPaid = Number(shipment.initialPaid) || 0;
-        const balance = amountDue - amountPaid;
-        const isPaid = amountDue > 0 && balance <= 0;
+        const amountDue = Math.max(Number(shipment.finalAmount) || 0, 0);
+        const rawInitialPaid = Math.max(Number(shipment.initialPaid) || 0, 0);
+        const amountPaid = Math.min(rawInitialPaid, amountDue);
+        const balance = Math.max(amountDue - amountPaid, 0);
+        const paymentStatus = balance <= 0 ? 'Paid' : 'Pending';
         const direction = 'receivable';
         const originReference = getOriginKey(shipment) || '';
         const referenceNo = `${originReference}$$${String(shipment._id)}`;
-        const paymentPayload = {
+        const initialPaidTxReference = `INITPAID-${String(shipment._id)}`;
+        const paymentBaseFilter = {
+          GSTIN_ID: paymentGstinId,
           entityType,
           entityId: String(paymentEntityId),
-          direction,
-          referenceNo,
-          amountDue,
-          amountPaid,
-          balance,
-          currency: 'rupees',
-          status: isPaid ? 'Paid' : 'Pending',
-          paymentDate: isPaid ? new Date() : null,
-          paymentMethod: 'recievable',
-          notes: '',
-          dueDate: null
+          referenceNo
         };
+        const directionFilter = { $in: [direction, null] };
         try {
-          const paymentResult = await Payment.updateOne(
+          const existingPayment = await Payment.findOne({
+            ...paymentBaseFilter,
+            direction: directionFilter
+          }).lean();
+          const previousDue = Number(existingPayment?.amountDue || 0);
+          const previousPaid = Number(existingPayment?.amountPaid || 0);
+          await Payment.updateOne(
+            existingPayment?._id
+              ? { _id: existingPayment._id }
+              : {
+                  ...paymentBaseFilter,
+                  direction: directionFilter
+                },
             {
-              entityType,
-              entityId: String(paymentEntityId),
-              referenceNo,
-              direction: { $in: [direction, null] }
-            },
-            {
-              $setOnInsert: { ...paymentPayload, GSTIN_ID: paymentGstinId },
-              $set: { direction }
+              $setOnInsert: {
+                GSTIN_ID: paymentGstinId,
+                entityType,
+                entityId: String(paymentEntityId),
+                referenceNo,
+                notes: '',
+                dueDate: null
+              },
+              $set: {
+                direction,
+                amountDue,
+                amountPaid,
+                balance,
+                currency: 'rupees',
+                status: paymentStatus,
+                paymentDate: amountPaid > 0 ? new Date() : null,
+                paymentMethod: 'receivable'
+              }
             },
             { upsert: true }
           );
-          if (!paymentResult?.upsertedId) {
-            console.warn('Payment record already exists or was not inserted', {
-              referenceNo,
+
+          let summary = await PaymentEntitySummary.findOne({
+            GSTIN_ID: paymentGstinId,
+            entityType,
+            entityId: String(paymentEntityId),
+            direction: directionFilter
+          });
+          if (!summary) {
+            summary = await PaymentEntitySummary.create({
+              GSTIN_ID: paymentGstinId,
+              entityType,
               entityId: String(paymentEntityId),
-              gstinId
+              direction,
+              totalDue: amountDue,
+              totalPaid: amountPaid,
+              totalBalance: balance,
+              lastPaymentDate: amountPaid > 0 ? new Date() : null,
+              status: paymentStatus
             });
+          } else {
+            const totalDue = Math.max(Number(summary.totalDue || 0) + (amountDue - previousDue), 0);
+            const totalPaid = Math.max(Number(summary.totalPaid || 0) + (amountPaid - previousPaid), 0);
+            const totalBalance = Math.max(totalDue - totalPaid, 0);
+            summary.totalDue = totalDue;
+            summary.totalPaid = totalPaid;
+            summary.totalBalance = totalBalance;
+            summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
+            summary.direction = direction;
+            if (amountPaid > previousPaid) {
+              summary.lastPaymentDate = new Date();
+            }
+            await summary.save();
+          }
+
+          const initialPaidDelta = Math.max(amountPaid - previousPaid, 0);
+          if (initialPaidDelta > 0) {
+            const paymentDoc = existingPayment?._id
+              ? { _id: existingPayment._id }
+              : await Payment.findOne({
+                  ...paymentBaseFilter,
+                  direction
+                })
+                  .select('_id')
+                  .lean();
+            const paymentId = paymentDoc?._id ? String(paymentDoc._id) : '';
+            if (paymentId) {
+              const existingInitialPaidTx = await PaymentTransaction.findOne({
+                paymentId,
+                method: 'Initial Paid',
+                referenceNo: initialPaidTxReference
+              })
+                .select('_id')
+                .lean();
+              if (!existingInitialPaidTx?._id) {
+                await PaymentTransaction.create({
+                  paymentId,
+                  direction,
+                  amount: initialPaidDelta,
+                  transactionDate: shipment?.date || shipment?.createdAt || new Date(),
+                  method: 'Initial Paid',
+                  referenceNo: initialPaidTxReference,
+                  notes: `Initial paid captured for consignment ${String(shipment.consignmentNumber || '')}`.trim(),
+                  status: 'posted'
+                });
+              }
+            }
           }
         } catch (err) {
           console.error('Failed to create payment record', { referenceNo, gstinId: paymentGstinId, err });
@@ -2633,87 +2710,314 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
     const hubIdValid = hubId && mongoose.Types.ObjectId.isValid(hubId);
     const hubCharge = Math.max(Number(hubChargeRaw) || 0, 0);
     if (hubIdValid) {
-      const hubExists = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id').lean();
-      if (hubExists) {
-        const referenceNo = `${String(shipment._id)}$$hubcharge`;
-        const direction = 'payable';
-        const directionFilter = { $in: [direction, null] };
-        const existingPayment = await Payment.findOne({
-          GSTIN_ID: gstinId,
-          entityType: 'hub',
-          entityId: hubId,
-          referenceNo,
-          direction: directionFilter
-        }).lean();
-        const previousDue = Number(existingPayment?.amountDue || 0);
-        const amountPaid = Number(existingPayment?.amountPaid || 0);
-        const balance = Math.max(hubCharge - amountPaid, 0);
-        const status = balance <= 0 ? 'Paid' : 'Pending';
-
-        await Payment.updateOne(
-          {
+      try {
+        const hubExists = await Hub.findOne({ _id: hubId, GSTIN_ID: gstinId }).select('_id').lean();
+        if (hubExists) {
+          const referenceNo = `${String(shipment._id)}$$hubcharge`;
+          const direction = 'payable';
+          const directionFilter = { $in: [direction, null] };
+          const paymentBaseFilter = {
             GSTIN_ID: gstinId,
             entityType: 'hub',
             entityId: hubId,
-            referenceNo,
+            referenceNo
+          };
+          let existingPayment = await Payment.findOne({
+            ...paymentBaseFilter,
             direction: directionFilter
-          },
-          {
-            $set: {
-              amountDue: hubCharge,
-              amountPaid,
-              balance,
-              currency: 'rupees',
-              status,
-              paymentMethod: 'payable',
-              paymentDate: balance <= 0 ? new Date() : null,
-              direction
+          }).lean();
+          if (!existingPayment) {
+            const fallbackPayments = await Payment.find(paymentBaseFilter)
+              .sort({ updatedAt: -1, createdAt: -1 })
+              .limit(2)
+              .lean();
+            if (fallbackPayments.length === 1) {
+              existingPayment = fallbackPayments[0];
+            }
+          }
+          const previousDue = Number(existingPayment?.amountDue || 0);
+          const amountPaid = Number(existingPayment?.amountPaid || 0);
+          const balance = Math.max(hubCharge - amountPaid, 0);
+          const status = balance <= 0 ? 'Paid' : 'Pending';
+
+          await Payment.updateOne(
+            existingPayment?._id
+              ? { _id: existingPayment._id }
+              : {
+                  ...paymentBaseFilter,
+                  direction: directionFilter
+                },
+            {
+              $set: {
+                amountDue: hubCharge,
+                amountPaid,
+                balance,
+                currency: 'rupees',
+                status,
+                direction,
+                paymentMethod: 'payable',
+                paymentDate: balance <= 0 ? new Date() : null
+              },
+              $setOnInsert: {
+                GSTIN_ID: gstinId,
+                entityType: 'hub',
+                entityId: hubId,
+                referenceNo,
+                direction,
+                notes: `Hub charge for consignment ${String(shipment.consignmentNumber || '')}`.trim()
+              }
             },
-            $setOnInsert: {
+            { upsert: true }
+          );
+
+          const summaryBaseFilter = {
+            GSTIN_ID: gstinId,
+            entityType: 'hub',
+            entityId: hubId
+          };
+          let summary = await PaymentEntitySummary.findOne({
+            ...summaryBaseFilter,
+            direction: directionFilter
+          });
+          if (!summary) {
+            const fallbackSummaries = await PaymentEntitySummary.find(summaryBaseFilter)
+              .sort({ updatedAt: -1, createdAt: -1 })
+              .limit(2);
+            if (fallbackSummaries.length === 1) {
+              summary = fallbackSummaries[0];
+            }
+          }
+          if (!summary) {
+            summary = await PaymentEntitySummary.create({
               GSTIN_ID: gstinId,
               entityType: 'hub',
               entityId: hubId,
-              referenceNo,
               direction,
-              notes: `Hub charge for consignment ${String(shipment.consignmentNumber || '')}`.trim()
-            }
-          },
-          { upsert: true }
-        );
-
-        let summary = await PaymentEntitySummary.findOne({
-          GSTIN_ID: gstinId,
-          entityType: 'hub',
-          entityId: hubId,
-          direction: directionFilter
-        });
-        if (!summary) {
-          summary = await PaymentEntitySummary.create({
-            GSTIN_ID: gstinId,
-            entityType: 'hub',
-            entityId: hubId,
-            direction,
-            totalDue: hubCharge,
-            totalPaid: amountPaid,
-            totalBalance: balance,
-            status
-          });
-        } else {
-          const deltaDue = hubCharge - previousDue;
-          const totalDue = Math.max(Number(summary.totalDue || 0) + deltaDue, 0);
-          const totalPaid = Number(summary.totalPaid || 0);
-          const totalBalance = Math.max(totalDue - totalPaid, 0);
-          summary.totalDue = totalDue;
-          summary.totalBalance = totalBalance;
-          summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
-          summary.direction = direction;
-          await summary.save();
+              totalDue: hubCharge,
+              totalPaid: amountPaid,
+              totalBalance: balance,
+              status
+            });
+          } else {
+            const deltaDue = hubCharge - previousDue;
+            const totalDue = Math.max(Number(summary.totalDue || 0) + deltaDue, 0);
+            const totalPaid = Number(summary.totalPaid || 0);
+            const totalBalance = Math.max(totalDue - totalPaid, 0);
+            summary.totalDue = totalDue;
+            summary.totalBalance = totalBalance;
+            summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
+            summary.direction = direction;
+            await summary.save();
+          }
         }
+      } catch (paymentErr) {
+        console.error('Hub charge sync failed for consignment update:', paymentErr);
       }
     }
 
     const view = (await buildShipmentViews([shipment]))[0];
     res.json(view);
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+// Delete shipment (and reverse initial-paid payment impact)
+router.delete('/:consignmentNumber', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const shipmentIdRaw = String(req.query.shipmentId || req.body?.shipmentId || '').trim();
+    const shipmentId = mongoose.Types.ObjectId.isValid(shipmentIdRaw) ? shipmentIdRaw : '';
+    const filter = shipmentId
+      ? { _id: shipmentId, GSTIN_ID: gstinId }
+      : { consignmentNumber: req.params.consignmentNumber, GSTIN_ID: gstinId };
+
+    const shipment = await Shipment.findOne(filter).lean();
+    if (!shipment) return res.status(404).json({ message: 'Shipment not found' });
+
+    const consignmentNumber = String(shipment?.consignmentNumber || '').trim();
+    const shipmentObjectId = shipment?._id;
+    if (!shipmentObjectId) {
+      return res.status(400).json({ message: 'Invalid shipment id' });
+    }
+
+    const [hasManifestItems, hasActiveInvoice] = await Promise.all([
+      ManifestItem.exists({
+        $or: [
+          { shipmentId: shipmentObjectId },
+          ...(consignmentNumber ? [{ consignmentNumber }] : [])
+        ]
+      }),
+      GeneratedInvoice.exists({
+        GSTIN_ID: gstinId,
+        status: { $nin: ['cancelled', 'deleted'] },
+        ...(consignmentNumber ? { 'consignments.consignmentNumber': consignmentNumber } : {})
+      })
+    ]);
+
+    if (hasManifestItems) {
+      return res.status(409).json({
+        message: 'Cannot delete consignment linked to a manifest. Remove it from manifest first.'
+      });
+    }
+    if (hasActiveInvoice) {
+      return res.status(409).json({
+        message: 'Cannot delete consignment linked to an active invoice.'
+      });
+    }
+
+    const preInvoiceItem = await PreInvoiceItem.findOne({
+      $or: [
+        { shipmentId: shipmentObjectId },
+        ...(consignmentNumber ? [{ consignmentNumber }] : [])
+      ]
+    })
+      .select('preInvoiceId')
+      .lean();
+    if (preInvoiceItem?.preInvoiceId) {
+      const activePreInvoice = await PreInvoice.exists({
+        _id: preInvoiceItem.preInvoiceId,
+        GSTIN_ID: gstinId,
+        status: { $ne: 'deleted' }
+      });
+      if (activePreInvoice) {
+        return res.status(409).json({
+          message: 'Cannot delete consignment linked to an active pre-invoice.'
+        });
+      }
+    }
+
+    const direction = 'receivable';
+    const directionFilter = { $in: [direction, null] };
+    const originReference = getOriginKey(shipment) || '';
+    const referenceNo = `${originReference}$$${String(shipmentObjectId)}`;
+    const initialPaidTxReference = `INITPAID-${String(shipmentObjectId)}`;
+
+    const payment = await Payment.findOne({
+      GSTIN_ID: gstinId,
+      referenceNo,
+      direction: directionFilter
+    }).sort({ updatedAt: -1, createdAt: -1 });
+
+    const paymentAdjustment = {
+      dueRemoved: 0,
+      paidRemoved: 0,
+      voidedInitialPaidTransactions: 0
+    };
+
+    if (payment?._id) {
+      const removedDue = Math.max(Number(payment.amountDue || 0), 0);
+      const removedPaid = Math.max(Number(payment.amountPaid || 0), 0);
+      const paymentEntityType = String(payment.entityType || 'client');
+      const paymentEntityId = String(payment.entityId || '');
+
+      const voidResult = await PaymentTransaction.updateMany(
+        {
+          paymentId: payment._id,
+          method: 'Initial Paid',
+          referenceNo: initialPaidTxReference,
+          status: { $ne: 'voided' }
+        },
+        {
+          $set: {
+            status: 'voided',
+            voidedAt: new Date(),
+            voidReason: 'Shipment deleted'
+          }
+        }
+      );
+
+      const existingNotes = String(payment.notes || '').trim();
+      const deleteNote = `Shipment deleted: ${consignmentNumber || String(shipmentObjectId)}`;
+      payment.amountDue = 0;
+      payment.amountPaid = 0;
+      payment.balance = 0;
+      payment.status = 'Paid';
+      payment.paymentDate = null;
+      payment.direction = direction;
+      payment.paymentMethod = payment.paymentMethod || 'receivable';
+      payment.notes = existingNotes
+        ? `${existingNotes} | ${deleteNote}`
+        : deleteNote;
+      await payment.save();
+
+      paymentAdjustment.dueRemoved = removedDue;
+      paymentAdjustment.paidRemoved = removedPaid;
+      paymentAdjustment.voidedInitialPaidTransactions = Number(voidResult?.modifiedCount || 0);
+
+      if (paymentEntityId) {
+        const summary = await PaymentEntitySummary.findOne({
+          GSTIN_ID: gstinId,
+          entityType: paymentEntityType,
+          entityId: paymentEntityId,
+          direction: directionFilter
+        });
+        if (summary) {
+          const totalDue = Math.max(Number(summary.totalDue || 0) - removedDue, 0);
+          const totalPaid = Math.max(Number(summary.totalPaid || 0) - removedPaid, 0);
+          const totalBalance = Math.max(totalDue - totalPaid, 0);
+
+          const entityPayments = await Payment.find({
+            GSTIN_ID: gstinId,
+            entityType: paymentEntityType,
+            entityId: paymentEntityId,
+            direction: directionFilter
+          })
+            .select('_id')
+            .lean();
+          const entityPaymentIds = (entityPayments || [])
+            .map((p) => p?._id)
+            .filter(Boolean);
+          let latestPostedTx = null;
+          if (entityPaymentIds.length) {
+            latestPostedTx = await PaymentTransaction.findOne({
+              paymentId: { $in: entityPaymentIds },
+              status: { $ne: 'voided' }
+            })
+              .sort({ transactionDate: -1, createdAt: -1 })
+              .select('transactionDate')
+              .lean();
+          }
+
+          summary.totalDue = totalDue;
+          summary.totalPaid = totalPaid;
+          summary.totalBalance = totalBalance;
+          summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
+          summary.direction = direction;
+          summary.lastPaymentDate = latestPostedTx?.transactionDate || null;
+          await summary.save();
+        }
+      }
+    }
+
+    const ewaybills = await Ewaybill.find({ shipmentId: shipmentObjectId }).select('_id').lean();
+    const ewaybillIds = (ewaybills || []).map((ewb) => ewb?._id).filter(Boolean);
+    if (ewaybillIds.length) {
+      const invoices = await Invoice.find({ ewaybillId: { $in: ewaybillIds } }).select('_id').lean();
+      const invoiceIds = (invoices || []).map((inv) => inv?._id).filter(Boolean);
+      if (invoiceIds.length) {
+        await Promise.all([
+          InvoiceProduct.deleteMany({ invoiceId: { $in: invoiceIds } }),
+          InvoicePackage.deleteMany({ invoiceId: { $in: invoiceIds } })
+        ]);
+      }
+      await Promise.all([
+        Invoice.deleteMany({ ewaybillId: { $in: ewaybillIds } }),
+        Ewaybill.deleteMany({ shipmentId: shipmentObjectId })
+      ]);
+    }
+
+    await Shipment.deleteOne({ _id: shipmentObjectId, GSTIN_ID: gstinId });
+
+    res.json({
+      success: true,
+      message: 'Shipment deleted and initial payment reversed.',
+      shipmentId: String(shipmentObjectId),
+      consignmentNumber,
+      paymentAdjustment
+    });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

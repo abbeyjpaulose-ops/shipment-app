@@ -322,6 +322,23 @@ export class UsersComponent implements OnInit {
     });
   }
 
+  getActiveDirection(): 'receivable' | 'payable' {
+    const direction = String(this.activeEntity?.direction || '').trim().toLowerCase();
+    return direction === 'payable' ? 'payable' : 'receivable';
+  }
+
+  isPayableDirection(): boolean {
+    return this.getActiveDirection() === 'payable';
+  }
+
+  getDirectionLabel(): string {
+    return this.isPayableDirection() ? 'Payable' : 'Receivable';
+  }
+
+  getDirectionHint(): string {
+    return this.isPayableDirection() ? 'Amount to be paid out' : 'Amount to be collected';
+  }
+
   openDrawer(tabKey: string, row: any): void {
     const entityTypeMap: Record<string, string> = {
       clients: 'client',
