@@ -5,6 +5,20 @@ import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { BranchService } from '../../../services/branch.service';
 
+type DailyPayableCandidate = {
+  partnerId: string;
+  partnerName: string;
+  vehicleNumber: string;
+  date: string;
+  deliveryPoints: string[];
+  deliveryPointsText: string;
+  amountDue: number;
+  defaultAmount: number;
+  existingAmountDue: number;
+  hasSavedPayment: boolean;
+  saving?: boolean;
+};
+
 @Component({
   selector: 'app-transport-partner',
   standalone: true,
@@ -41,6 +55,11 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   editingExistingVehicleIndex: number | null = null;
   editing: any = null;
   selectedPartner: any = null;
+  payableDateFrom: string = new Date().toISOString().slice(0, 10);
+  payableDateTo: string = this.payableDateFrom;
+  payableSavedFilter: 'all' | 'saved' | 'unsaved' = 'all';
+  payableCandidatesLoading = false;
+  payableCandidates: DailyPayableCandidate[] = [];
 
   constructor(private http: HttpClient, private branchService: BranchService) {}
 
@@ -108,13 +127,15 @@ export class TpartnerComponent implements OnInit, OnDestroy {
 
   // Fetch Data
   loadPartners() {
+    const requestedoriginLocId = this.getRequestoriginLocId();
     this.http.get<any[]>(`http://localhost:3000/api/tpartners`, {
       params: {
-        originLocId: this.originLocId || localStorage.getItem('originLocId') || 'all'
+        originLocId: requestedoriginLocId
       }
     })
       .subscribe(res => {
-        this.partners = res;
+        this.partners = Array.isArray(res) ? res : [];
+        this.loadDailyPayableCandidates();
       });
   }
 
@@ -281,5 +302,140 @@ export class TpartnerComponent implements OnInit, OnDestroy {
     const rateValue = vehicle?.rateValue ?? 0;
     const unit = String(vehicle?.rateType || '').toLowerCase() === 'day' ? 'Day' : 'Km';
     return `${rateValue} / ${unit}`;
+  }
+
+  onPayableFilterChange() {
+    this.loadDailyPayableCandidates();
+  }
+
+  get pendingPayableCount(): number {
+    return (this.payableCandidates || []).filter((row) => !row.hasSavedPayment).length;
+  }
+
+  getSaveActionLabel(candidate: DailyPayableCandidate): string {
+    if (candidate?.saving) {
+      return candidate?.hasSavedPayment ? 'Updating...' : 'Saving...';
+    }
+    return candidate?.hasSavedPayment ? 'Edit Amount' : 'Save Amount';
+  }
+
+  submitDailyPayableCandidate(candidate: DailyPayableCandidate) {
+    if (!candidate || candidate.saving) return;
+    const partnerId = String(candidate.partnerId || '').trim();
+    const vehicleNumber = String(candidate.vehicleNumber || '').trim();
+    const amountDue = Number(candidate.amountDue);
+    if (!partnerId || !vehicleNumber) {
+      alert('Invalid candidate row.');
+      return;
+    }
+    if (!Number.isFinite(amountDue) || amountDue < 0) {
+      alert('Please enter a valid rent amount.');
+      return;
+    }
+
+    candidate.saving = true;
+    this.http.post<any>(`http://localhost:3000/api/tpartners/${partnerId}/daily-payable`, {
+      vehicleNumber,
+      date: String(candidate.date || this.payableDateFrom || this.payableDateTo || '').trim(),
+      amountDue,
+      deliveryPoints: candidate.deliveryPoints
+    }).subscribe({
+      next: (res) => {
+        const mergedPoints = Array.isArray(res?.mergedDeliveryPoints)
+          ? res.mergedDeliveryPoints
+            .map((point: any) => String(point || '').trim())
+            .filter((point: string) => Boolean(point))
+          : candidate.deliveryPoints;
+        candidate.deliveryPoints = mergedPoints;
+        candidate.deliveryPointsText = mergedPoints.join('$$');
+        const savedAmountDue = Number(res?.payment?.amountDue);
+        candidate.existingAmountDue = Number.isFinite(savedAmountDue)
+          ? Math.max(savedAmountDue, 0)
+          : Math.max(Number(amountDue) || 0, 0);
+        candidate.hasSavedPayment = true;
+        alert(res?.message || 'Daily payable saved.');
+        if (this.payableSavedFilter === 'unsaved') {
+          this.loadDailyPayableCandidates();
+        }
+      },
+      error: (err) => {
+        alert(err?.error?.message || 'Failed to save daily payable.');
+      },
+      complete: () => {
+        candidate.saving = false;
+      }
+    });
+  }
+
+  private resolvePayableDateRange(): { dateFrom: string; dateTo: string } | null {
+    const rawFrom = String(this.payableDateFrom || '').trim();
+    const rawTo = String(this.payableDateTo || '').trim();
+    const fallbackFrom = rawFrom || rawTo;
+    const fallbackTo = rawTo || rawFrom;
+    if (!fallbackFrom || !fallbackTo) return null;
+    const dateFrom = fallbackFrom <= fallbackTo ? fallbackFrom : fallbackTo;
+    const dateTo = fallbackFrom <= fallbackTo ? fallbackTo : fallbackFrom;
+    if (this.payableDateFrom !== dateFrom) this.payableDateFrom = dateFrom;
+    if (this.payableDateTo !== dateTo) this.payableDateTo = dateTo;
+    return { dateFrom, dateTo };
+  }
+
+  private loadDailyPayableCandidates() {
+    const range = this.resolvePayableDateRange();
+    if (!range) {
+      this.payableCandidates = [];
+      return;
+    }
+
+    this.payableCandidatesLoading = true;
+    this.http.get<any>(`http://localhost:3000/api/tpartners/daily-payable-candidates`, {
+      params: {
+        dateFrom: range.dateFrom,
+        dateTo: range.dateTo,
+        savedFilter: this.payableSavedFilter,
+        originLocId: this.getRequestoriginLocId()
+      }
+    }).subscribe({
+      next: (res: any) => {
+        const rows = Array.isArray(res?.data) ? res.data : [];
+        this.payableCandidates = rows.map((row: any): DailyPayableCandidate => {
+          const points = Array.isArray(row?.deliveryPoints)
+            ? row.deliveryPoints
+              .map((point: any) => String(point || '').trim())
+              .filter((point: string) => Boolean(point))
+            : [];
+          const suggestedAmount = Number(row?.suggestedAmountDue);
+          const defaultAmount = Number(row?.defaultAmount);
+          const existingAmount = Number(row?.existingAmountDue);
+          const hasSavedPayment = Boolean(row?.hasSavedPayment) || (Number.isFinite(existingAmount) && existingAmount > 0);
+          return {
+            partnerId: String(row?.partnerId || ''),
+            partnerName: String(row?.partnerName || ''),
+            vehicleNumber: String(row?.vehicleNumber || ''),
+            date: String(row?.date || range.dateFrom),
+            deliveryPoints: points,
+            deliveryPointsText: points.join('$$'),
+            amountDue: Number.isFinite(suggestedAmount)
+              ? suggestedAmount
+              : (Number.isFinite(defaultAmount) ? defaultAmount : 0),
+            defaultAmount: Number.isFinite(defaultAmount) ? defaultAmount : 0,
+            existingAmountDue: Number.isFinite(existingAmount) ? existingAmount : 0,
+            hasSavedPayment,
+            saving: false
+          };
+        });
+      },
+      error: () => {
+        this.payableCandidates = [];
+      },
+      complete: () => {
+        this.payableCandidatesLoading = false;
+      }
+    });
+  }
+
+  private getRequestoriginLocId(): string {
+    const raw = String(this.originLocId || localStorage.getItem('originLocId') || 'all').trim();
+    return raw === 'all-hubs' ? 'all' : (raw || 'all');
   }
 }

@@ -556,7 +556,7 @@
   <ng-template #externalTransport>
     <select [(ngModel)]="selectedTransportPartnerId" (change)="onTransportPartnerChange()">
       <option value="">Select transport partner</option>
-      <option *ngFor="let p of transportPartners" [value]="p._id">{{ p.partnerName }}</option>
+      <option *ngFor="let p of getExternalTransportPartners()" [value]="p._id">{{ p.partnerName }}</option>
     </select>
     <select [(ngModel)]="selectedRouteVehicle" (change)="onRouteVehicleChange()">
       <option value="">Select Vehicle</option>

@@ -2763,7 +2763,6 @@ router.put('/:consignmentNumber', requireAuth, async (req, res) => {
                 entityType: 'hub',
                 entityId: hubId,
                 referenceNo,
-                direction,
                 notes: `Hub charge for consignment ${String(shipment.consignmentNumber || '')}`.trim()
               }
             },

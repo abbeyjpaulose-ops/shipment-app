@@ -6,6 +6,8 @@ import ManifestItem from '../models/Manifest/ManifestItem.js';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Hub from '../models/Hub.js';
 import Branch from '../models/Branch.js';
+import Payment from '../models/Payment/Payment.js';
+import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
 import { requireAuth } from '../middleware/auth.js';
 import { buildShipmentViews } from './newshipments.js';
 
@@ -109,6 +111,248 @@ async function updateVehicleStatusByNumber(gstinId, vehicleNo, status) {
       { arrayFilters }
     )
   ]);
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function normalizeVehicleKey(vehicleNumber) {
+  return String(vehicleNumber || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+}
+
+function normalizeDeliveryPoints(raw) {
+  let parts = [];
+  if (Array.isArray(raw)) {
+    parts = raw;
+  } else if (raw !== undefined && raw !== null) {
+    parts = String(raw).split('$$');
+  }
+  const seen = new Set();
+  const normalized = [];
+  parts.forEach((part) => {
+    const value = String(part || '').trim();
+    if (!value) return;
+    const key = value.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    normalized.push(value);
+  });
+  return normalized;
+}
+
+function buildDailyPayableNotes(vehicleNumber, dayKey, deliveryPoints = []) {
+  const vehicle = String(vehicleNumber || '').trim();
+  const parts = [
+    '[TP_DAILY_RENT]',
+    `vehicle=${vehicle}`,
+    `date=${dayKey}`
+  ];
+  if (deliveryPoints.length) {
+    parts.push(`deliveryPoints=${deliveryPoints.join('$$')}`);
+  }
+  return parts.join(' ');
+}
+
+function buildCancelledDailyPayableNotes(vehicleNumber, dayKey) {
+  const vehicle = String(vehicleNumber || '').trim();
+  return `[TP_DAILY_RENT_CANCELLED] vehicle=${vehicle} date=${dayKey}`;
+}
+
+function getUtcDayWindowFromDate(dateValue) {
+  const date = dateValue ? new Date(dateValue) : new Date();
+  if (Number.isNaN(date.getTime())) return null;
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+  const end = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1, 0, 0, 0, 0));
+  const dayKey = start.toISOString().slice(0, 10);
+  return { start, end, dayKey };
+}
+
+function resolveManifestPointRef(manifestDoc) {
+  const deliveryType = String(manifestDoc?.deliveryType || '').trim().toLowerCase();
+  const deliveryId = String(manifestDoc?.deliveryId || '').trim();
+  if (deliveryType && deliveryId && ['branch', 'hub'].includes(deliveryType)) {
+    return { type: deliveryType, id: deliveryId };
+  }
+  const fallbackType = String(manifestDoc?.entityType || '').trim().toLowerCase();
+  const fallbackId = String(manifestDoc?.entityId || '').trim();
+  if (fallbackType && fallbackId && ['branch', 'hub'].includes(fallbackType)) {
+    return { type: fallbackType, id: fallbackId };
+  }
+  return null;
+}
+
+async function resolvePointNames(gstinId, pointRefs = []) {
+  const uniqueRefs = [];
+  const seen = new Set();
+  (pointRefs || []).forEach((point) => {
+    const type = String(point?.type || '').trim().toLowerCase();
+    const id = String(point?.id || '').trim();
+    if (!id || !['branch', 'hub'].includes(type)) return;
+    const key = `${type}::${id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    uniqueRefs.push({ type, id });
+  });
+  if (!uniqueRefs.length) return [];
+
+  const branchIds = uniqueRefs.filter((p) => p.type === 'branch').map((p) => p.id);
+  const hubIds = uniqueRefs.filter((p) => p.type === 'hub').map((p) => p.id);
+
+  const [branches, hubs] = await Promise.all([
+    branchIds.length
+      ? Branch.find({ _id: { $in: branchIds }, GSTIN_ID: gstinId }).select('_id branchName').lean()
+      : [],
+    hubIds.length
+      ? Hub.find({ _id: { $in: hubIds }, GSTIN_ID: gstinId }).select('_id hubName').lean()
+      : []
+  ]);
+
+  const branchMap = new Map((branches || []).map((b) => [String(b?._id || ''), String(b?.branchName || '').trim()]));
+  const hubMap = new Map((hubs || []).map((h) => [String(h?._id || ''), String(h?.hubName || '').trim()]));
+
+  const names = uniqueRefs.map((point) => {
+    if (point.type === 'hub') return hubMap.get(point.id) || point.id;
+    return branchMap.get(point.id) || point.id;
+  });
+  return normalizeDeliveryPoints(names);
+}
+
+async function getActiveDailyManifestPoints(gstinId, vehicleNo, dayWindow, excludeManifestId) {
+  const vehicle = String(vehicleNo || '').trim();
+  if (!vehicle || !dayWindow?.start || !dayWindow?.end) return [];
+  const vehicleRegex = new RegExp(`^\\s*${escapeRegex(vehicle)}\\s*$`, 'i');
+
+  const query = {
+    GSTIN_ID: gstinId,
+    vehicleNo: { $regex: vehicleRegex },
+    createdAt: { $gte: dayWindow.start, $lt: dayWindow.end },
+    status: { $not: /^\s*cancelled\s*$/i }
+  };
+  const excludeId = String(excludeManifestId || '').trim();
+  if (excludeId && mongoose.Types.ObjectId.isValid(excludeId)) {
+    query._id = { $ne: excludeId };
+  }
+
+  const manifests = await Manifest.find(query)
+    .select('deliveryType deliveryId entityType entityId')
+    .lean();
+  if (!manifests.length) return [];
+
+  const refs = manifests
+    .map((m) => resolveManifestPointRef(m))
+    .filter(Boolean);
+  return resolvePointNames(gstinId, refs);
+}
+
+async function syncTransportPartnerDailyPayableOnManifestCancel(gstinId, manifestDoc) {
+  const vehicleNo = String(manifestDoc?.vehicleNo || '').trim();
+  if (!vehicleNo) return;
+
+  const dayWindow = getUtcDayWindowFromDate(manifestDoc?.createdAt);
+  if (!dayWindow) return;
+  const dayKey = dayWindow.dayKey;
+  const vehicleKey = normalizeVehicleKey(vehicleNo);
+  const direction = 'payable';
+  const directionFilter = { $in: [direction, null] };
+  const referenceNo = `TPDAY::${dayKey}::${vehicleKey}`;
+
+  const paymentFilter = {
+    GSTIN_ID: gstinId,
+    entityType: 'transport_partner',
+    referenceNo,
+    direction: directionFilter
+  };
+  const payments = await Payment.find(paymentFilter)
+    .sort({ updatedAt: -1, createdAt: -1 });
+  if (!payments.length) return;
+
+  const remainingPoints = await getActiveDailyManifestPoints(
+    gstinId,
+    vehicleNo,
+    dayWindow,
+    String(manifestDoc?._id || '')
+  );
+
+  const dueDeltaByEntityId = new Map();
+
+  for (const payment of payments) {
+    const partnerId = String(payment?.entityId || '').trim();
+    const previousDue = Math.max(Number(payment.amountDue || 0), 0);
+    const amountPaid = Math.max(Number(payment.amountPaid || 0), 0);
+
+    let nextDue = previousDue;
+    let nextNotes = String(payment.notes || '').trim();
+    if (!remainingPoints.length) {
+      nextDue = 0;
+      nextNotes = buildCancelledDailyPayableNotes(vehicleNo, dayKey);
+      payment.status = 'Cancelled';
+      if (amountPaid <= 0) {
+        payment.paymentDate = null;
+      }
+    } else {
+      nextNotes = buildDailyPayableNotes(vehicleNo, dayKey, remainingPoints);
+      payment.status = Math.max(nextDue - amountPaid, 0) <= 0 ? 'Paid' : 'Pending';
+    }
+
+    payment.amountDue = nextDue;
+    payment.amountPaid = amountPaid;
+    payment.balance = Math.max(nextDue - amountPaid, 0);
+    payment.direction = direction;
+    payment.paymentMethod = payment.paymentMethod || 'payable';
+    payment.notes = nextNotes;
+    if (!payment.dueDate) {
+      payment.dueDate = new Date(`${dayKey}T00:00:00.000Z`);
+    }
+    if (remainingPoints.length) {
+      if (payment.balance <= 0 && !payment.paymentDate) {
+        payment.paymentDate = new Date();
+      }
+      if (payment.balance > 0) {
+        payment.paymentDate = null;
+      }
+    }
+    await payment.save();
+
+    if (partnerId) {
+      const prevDelta = Number(dueDeltaByEntityId.get(partnerId) || 0);
+      dueDeltaByEntityId.set(partnerId, prevDelta + (nextDue - previousDue));
+    }
+  }
+
+  for (const [partnerId, deltaDueRaw] of dueDeltaByEntityId.entries()) {
+    const deltaDue = Number(deltaDueRaw || 0);
+    const summaryBaseFilter = {
+      GSTIN_ID: gstinId,
+      entityType: 'transport_partner',
+      entityId: partnerId
+    };
+    let summary = await PaymentEntitySummary.findOne({
+      ...summaryBaseFilter,
+      direction: directionFilter
+    });
+    if (!summary) {
+      const fallbackSummaries = await PaymentEntitySummary.find(summaryBaseFilter)
+        .sort({ updatedAt: -1, createdAt: -1 })
+        .limit(2);
+      if (fallbackSummaries.length === 1) {
+        summary = fallbackSummaries[0];
+      }
+    }
+    if (!summary) continue;
+
+    const totalDue = Math.max(Number(summary.totalDue || 0) + deltaDue, 0);
+    const totalPaid = Math.max(Number(summary.totalPaid || 0), 0);
+    const totalBalance = Math.max(totalDue - totalPaid, 0);
+    summary.totalDue = totalDue;
+    summary.totalBalance = totalBalance;
+    summary.status = totalBalance <= 0 ? 'Paid' : 'Pending';
+    summary.direction = direction;
+    await summary.save();
+  }
 }
 
 // Create a manifest for a consignment
@@ -825,6 +1069,11 @@ router.patch('/:id/consignments', requireAuth, async (req, res) => {
         { _id: manifestId, GSTIN_ID: gstinId },
         { $set: { status: 'Cancelled', deliveredAt: null } }
       );
+      try {
+        await syncTransportPartnerDailyPayableOnManifestCancel(gstinId, manifest);
+      } catch (payableErr) {
+        console.error('Failed to sync transport-partner daily payable after manifest empty-cancel:', payableErr);
+      }
     }
 
     const updatedManifest = await Manifest.findOne({ _id: manifestId, GSTIN_ID: gstinId }).lean();
@@ -949,6 +1198,12 @@ router.put('/:id/status', requireAuth, async (req, res) => {
         res.setHeader('x-cancelled-dpending-modified', String(dpendingResult?.modifiedCount || 0));
         res.setHeader('x-cancelled-pending-matched', String(pendingResult?.matchedCount || 0));
         res.setHeader('x-cancelled-pending-modified', String(pendingResult?.modifiedCount || 0));
+      }
+
+      try {
+        await syncTransportPartnerDailyPayableOnManifestCancel(gstinId, manifest);
+      } catch (payableErr) {
+        console.error('Failed to sync transport-partner daily payable on manifest cancel:', payableErr);
       }
     }
 

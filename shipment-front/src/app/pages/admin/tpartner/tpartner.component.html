@@ -184,79 +184,164 @@
     </div>
   </div>
 
-  <!-- Transport Partners List -->
-  <div class="tpartner-table-wrapper">
-    <table class="tpartner-table">
-      <thead>
-        <tr>
-          <th>Partner</th>
-          <th>GSTIN</th>
-          <th>Address</th>
-          <th>Vehicles</th>
-          <th>Vehicle Status</th>
-          <th>Rate</th>
-          <th>Status</th>
-          <th>Vehicle Daily Cost</th>
-        </tr>
-      </thead>
+  <div class="tpartner-content">
+    <!-- Transport Partners List -->
+    <div class="tpartner-table-wrapper">
+      <table class="tpartner-table">
+        <thead>
+          <tr>
+            <th>Partner</th>
+            <th>GSTIN</th>
+            <th>Address</th>
+            <th>Vehicles</th>
+            <th>Vehicle Status</th>
+            <th>Rate</th>
+            <th>Status</th>
+            <th>Vehicle Daily Cost</th>
+          </tr>
+        </thead>
 
-      <tbody>
-        <tr *ngFor="let p of partners" (click)="openPartnerDetailsPopup(p)">
-          <td>{{ p.partnerName }}</td>
-          <td>{{ p.GSTIN }}</td>
-          <td>{{ getPartnerAddress(p) }}</td>
-          <td>
-            <div class="tag-list">
-              <div class="tag" *ngFor="let v of p.vehicleNumbers">
-                <div class="tag-title">{{ v.number || '-' }}</div>
-                <div class="tag-sub">{{ v.phone || '-' }}</div>
+        <tbody>
+          <tr *ngFor="let p of partners" (click)="openPartnerDetailsPopup(p)">
+            <td>{{ p.partnerName }}</td>
+            <td>{{ p.GSTIN }}</td>
+            <td>{{ getPartnerAddress(p) }}</td>
+            <td>
+              <div class="tag-list">
+                <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                  <div class="tag-title">{{ v.number || '-' }}</div>
+                  <div class="tag-sub">{{ v.phone || '-' }}</div>
+                </div>
               </div>
-            </div>
-          </td>
-          <td (click)="$event.stopPropagation()">
-            <div class="tag-list">
-              <div class="tag" *ngFor="let v of p.vehicleNumbers">
-                <ng-container *ngIf="(v.vehicleStatus || 'online') === 'online'; else statusSelect">
-                  {{ v.vehicleStatus || 'online' }}
-                </ng-container>
-                <ng-template #statusSelect>
-                  <select [(ngModel)]="v.vehicleStatus"
-                          (click)="$event.stopPropagation()"
-                          (change)="updateVehicleStatus(p, v); $event.stopPropagation()">
-                    <option value="scheduled">scheduled</option>
-                    <option value="delivering">delivering</option>
-                    <option value="completed">completed</option>
-                  </select>
-                </ng-template>
+            </td>
+            <td (click)="$event.stopPropagation()">
+              <div class="tag-list">
+                <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                  <ng-container *ngIf="(v.vehicleStatus || 'online') === 'online'; else statusSelect">
+                    {{ v.vehicleStatus || 'online' }}
+                  </ng-container>
+                  <ng-template #statusSelect>
+                    <select [(ngModel)]="v.vehicleStatus"
+                            (click)="$event.stopPropagation()"
+                            (change)="updateVehicleStatus(p, v); $event.stopPropagation()">
+                      <option value="scheduled">scheduled</option>
+                      <option value="delivering">delivering</option>
+                      <option value="completed">completed</option>
+                    </select>
+                  </ng-template>
+                </div>
               </div>
-            </div>
-          </td>
-          <td>
-            <div class="tag-list">
-              <div class="tag" *ngFor="let v of p.vehicleNumbers">
-                {{ formatVehicleRate(v) }}
+            </td>
+            <td>
+              <div class="tag-list">
+                <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                  {{ formatVehicleRate(v) }}
+                </div>
               </div>
+            </td>
+            <td class="status-cell">
+              <button (click)="toggleStatus(p); $event.stopPropagation()"
+                      [ngClass]="p.status === 'active' ? 'status-active' : 'status-inactive'">
+                {{ p.status === 'active' ? 'Active' : 'Inactive' }}
+              </button>
+            </td>
+            <td (click)="$event.stopPropagation()">
+              <div class="tag-list">
+                <div class="tag" *ngFor="let v of p.vehicleNumbers">
+                  {{ v.vehicleDailyCost ?? 0 }}
+                </div>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="partners.length === 0">
+            <td colspan="8">No transport partners found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <aside class="daily-payable-panel">
+      <h3>Create Payable Payment Record</h3>
+      <p class="daily-payable-subtext">
+        Vehicles used by manifests for the selected date range are listed automatically. Enter negotiated rent for each row.
+      </p>
+
+      <div class="daily-payable-filters">
+        <label class="field">
+          <span>From Date</span>
+          <input type="date" [(ngModel)]="payableDateFrom" (change)="onPayableFilterChange()">
+        </label>
+        <label class="field">
+          <span>To Date</span>
+          <input type="date" [(ngModel)]="payableDateTo" (change)="onPayableFilterChange()">
+        </label>
+      </div>
+
+      <label class="field">
+        <span>Saved Status</span>
+        <select [(ngModel)]="payableSavedFilter" (change)="onPayableFilterChange()">
+          <option value="all">All</option>
+          <option value="saved">Saved Only</option>
+          <option value="unsaved">Unsaved Only</option>
+        </select>
+      </label>
+
+      <div class="payable-pending-alert" *ngIf="!payableCandidatesLoading && payableCandidates.length && payableSavedFilter !== 'saved' && pendingPayableCount > 0">
+        Pending amount save: {{ pendingPayableCount }} vehicle{{ pendingPayableCount > 1 ? 's' : '' }}.
+      </div>
+      <div class="payable-saved-alert" *ngIf="!payableCandidatesLoading && payableCandidates.length && payableSavedFilter === 'saved'">
+        Showing saved rows only: {{ payableCandidates.length }}.
+      </div>
+      <div class="payable-saved-alert" *ngIf="!payableCandidatesLoading && payableCandidates.length && payableSavedFilter !== 'saved' && pendingPayableCount === 0">
+        All listed vehicles have saved amount for this range.
+      </div>
+
+      <div class="details-empty" *ngIf="payableCandidatesLoading">Loading vehicle usage...</div>
+      <div class="details-empty" *ngIf="!payableCandidatesLoading && !payableCandidates.length">
+        No transport-partner vehicles found for this range/filter.
+      </div>
+
+      <div class="payable-candidate-list" *ngIf="!payableCandidatesLoading && payableCandidates.length">
+        <div class="payable-candidate-item" *ngFor="let row of payableCandidates" [class.unsaved]="!row.hasSavedPayment" [class.saved]="row.hasSavedPayment">
+          <div class="candidate-head">
+            <div class="candidate-title">{{ row.partnerName }} - {{ row.vehicleNumber }}</div>
+            <div class="candidate-state" [class.pending]="!row.hasSavedPayment" [class.saved]="row.hasSavedPayment">
+              {{ row.hasSavedPayment ? 'Saved' : 'Not Saved' }}
             </div>
-          </td>
-          <td class="status-cell">
-            <button (click)="toggleStatus(p); $event.stopPropagation()"
-                    [ngClass]="p.status === 'active' ? 'status-active' : 'status-inactive'">
-              {{ p.status === 'active' ? 'Active' : 'Inactive' }}
+          </div>
+
+          <div class="candidate-meta" *ngIf="row.hasSavedPayment">
+              Existing due: {{ row.existingAmountDue }}
+          </div>
+
+          <div class="candidate-meta" *ngIf="row.defaultAmount > 0 && !row.hasSavedPayment">
+            Suggested: {{ row.defaultAmount }}
+          </div>
+
+          <div class="candidate-meta">
+            Trip date: {{ row.date }}
+          </div>
+
+          <div class="candidate-points">
+            Delivery points: {{ row.deliveryPointsText || '-' }}
+          </div>
+
+          <div class="candidate-actions">
+            <label class="field">
+              <span>Rent Amount</span>
+              <input type="number" min="0" step="0.01" [(ngModel)]="row.amountDue" placeholder="0">
+            </label>
+            <button
+              class="daily-payable-submit"
+              type="button"
+              [disabled]="row.saving"
+              (click)="submitDailyPayableCandidate(row)">
+              {{ getSaveActionLabel(row) }}
             </button>
-          </td>
-          <td (click)="$event.stopPropagation()">
-            <div class="tag-list">
-              <div class="tag" *ngFor="let v of p.vehicleNumbers">
-                {{ v.vehicleDailyCost ?? 0 }}
-              </div>
-            </div>
-          </td>
-        </tr>
-        <tr *ngIf="partners.length === 0">
-          <td colspan="8">No transport partners found.</td>
-        </tr>
-      </tbody>
-    </table>
+          </div>
+        </div>
+      </div>
+    </aside>
   </div>
 </div>
 

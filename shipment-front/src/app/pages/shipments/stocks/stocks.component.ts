@@ -1445,6 +1445,28 @@ loadHubs() {
     });
 }
 
+private loadTransportPartners(useAllOrigins = false) {
+  const transportParams: any = {};
+  if (useAllOrigins) {
+    transportParams.originLocId = 'all';
+  } else {
+    const transportOrigin = this.getSelectedOrigin();
+    if (transportOrigin) {
+      transportParams.originType = transportOrigin.originType;
+      transportParams.originLocId = transportOrigin.originLocId;
+    } else {
+      const originLocIdFallback = this.originLocId || localStorage.getItem('originLocId') || 'all';
+      transportParams.originLocId = originLocIdFallback === 'all-hubs' ? 'all' : originLocIdFallback;
+    }
+  }
+  this.http.get<any>(`http://localhost:3000/api/tpartners/tpartnerslist`, { params: transportParams })
+    .subscribe({
+      next: data => this.transportPartners = Array.isArray(data) ? data : (data?.value || []),
+      error: err => console.error('Error fetching transport partners', err),
+      complete: () => console.log('Transport partners fetch complete')
+    });
+}
+
 updateAvailableRoutePoints() {
   const branchFilterId = this.normalizeId(this.originLocId || localStorage.getItem('originLocId'));
   const isAllHubs = branchFilterId === 'all-hubs';
@@ -1498,7 +1520,20 @@ onRoutePointChange() {
 
 onNextDeliveryPointChange() {
   this.ensureHubChargesForSelectedConsignments();
-  if (this.isExternalTransport) return;
+  if (this.isExternalTransport) {
+    const availablePartnerIds = new Set(
+      this.getExternalTransportPartners().map((partner: any) => String(partner?._id || ''))
+    );
+    if (
+      this.selectedTransportPartnerId &&
+      !availablePartnerIds.has(String(this.selectedTransportPartnerId))
+    ) {
+      this.selectedTransportPartnerId = '';
+      this.selectedRouteVehicle = '';
+      this.shipmentRoute = [];
+    }
+    return;
+  }
   this.onRouteVehicleChange();
 }
 
@@ -1575,6 +1610,29 @@ onExternalTransportToggle() {
   this.selectedTransportPartnerId = '';
   this.selectedRouteVehicle = '';
   this.shipmentRoute = [];
+  if (this.isExternalTransport) {
+    this.loadTransportPartners(true);
+  }
+}
+
+private getExternalTransportHubBranchId(): string {
+  const selectedNextHub = this.getSelectedNextHub();
+  if (selectedNextHub?._id) {
+    return this.normalizeId(selectedNextHub.originLocId);
+  }
+  const selectedOriginId = this.normalizeId(this.originLocId || localStorage.getItem('originLocId'));
+  if (selectedOriginId !== 'all-hubs') return '';
+  const scopedHubId = this.normalizeId(this.selectedHubFilterId || localStorage.getItem('hubId'));
+  if (!scopedHubId) return '';
+  const scopedHub = (this.hubs || []).find((hub: any) => this.normalizeId(hub?._id) === scopedHubId);
+  return this.normalizeId(scopedHub?.originLocId);
+}
+
+getExternalTransportPartners(): any[] {
+  const partners = Array.isArray(this.transportPartners) ? this.transportPartners : [];
+  const hubBranchId = this.getExternalTransportHubBranchId();
+  if (!hubBranchId) return partners;
+  return partners.filter((partner: any) => this.normalizeId(partner?.originLocId) === hubBranchId);
 }
 
 onRouteVehicleChange() {
@@ -1584,7 +1642,8 @@ onRouteVehicleChange() {
     return;
   }
   if (this.isExternalTransport) {
-    const partner = this.transportPartners.find((p: any) => String(p._id) === String(this.selectedTransportPartnerId));
+    const partner = this.getExternalTransportPartners()
+      .find((p: any) => String(p?._id) === String(this.selectedTransportPartnerId));
     const partnerName = String(partner?.partnerName || '').trim();
     this.shipmentRoute = [{
       name: partnerName || 'Transport Partner',
@@ -1604,7 +1663,8 @@ onRouteVehicleChange() {
 }
 
 getTransportPartnerVehicles(): string[] {
-  const partner = this.transportPartners.find((p: any) => String(p._id) === String(this.selectedTransportPartnerId));
+  const partner = this.getExternalTransportPartners()
+    .find((p: any) => String(p?._id) === String(this.selectedTransportPartnerId));
   const vehicles = partner?.vehicleNumbers || partner?.vehicles || [];
   return vehicles
     .filter((v: any) => {
@@ -1918,21 +1978,7 @@ onEditingPaymentModeChange() {
     });
 
     // Transport partners list
-    const transportParams: any = {};
-    const transportOrigin = this.getSelectedOrigin();
-    if (transportOrigin) {
-      transportParams.originType = transportOrigin.originType;
-      transportParams.originLocId = transportOrigin.originLocId;
-    } else {
-      const originLocIdFallback = this.originLocId || localStorage.getItem('originLocId') || 'all';
-      transportParams.originLocId = originLocIdFallback === 'all-hubs' ? 'all' : originLocIdFallback;
-    }
-    this.http.get<any>(`http://localhost:3000/api/tpartners/tpartnerslist`, { params: transportParams })
-    .subscribe({
-      next: data => this.transportPartners = Array.isArray(data) ? data : (data?.value || []),
-      error: err => console.error('Error fetching transport partners', err),
-      complete: () => console.log('Transport partners fetch complete')
-    });
+    this.loadTransportPartners();
 
     this.loadBranches();
     this.loadHubs();
