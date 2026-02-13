@@ -17,6 +17,7 @@ export class ReportsComponent implements OnInit {
   fiscalYearInput = '';
   fiscalYears: string[] = [];
   searchText = '';
+  categoryFilter: 'all' | 'B' | 'C' = 'all';
   loading = false;
   gstPercent = 0;
   private invoiceTemplate = '';
@@ -28,8 +29,16 @@ export class ReportsComponent implements OnInit {
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
+    this.initFromUrlQuery();
     this.loadInvoices();
     this.loadFiscalYears();
+  }
+
+  private initFromUrlQuery(): void {
+    const params = new URLSearchParams(window.location.search);
+    const invoiceId = String(params.get('invoiceId') || '').trim();
+    const q = String(params.get('q') || '').trim();
+    this.searchText = invoiceId || q || this.searchText;
   }
 
   loadInvoices(): void {
@@ -72,12 +81,17 @@ export class ReportsComponent implements OnInit {
 
   applyFilters(): void {
     const q = this.searchText.trim().toLowerCase();
+    const category = this.categoryFilter;
     if (!q) {
-      this.filteredInvoices = [...this.invoices];
+      this.filteredInvoices = (this.invoices || []).filter((inv) =>
+        category === 'all' || this.getInvoiceCategory(inv) === category
+      );
       return;
     }
     this.filteredInvoices = this.invoices.filter((inv) => {
+      if (category !== 'all' && this.getInvoiceCategory(inv) !== category) return false;
       const matchesHeader =
+        String(inv._id || '').toLowerCase().includes(q) ||
         String(inv.invoiceDisplayNumber || '').toLowerCase().includes(q) ||
         String(inv.invoiceCode || '').toLowerCase().includes(q) ||
         String(inv.invoiceNumber || '').toLowerCase().includes(q) ||
@@ -89,6 +103,17 @@ export class ReportsComponent implements OnInit {
       String(c.consignmentNumber || '').toLowerCase().includes(q)
     );
   });
+  }
+
+  private getInvoiceCategory(inv: any): 'B' | 'C' {
+    const raw = String(inv?.billingCategory || '').trim().toUpperCase();
+    if (raw === 'B' || raw === 'C') return raw;
+    const code = String(inv?.invoiceDisplayNumber || inv?.invoiceCode || '').trim().toUpperCase();
+    if (code.includes('/B/')) return 'B';
+    if (code.includes('/C/')) return 'C';
+    if (/^\d{2}B/.test(code)) return 'B';
+    if (/^\d{2}C/.test(code)) return 'C';
+    return 'B';
   }
 
   get selectedCount(): number {

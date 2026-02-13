@@ -397,11 +397,13 @@ textarea {
 
 .toggle-inline {
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: 6px;
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
+  white-space: nowrap;
 }
 
 .toggle-inline input {
@@ -439,6 +441,40 @@ textarea {
 
 .toggle-inline input:checked + .toggle-track .toggle-thumb {
   transform: translateX(18px);
+}
+
+.delivery-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.delivery-toggle-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 10px;
+  row-gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.delivery-toggle-controls .toggle-inline {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.15;
+  white-space: normal;
+  min-width: 0;
+}
+
+.delivery-toggle-controls .toggle-inline > span:last-child {
+  max-width: none;
+  display: block;
+  overflow-wrap: anywhere;
 }
 
 .action-bar {
@@ -777,6 +813,14 @@ button.ghost {
   .product-cell-rate .rate-inline {
     flex-wrap: wrap;
   }
+  .delivery-toggle-row {
+    align-items: flex-start;
+  }
+  .delivery-toggle-controls {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 520px) {
@@ -792,5 +836,8 @@ button.ghost {
   .product-cell-rate .rate-inline {
     flex-direction: column;
     align-items: stretch;
+  }
+  .delivery-toggle-controls {
+    grid-template-columns: 1fr;
   }
 }

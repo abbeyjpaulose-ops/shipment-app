@@ -1,8 +1,33 @@
 <div class="payments-page">
   <div class="page-hero">
     <div class="page-header">
-      <h2>Payments</h2>
-      <p>Track balances across clients, branches, hubs, and transport partners.</p>
+      <div>
+        <h2>Payments</h2>
+        <p>Track balances across clients, branches, hubs, and transport partners.</p>
+      </div>
+      <div class="view-switch">
+        <button
+          type="button"
+          class="view-switch-btn"
+          (click)="setDataView('summary')"
+          [class.active]="dataView === 'summary'">
+          Payment Entity Summary
+        </button>
+        <button
+          type="button"
+          class="view-switch-btn"
+          (click)="setDataView('transactions')"
+          [class.active]="dataView === 'transactions'">
+          Payment Transactions
+        </button>
+        <button
+          type="button"
+          class="view-switch-btn"
+          (click)="setDataView('payments')"
+          [class.active]="dataView === 'payments'">
+          Payment Records
+        </button>
+      </div>
     </div>
     <div class="stats">
       <div class="stat-card">
@@ -25,19 +50,61 @@
   </div>
 
   <div class="filters">
-    <input
-      type="text"
-      placeholder="Search by name or ID"
-      [(ngModel)]="searchText"
-    />
-    <select [(ngModel)]="statusFilter">
-      <option value="all">All statuses</option>
-      <option value="pending">Pending</option>
-      <option value="paid">Paid</option>
-      <option value="overdue">Overdue</option>
-    </select>
-    <button type="button" (click)="loadPayments()" [disabled]="loading">
-      {{ loading ? 'Refreshing...' : 'Refresh' }}
+    <ng-container [ngSwitch]="dataView">
+      <ng-container *ngSwitchCase="'summary'">
+        <input
+          type="text"
+          placeholder="Search by name or ID"
+          [(ngModel)]="searchText"
+        />
+        <select [(ngModel)]="statusFilter">
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+        </select>
+        <select [(ngModel)]="summaryDirectionFilter" (change)="onSummaryDirectionChange()">
+          <option value="all">All directions</option>
+          <option value="receivable">Receivable</option>
+          <option value="payable">Payable</option>
+        </select>
+      </ng-container>
+      <ng-container *ngSwitchCase="'transactions'">
+        <input
+          type="text"
+          placeholder="Search by entity, method, or reference"
+          [(ngModel)]="transactionSearchText"
+        />
+        <select [(ngModel)]="transactionStatusFilter">
+          <option value="all">All statuses</option>
+          <option value="posted">Posted</option>
+          <option value="voided">Voided</option>
+        </select>
+        <select [(ngModel)]="transactionDirectionFilter" (change)="onTransactionFiltersChange()">
+          <option value="all">All directions</option>
+          <option value="receivable">Receivable</option>
+          <option value="payable">Payable</option>
+        </select>
+      </ng-container>
+      <ng-container *ngSwitchCase="'payments'">
+        <input
+          type="text"
+          placeholder="Search by entity, reference, or method"
+          [(ngModel)]="paymentSearchText"
+        />
+        <select [(ngModel)]="paymentStatusFilter">
+          <option value="all">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="paid">Paid</option>
+        </select>
+        <select [(ngModel)]="paymentDirectionFilter" (change)="onPaymentFiltersChange()">
+          <option value="all">All directions</option>
+          <option value="receivable">Receivable</option>
+          <option value="payable">Payable</option>
+        </select>
+      </ng-container>
+    </ng-container>
+    <button type="button" (click)="refreshView()" [disabled]="loading || transactionListLoading || paymentListLoading">
+      {{ loading || transactionListLoading || paymentListLoading ? 'Refreshing...' : 'Refresh' }}
     </button>
     <button type="button" (click)="syncFromInvoices()" [disabled]="syncLoading">
       {{ syncLoading ? 'Syncing...' : 'Sync from Invoices' }}
@@ -47,7 +114,7 @@
     </button>
   </div>
 
-  <div class="tabs">
+  <div class="tabs" *ngIf="dataView === 'summary'">
     <button
       *ngFor="let tab of tabs"
       type="button"
@@ -60,46 +127,160 @@
   <div class="status" *ngIf="error">{{ error }}</div>
   <div class="status" *ngIf="syncError">{{ syncError }}</div>
   <div class="status" *ngIf="backfillError">{{ backfillError }}</div>
-  <div class="status" *ngIf="loading">Loading payments...</div>
+  <div class="status" *ngIf="transactionListError">{{ transactionListError }}</div>
+  <div class="status" *ngIf="paymentListError">{{ paymentListError }}</div>
+  <div class="status" *ngIf="dataView === 'summary' && loading">Loading payments...</div>
+  <div class="status" *ngIf="dataView === 'transactions' && transactionListLoading">Loading payment transactions...</div>
+  <div class="status" *ngIf="dataView === 'payments' && paymentListLoading">Loading payment records...</div>
 
-  <section class="tab-panel" *ngFor="let tab of tabs" [hidden]="activeTab !== tab.key">
-    <h3>{{ tab.label }}</h3>
-    <div class="table-wrap" *ngIf="getRowsForTab(tab.key).length; else emptyState">
+  <ng-container *ngIf="dataView === 'summary'">
+    <p class="tab-subtitle">Aggregated due, paid, and balance by entity from `PaymentEntitySummary`.</p>
+    <section class="tab-panel" *ngFor="let tab of tabs" [hidden]="activeTab !== tab.key">
+      <h3>{{ tab.label }}</h3>
+      <div class="table-wrap" *ngIf="getRowsForTab(tab.key).length; else emptyState">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Entity ID</th>
+              <th>Total Due</th>
+              <th>Paid</th>
+              <th>Balance</th>
+              <th>Last Payment</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of getRowsForTab(tab.key)">
+              <td>{{ row.name || '-' }}</td>
+              <td class="muted">{{ row.entityId || '-' }}</td>
+              <td>{{ formatAmount(row.totalDue) }}</td>
+              <td>{{ formatAmount(row.totalPaid) }}</td>
+              <td>{{ formatAmount(row.totalBalance) }}</td>
+              <td>{{ formatDate(row.lastPaymentDate) }}</td>
+              <td>
+                <span class="status-pill" [ngClass]="getStatusClass(row.status, 'summary')">
+                  {{ normalizeStatus(row.status, 'summary') }}
+                </span>
+              </td>
+              <td>
+                <button type="button" class="view-btn" (click)="openDrawer(tab.key, row)">View</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ng-template #emptyState>
+        <div class="empty-state">No payment records.</div>
+      </ng-template>
+    </section>
+  </ng-container>
+
+  <section class="tab-panel" *ngIf="dataView === 'transactions'">
+    <h3>Payment Transactions</h3>
+    <p class="tab-subtitle">Event history from `PaymentTransaction`; each row is a posted or voided transaction.</p>
+    <div class="table-wrap" *ngIf="getFilteredTransactions().length; else emptyTransactions">
       <table>
         <thead>
           <tr>
-            <th>Name</th>
+            <th>Date</th>
+            <th>Entity Name</th>
+            <th>Entity Type</th>
             <th>Entity ID</th>
-            <th>Total Due</th>
-            <th>Paid</th>
-            <th>Balance</th>
-            <th>Last Payment</th>
+            <th>Direction</th>
+            <th>Amount</th>
+            <th>Method</th>
+            <th>Reference</th>
             <th>Status</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of getRowsForTab(tab.key)">
-            <td>{{ row.name || '-' }}</td>
-            <td class="muted">{{ row.entityId || '-' }}</td>
-            <td>{{ formatAmount(row.totalDue) }}</td>
-            <td>{{ formatAmount(row.totalPaid) }}</td>
-            <td>{{ formatAmount(row.totalBalance) }}</td>
-            <td>{{ formatDate(row.lastPaymentDate) }}</td>
+          <tr *ngFor="let tx of getFilteredTransactions()">
+            <td>{{ formatDate(tx.transactionDate) }}</td>
+            <td>{{ tx.entityName || '-' }}</td>
+            <td>{{ formatEntityType(tx.entityType) }}</td>
+            <td class="muted">{{ tx.entityId || '-' }}</td>
+            <td>{{ tx.direction || 'receivable' }}</td>
+            <td>{{ formatAmount(tx.amount) }}</td>
+            <td>{{ tx.method || '-' }}</td>
+            <td class="muted">{{ tx.referenceNo || '-' }}</td>
             <td>
-              <span class="status-pill" [class.overdue]="(row.status || '').toLowerCase() === 'overdue'">
-                {{ row.status || 'Pending' }}
+              <span class="status-pill" [ngClass]="getStatusClass(tx.status, 'transaction')">
+                {{ normalizeStatus(tx.status, 'transaction') }}
               </span>
             </td>
             <td>
-              <button type="button" class="view-btn" (click)="openDrawer(tab.key, row)">View</button>
+              <div class="table-actions">
+                <button type="button" class="view-btn" (click)="openEntityFromLinkedRow(tx)">Open Entity</button>
+                <button
+                  type="button"
+                  class="view-btn"
+                  *ngIf="canOpenInvoice(tx)"
+                  (click)="openInvoiceFromRow(tx)">
+                  Open Invoice
+                </button>
+              </div>
             </td>
           </tr>
         </tbody>
       </table>
     </div>
-    <ng-template #emptyState>
-      <div class="empty-state">No payment records.</div>
+    <ng-template #emptyTransactions>
+      <div class="empty-state">No payment transactions.</div>
+    </ng-template>
+  </section>
+
+  <section class="tab-panel" *ngIf="dataView === 'payments'">
+    <h3>Payment Records</h3>
+    <p class="tab-subtitle">Current-state payment rows from `Payment`; may include multiple records per entity.</p>
+    <div class="table-wrap" *ngIf="getFilteredPayments().length; else emptyPayments">
+      <table>
+        <thead>
+          <tr>
+            <th>Updated</th>
+            <th>Entity Name</th>
+            <th>Entity Type</th>
+            <th>Entity ID</th>
+            <th>Direction</th>
+            <th>Reference</th>
+            <th>Amount Due</th>
+            <th>Amount Paid</th>
+            <th>Balance</th>
+            <th>Status</th>
+            <th>Method</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of getFilteredPayments()">
+            <td>{{ formatDate(p.updatedAt || p.createdAt) }}</td>
+            <td>{{ p.entityName || '-' }}</td>
+            <td>{{ formatEntityType(p.entityType) }}</td>
+            <td class="muted">{{ p.entityId || '-' }}</td>
+            <td>{{ p.direction || 'receivable' }}</td>
+            <td class="muted">{{ p.referenceNo || '-' }}</td>
+            <td>{{ formatAmount(p.amountDue) }}</td>
+            <td>{{ formatAmount(p.amountPaid) }}</td>
+            <td>{{ formatAmount(p.balance) }}</td>
+            <td>
+              <span class="status-pill" [ngClass]="getStatusClass(p.status, 'payment')">
+                {{ normalizeStatus(p.status, 'payment') }}
+              </span>
+            </td>
+            <td>{{ p.paymentMethod || '-' }}</td>
+            <td>
+              <div class="table-actions">
+                <button type="button" class="view-btn" (click)="openEntityFromLinkedRow(p)">View History</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <ng-template #emptyPayments>
+      <div class="empty-state">No payment records in Payment DB.</div>
     </ng-template>
   </section>
 </div>
@@ -111,7 +292,7 @@
         <h3>{{ activeEntity?.name || 'Payments' }}</h3>
         <p class="muted">{{ activeEntity?.entityId }}</p>
       </div>
-      <button type="button" class="close-btn" (click)="closeDrawer()">✕</button>
+      <button type="button" class="close-btn" (click)="closeDrawer()">X</button>
     </div>
 
     <div class="drawer-summary" *ngIf="activeRow">
@@ -190,7 +371,7 @@
           <div>
             <div class="tx-amount">{{ formatAmount(tx.amount) }}</div>
             <div class="tx-meta">
-              {{ formatDate(tx.transactionDate) }} · {{ tx.method || '-' }}
+              {{ formatDate(tx.transactionDate) }} - {{ tx.method || '-' }}
             </div>
             <div class="tx-ref" *ngIf="tx.referenceNo">Ref: {{ tx.referenceNo }}</div>
             <div class="tx-notes" *ngIf="tx.notes">{{ tx.notes }}</div>

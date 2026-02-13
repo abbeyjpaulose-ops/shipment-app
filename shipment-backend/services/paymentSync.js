@@ -16,7 +16,7 @@ export async function syncPaymentsFromGeneratedInvoices(gstinId, clientIds = nul
 
   const invoiceQuery = {
     GSTIN_ID: gstinId,
-    status: { $ne: 'cancelled' }
+    status: { $nin: ['cancelled', 'deleted'] }
   };
   if (clientFilter && clientFilter.length) {
     invoiceQuery.billingClientId = { $in: clientFilter };

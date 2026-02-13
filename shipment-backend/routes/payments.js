@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import Payment from '../models/Payment/Payment.js';
 import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
 import PaymentTransaction from '../models/Payment/PaymentTransaction.js';
+import GeneratedInvoice from '../models/NewShipment/NewShipmentGeneratedInvoice.js';
+import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Client from '../models/Client.js';
 import Branch from '../models/Branch.js';
 import Hub from '../models/Hub.js';
@@ -41,6 +43,14 @@ function buildNameMap(records, nameField) {
     map.set(id, rec?.[nameField] || id);
   });
   return map;
+}
+
+function normalizePaymentStatus(raw) {
+  return String(raw || '').trim().toLowerCase() === 'paid' ? 'paid' : 'pending';
+}
+
+function formatPaymentStatus(raw) {
+  return normalizePaymentStatus(raw) === 'paid' ? 'Paid' : 'Pending';
 }
 
 router.get('/summary', requireAuth, async (req, res) => {
@@ -94,12 +104,214 @@ router.get('/summary', requireAuth, async (req, res) => {
           totalPaid: s.totalPaid || 0,
           totalBalance: s.totalBalance || 0,
           lastPaymentDate: s.lastPaymentDate || null,
-          status: s.status || 'Pending'
+          status: formatPaymentStatus(s.status)
         }))
         .sort((a, b) => Number(b.totalBalance || 0) - Number(a.totalBalance || 0));
     }
 
     res.json({ data: response });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.get('/transactions', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const requestedType = String(req.query.entityType || '').trim();
+    if (requestedType && !ENTITY_TYPES.includes(requestedType)) {
+      return res.status(400).json({ message: 'Invalid entityType' });
+    }
+
+    const requestedDirection = normalizeDirection(req.query.direction);
+    if (req.query.direction && !requestedDirection) {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
+    const directionFilter = buildDirectionFilter(requestedDirection, true);
+
+    const requestedStatus = String(req.query.status || '').trim().toLowerCase();
+    const statusFilter = requestedStatus && requestedStatus !== 'all' ? requestedStatus : null;
+
+    const payments = await Payment.find({
+      GSTIN_ID: gstinId,
+      ...(requestedType ? { entityType: requestedType } : {}),
+      ...(directionFilter ? { direction: directionFilter } : {})
+    })
+      .select('_id entityType entityId direction')
+      .lean();
+
+    if (!payments.length) {
+      return res.json({ data: [] });
+    }
+
+    const paymentById = new Map(payments.map((p) => [String(p._id), p]));
+    const paymentIds = payments.map((p) => p._id);
+    const txQuery = { paymentId: { $in: paymentIds } };
+    if (statusFilter === 'posted') {
+      txQuery.$or = [
+        { status: 'posted' },
+        { status: { $exists: false } },
+        { status: null }
+      ];
+    } else if (statusFilter) {
+      txQuery.status = statusFilter;
+    }
+
+    const transactions = await PaymentTransaction.find(txQuery)
+      .sort({ transactionDate: -1, createdAt: -1 })
+      .lean();
+
+    const entityIdsByType = Object.fromEntries(
+      ENTITY_TYPES.map((entityType) => [entityType, new Set()])
+    );
+
+    transactions.forEach((tx) => {
+      const payment = paymentById.get(String(tx.paymentId || ''));
+      if (!payment) return;
+      const entityType = String(payment.entityType || '');
+      const entityId = String(payment.entityId || '');
+      if (!ENTITY_TYPES.includes(entityType)) return;
+      if (!mongoose.Types.ObjectId.isValid(entityId)) return;
+      entityIdsByType[entityType].add(entityId);
+    });
+
+    const entityNameMaps = {};
+    for (const entityType of ENTITY_TYPES) {
+      const config = ENTITY_CONFIG[entityType];
+      const ids = Array.from(entityIdsByType[entityType] || []);
+      if (!ids.length) {
+        entityNameMaps[entityType] = new Map();
+        continue;
+      }
+      const records = await config.model.find({ _id: { $in: ids } }).lean();
+      entityNameMaps[entityType] = buildNameMap(records, config.nameField);
+    }
+
+    const data = transactions
+      .map((tx) => {
+        const payment = paymentById.get(String(tx.paymentId || ''));
+        if (!payment) return null;
+        const entityType = String(payment.entityType || '');
+        const entityId = String(payment.entityId || '');
+        if (!entityType || !entityId) return null;
+        return {
+          _id: tx._id,
+          paymentId: tx.paymentId,
+          invoiceId: tx.invoiceId || null,
+          entityType,
+          entityId,
+          entityName: entityNameMaps[entityType]?.get(entityId) || entityId,
+          direction: tx.direction || payment.direction || 'receivable',
+          amount: Number(tx.amount || 0),
+          transactionDate: tx.transactionDate || null,
+          method: tx.method || '',
+          referenceNo: tx.referenceNo || '',
+          notes: tx.notes || '',
+          status: tx.status || 'posted',
+          voidedAt: tx.voidedAt || null,
+          voidReason: tx.voidReason || '',
+          createdAt: tx.createdAt || null
+        };
+      })
+      .filter(Boolean);
+
+    res.json({ data });
+  } catch (err) {
+    res.status(400).json({ message: err.message });
+  }
+});
+
+router.get('/records', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const requestedType = String(req.query.entityType || '').trim();
+    if (requestedType && !ENTITY_TYPES.includes(requestedType)) {
+      return res.status(400).json({ message: 'Invalid entityType' });
+    }
+
+    const requestedDirection = normalizeDirection(req.query.direction);
+    if (req.query.direction && !requestedDirection) {
+      return res.status(400).json({ message: 'Invalid direction' });
+    }
+    const directionFilter = buildDirectionFilter(requestedDirection, true);
+
+    const requestedStatus = String(req.query.status || '').trim().toLowerCase();
+    const statusFilter = requestedStatus && requestedStatus !== 'all' ? requestedStatus : null;
+
+    const payments = await Payment.find({
+      GSTIN_ID: gstinId,
+      ...(requestedType ? { entityType: requestedType } : {}),
+      ...(directionFilter ? { direction: directionFilter } : {})
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean();
+
+    if (!payments.length) {
+      return res.json({ data: [] });
+    }
+
+    const entityIdsByType = Object.fromEntries(
+      ENTITY_TYPES.map((entityType) => [entityType, new Set()])
+    );
+
+    payments.forEach((payment) => {
+      const entityType = String(payment.entityType || '');
+      const entityId = String(payment.entityId || '');
+      if (!ENTITY_TYPES.includes(entityType)) return;
+      if (!mongoose.Types.ObjectId.isValid(entityId)) return;
+      entityIdsByType[entityType].add(entityId);
+    });
+
+    const entityNameMaps = {};
+    for (const entityType of ENTITY_TYPES) {
+      const config = ENTITY_CONFIG[entityType];
+      const ids = Array.from(entityIdsByType[entityType] || []);
+      if (!ids.length) {
+        entityNameMaps[entityType] = new Map();
+        continue;
+      }
+      const records = await config.model.find({ _id: { $in: ids } }).lean();
+      entityNameMaps[entityType] = buildNameMap(records, config.nameField);
+    }
+
+    const data = payments
+      .filter((payment) => {
+        if (!statusFilter) return true;
+        const normalizedPaymentStatus = normalizePaymentStatus(payment.status);
+        if (statusFilter === 'active') {
+          return normalizedPaymentStatus === 'pending';
+        }
+        return normalizedPaymentStatus === statusFilter;
+      })
+      .map((payment) => {
+        const entityType = String(payment.entityType || '');
+        const entityId = String(payment.entityId || '');
+        return {
+          _id: payment._id,
+          entityType,
+          entityId,
+          entityName: entityNameMaps[entityType]?.get(entityId) || entityId,
+          direction: payment.direction || 'receivable',
+          referenceNo: payment.referenceNo || '',
+          amountDue: Number(payment.amountDue || 0),
+          amountPaid: Number(payment.amountPaid || 0),
+          balance: Number(payment.balance || 0),
+          currency: payment.currency || 'INR',
+          status: formatPaymentStatus(payment.status),
+          paymentMethod: payment.paymentMethod || '',
+          paymentDate: payment.paymentDate || null,
+          dueDate: payment.dueDate || null,
+          notes: payment.notes || '',
+          createdAt: payment.createdAt || null,
+          updatedAt: payment.updatedAt || null
+        };
+      });
+
+    res.json({ data });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }
@@ -456,7 +668,58 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
       await summary.save();
     }
 
-    res.json({ transaction, payment, summary });
+    let invoice = null;
+    const isInvoiceTransaction =
+      String(transaction.method || '').trim().toLowerCase() === 'invoice' ||
+      Boolean(transaction.invoiceId);
+
+    if (isInvoiceTransaction) {
+      const invoiceId = String(transaction.invoiceId || '').trim();
+      if (invoiceId && mongoose.Types.ObjectId.isValid(invoiceId)) {
+        invoice = await GeneratedInvoice.findOne({
+          _id: invoiceId,
+          GSTIN_ID: gstinId
+        });
+      }
+
+      if (!invoice) {
+        const invoiceRef = String(transaction.referenceNo || '').trim();
+        const match = invoiceRef.match(/^INV-(\d+)$/i);
+        if (match?.[1]) {
+          invoice = await GeneratedInvoice.findOne({
+            GSTIN_ID: gstinId,
+            invoiceNumber: Number(match[1]),
+            status: { $nin: ['cancelled', 'deleted'] }
+          }).sort({ createdAt: -1 });
+        }
+      }
+    }
+
+    if (invoice) {
+      const invoiceStatus = String(invoice.status || '').trim().toLowerCase();
+      if (!['cancelled', 'deleted'].includes(invoiceStatus)) {
+        invoice.status = 'Active';
+        await invoice.save();
+
+        const consignmentNumbers = (invoice.consignments || [])
+          .map((c) => String(c?.consignmentNumber || '').trim())
+          .filter(Boolean);
+
+        if (consignmentNumbers.length) {
+          await Shipment.updateMany(
+            { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
+            { $set: { shipmentStatus: 'Invoiced' } }
+          );
+        }
+
+        const clientIds = invoice.billingClientId ? [String(invoice.billingClientId)] : [];
+        if (clientIds.length) {
+          await syncPaymentsFromGeneratedInvoices(gstinId, clientIds, { preserveStatus: true });
+        }
+      }
+    }
+
+    res.json({ transaction, payment, summary, invoice });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

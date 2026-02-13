@@ -10,6 +10,11 @@
         <option value="">Current Fiscal Year</option>
         <option *ngFor="let fy of fiscalYears" [value]="fy">{{ fy }}</option>
       </select>
+      <select [(ngModel)]="categoryFilter" (change)="applyFilters()">
+        <option value="all">All Categories</option>
+        <option value="B">B2B</option>
+        <option value="C">B2C</option>
+      </select>
       <input
         type="text"
         placeholder="Search by invoice, client, GSTIN, or consignment"

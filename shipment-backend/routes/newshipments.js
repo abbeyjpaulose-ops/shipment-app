@@ -2293,7 +2293,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
           totalDue: invoiceTotal,
           totalPaid,
           totalBalance,
-          status: desired === 'Paid' ? 'Paid' : 'Active'
+          status: desired === 'Paid' ? 'Paid' : 'Pending'
         });
       }
 
@@ -2303,7 +2303,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
         const totalBalance = Math.max(totalDue - totalPaid, 0);
         summary.totalPaid = totalPaid;
         summary.totalBalance = totalBalance;
-        summary.status = desired === 'Paid' ? 'Paid' : 'Active';
+        summary.status = desired === 'Paid' ? 'Paid' : 'Pending';
         summary.lastPaymentDate = desired === 'Paid' ? new Date() : summary.lastPaymentDate;
         summary.direction = direction;
         await summary.save();
@@ -2320,7 +2320,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
           amountDue: invoiceTotal,
           amountPaid,
           balance,
-          status: desired === 'Paid' ? 'Paid' : 'Active',
+          status: desired === 'Paid' ? 'Paid' : 'Pending',
           paymentDate: desired === 'Paid' ? new Date() : null
         });
       }
@@ -2331,7 +2331,7 @@ router.put('/generatedInvoices/:id/payment-status', requireAuth, async (req, res
         const balance = Math.max(amountDue - amountPaid, 0);
         payment.amountPaid = amountPaid;
         payment.balance = balance;
-        payment.status = desired === 'Paid' ? 'Paid' : 'Active';
+        payment.status = desired === 'Paid' ? 'Paid' : 'Pending';
         payment.paymentDate = desired === 'Paid' ? new Date() : payment.paymentDate;
         payment.direction = direction;
         await payment.save();

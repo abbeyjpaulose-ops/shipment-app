@@ -18,16 +18,30 @@ export class UsersComponent implements OnInit {
     { key: 'transportPartners', label: 'Transport Partners' }
   ];
   activeTab = 'clients';
+  dataView: 'summary' | 'transactions' | 'payments' = 'summary';
   paymentData: Record<string, any[]> = {
     clients: [],
     branches: [],
     hubs: [],
     transportPartners: []
   };
+  allTransactions: any[] = [];
+  allPayments: any[] = [];
   loading = false;
+  transactionListLoading = false;
+  paymentListLoading = false;
   error = '';
+  transactionListError = '';
+  paymentListError = '';
   searchText = '';
+  transactionSearchText = '';
+  paymentSearchText = '';
   statusFilter = 'all';
+  transactionStatusFilter = 'all';
+  paymentStatusFilter = 'all';
+  summaryDirectionFilter = 'all';
+  transactionDirectionFilter = 'all';
+  paymentDirectionFilter = 'all';
   totals = {
     due: 0,
     paid: 0,
@@ -40,6 +54,7 @@ export class UsersComponent implements OnInit {
     entityType: string;
     entityId: string;
     name: string;
+    direction?: string;
   } | null = null;
   activeRow: any = null;
   transactions: any[] = [];
@@ -70,12 +85,56 @@ export class UsersComponent implements OnInit {
     this.activeTab = key;
   }
 
+  setDataView(view: 'summary' | 'transactions' | 'payments'): void {
+    this.dataView = view;
+    this.error = '';
+    this.transactionListError = '';
+    this.paymentListError = '';
+    this.syncError = '';
+    this.backfillError = '';
+    if (view === 'transactions') {
+      this.loadAllTransactions();
+      return;
+    }
+    if (view === 'payments') {
+      this.loadAllPayments();
+    }
+  }
+
+  onSummaryDirectionChange(): void {
+    this.loadPayments();
+  }
+
+  onTransactionFiltersChange(): void {
+    this.loadAllTransactions();
+  }
+
+  onPaymentFiltersChange(): void {
+    this.loadAllPayments();
+  }
+
+  refreshView(): void {
+    if (this.dataView === 'transactions') {
+      this.loadAllTransactions();
+      return;
+    }
+    if (this.dataView === 'payments') {
+      this.loadAllPayments();
+      return;
+    }
+    this.loadPayments();
+  }
+
   loadPayments(): void {
     this.loading = true;
     this.error = '';
     this.syncError = '';
     this.backfillError = '';
-    this.http.get<any>('http://localhost:3000/api/payments/summary').subscribe({
+    const params: Record<string, string> = {};
+    if (this.summaryDirectionFilter !== 'all') {
+      params.direction = this.summaryDirectionFilter;
+    }
+    this.http.get<any>('http://localhost:3000/api/payments/summary', { params }).subscribe({
       next: (res) => {
         const data = res?.data || {};
         this.paymentData = {
@@ -91,6 +150,52 @@ export class UsersComponent implements OnInit {
         console.error('Error loading payments summary:', err);
         this.error = 'Failed to load payments. Please try again.';
         this.loading = false;
+      }
+      });
+  }
+
+  loadAllTransactions(): void {
+    this.transactionListLoading = true;
+    this.transactionListError = '';
+    const params: Record<string, string> = {};
+    if (this.transactionStatusFilter !== 'all') {
+      params.status = this.transactionStatusFilter;
+    }
+    if (this.transactionDirectionFilter !== 'all') {
+      params.direction = this.transactionDirectionFilter;
+    }
+    this.http.get<any>('http://localhost:3000/api/payments/transactions', { params }).subscribe({
+      next: (res) => {
+        this.allTransactions = Array.isArray(res?.data) ? res.data : [];
+        this.transactionListLoading = false;
+      },
+      error: (err) => {
+        console.error('Error loading payment transactions:', err);
+        this.transactionListError = err?.error?.message || 'Failed to load payment transactions.';
+        this.transactionListLoading = false;
+      }
+    });
+  }
+
+  loadAllPayments(): void {
+    this.paymentListLoading = true;
+    this.paymentListError = '';
+    const params: Record<string, string> = {};
+    if (this.paymentStatusFilter !== 'all') {
+      params.status = this.paymentStatusFilter;
+    }
+    if (this.paymentDirectionFilter !== 'all') {
+      params.direction = this.paymentDirectionFilter;
+    }
+    this.http.get<any>('http://localhost:3000/api/payments/records', { params }).subscribe({
+      next: (res) => {
+        this.allPayments = Array.isArray(res?.data) ? res.data : [];
+        this.paymentListLoading = false;
+      },
+      error: (err) => {
+        console.error('Error loading payment records:', err);
+        this.paymentListError = err?.error?.message || 'Failed to load payment records.';
+        this.paymentListLoading = false;
       }
     });
   }
@@ -112,17 +217,89 @@ export class UsersComponent implements OnInit {
   getRowsForTab(tabKey: string): any[] {
     const rows = this.paymentData[tabKey] || [];
     const q = this.searchText.trim().toLowerCase();
-    const status = this.statusFilter;
+    const status = String(this.statusFilter || 'all').toLowerCase();
+    const direction = String(this.summaryDirectionFilter || 'all').toLowerCase();
     return rows.filter((row) => {
       const matchesQuery = q
         ? String(row.name || '').toLowerCase().includes(q) ||
           String(row.entityId || '').toLowerCase().includes(q)
         : true;
-      const matchesStatus = status === 'all'
-        ? true
-        : String(row.status || '').toLowerCase() === status;
-      return matchesQuery && matchesStatus;
+      const rowStatus = this.normalizeStatus(row?.status, 'summary').toLowerCase();
+      const rowDirection = String(row?.direction || 'receivable').toLowerCase();
+      const matchesStatus = status === 'all' ? true : rowStatus === status;
+      const matchesDirection = direction === 'all' ? true : rowDirection === direction;
+      return matchesQuery && matchesStatus && matchesDirection;
     });
+  }
+
+  getFilteredTransactions(): any[] {
+    const rows = this.allTransactions || [];
+    const q = this.transactionSearchText.trim().toLowerCase();
+    const status = String(this.transactionStatusFilter || 'all').toLowerCase();
+    const direction = String(this.transactionDirectionFilter || 'all').toLowerCase();
+    return rows.filter((row) => {
+      const textFields = [
+        row?.entityName,
+        row?.entityId,
+        row?.entityType,
+        row?.referenceNo,
+        row?.method
+      ];
+      const matchesQuery = q
+        ? textFields.some((value) => String(value || '').toLowerCase().includes(q))
+        : true;
+      const rowStatus = this.normalizeStatus(row?.status, 'transaction').toLowerCase();
+      const rowDirection = String(row?.direction || 'receivable').toLowerCase();
+      const matchesStatus = status === 'all' ? true : rowStatus === status;
+      const matchesDirection = direction === 'all' ? true : rowDirection === direction;
+      return matchesQuery && matchesStatus && matchesDirection;
+    });
+  }
+
+  getFilteredPayments(): any[] {
+    const rows = this.allPayments || [];
+    const q = this.paymentSearchText.trim().toLowerCase();
+    const status = String(this.paymentStatusFilter || 'all').toLowerCase();
+    const direction = String(this.paymentDirectionFilter || 'all').toLowerCase();
+    return rows.filter((row) => {
+      const textFields = [
+        row?.entityName,
+        row?.entityId,
+        row?.entityType,
+        row?.referenceNo,
+        row?.paymentMethod,
+        row?.status
+      ];
+      const matchesQuery = q
+        ? textFields.some((value) => String(value || '').toLowerCase().includes(q))
+        : true;
+      const rowStatus = this.normalizeStatus(row?.status, 'payment').toLowerCase();
+      const rowDirection = String(row?.direction || 'receivable').toLowerCase();
+      const matchesStatus = status === 'all' ? true : rowStatus === status;
+      const matchesDirection = direction === 'all' ? true : rowDirection === direction;
+      return matchesQuery && matchesStatus && matchesDirection;
+    });
+  }
+
+  formatEntityType(value: any): string {
+    const raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '-';
+    if (raw === 'transport_partner') return 'Transport Partner';
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+  }
+
+  normalizeStatus(value: any, context: 'summary' | 'transaction' | 'payment'): string {
+    const raw = String(value || '').trim().toLowerCase();
+    if (context === 'transaction') {
+      return raw === 'voided' ? 'Voided' : 'Posted';
+    }
+    if (raw === 'paid') return 'Paid';
+    return 'Pending';
+  }
+
+  getStatusClass(value: any, context: 'summary' | 'transaction' | 'payment'): string {
+    const normalized = this.normalizeStatus(value, context).toLowerCase();
+    return `status-${normalized}`;
   }
 
   formatAmount(value: any): string {
@@ -154,12 +331,14 @@ export class UsersComponent implements OnInit {
     };
     const entityType = entityTypeMap[tabKey];
     if (!entityType) return;
+    this.activeTab = tabKey;
 
     this.activeEntity = {
       tabKey,
       entityType,
       entityId: String(row?.entityId || ''),
-      name: String(row?.name || '')
+      name: String(row?.name || ''),
+      direction: String(row?.direction || '').trim().toLowerCase() || 'receivable'
     };
     this.activeRow = row;
     this.showDrawer = true;
@@ -186,9 +365,11 @@ export class UsersComponent implements OnInit {
     if (!this.activeEntity) return;
     this.transactionsLoading = true;
     this.transactionsError = '';
-    const { entityType, entityId } = this.activeEntity;
+    const { entityType, entityId, direction } = this.activeEntity;
+    const params: Record<string, string> = {};
+    if (direction) params.direction = direction;
     this.http
-      .get<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions`)
+      .get<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions`, { params })
       .subscribe({
         next: (res) => {
           this.transactions = Array.isArray(res?.transactions) ? res.transactions : [];
@@ -227,14 +408,15 @@ export class UsersComponent implements OnInit {
     }
 
     this.transactionsLoading = true;
-    const payload = {
+    const payload: any = {
       amount,
       transactionDate: this.recordForm.transactionDate,
       method: this.recordForm.method,
       referenceNo: this.recordForm.referenceNo,
       notes: this.recordForm.notes
     };
-    const { entityType, entityId } = this.activeEntity;
+    const { entityType, entityId, direction } = this.activeEntity;
+    if (direction) payload.direction = direction;
     this.http
       .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions`, payload)
       .subscribe({
@@ -273,6 +455,11 @@ export class UsersComponent implements OnInit {
       next: () => {
         this.syncLoading = false;
         this.loadPayments();
+        if (this.dataView === 'transactions') {
+          this.loadAllTransactions();
+        } else if (this.dataView === 'payments') {
+          this.loadAllPayments();
+        }
       },
       error: (err) => {
         console.error('Error syncing payments:', err);
@@ -293,6 +480,11 @@ export class UsersComponent implements OnInit {
           const updated = Number(res?.updated) || 0;
           if (updated) {
             this.loadPayments();
+            if (this.dataView === 'transactions') {
+              this.loadAllTransactions();
+            } else if (this.dataView === 'payments') {
+              this.loadAllPayments();
+            }
           }
         },
         error: (err) => {
@@ -311,10 +503,12 @@ export class UsersComponent implements OnInit {
       this.dueError = 'Enter a valid due amount.';
       return;
     }
-    const { entityType, entityId } = this.activeEntity;
+    const { entityType, entityId, direction } = this.activeEntity;
     this.transactionsLoading = true;
+    const payload: any = { totalDue };
+    if (direction) payload.direction = direction;
     this.http
-      .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/summary/due`, { totalDue })
+      .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/summary/due`, payload)
       .subscribe({
         next: (res) => {
           if (res?.summary) {
@@ -377,5 +571,50 @@ export class UsersComponent implements OnInit {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private mapEntityTypeToTabKey(entityType: any): string {
+    const type = String(entityType || '').trim().toLowerCase();
+    if (type === 'client') return 'clients';
+    if (type === 'branch') return 'branches';
+    if (type === 'hub') return 'hubs';
+    if (type === 'transport_partner') return 'transportPartners';
+    return 'clients';
+  }
+
+  openEntityFromLinkedRow(row: any): void {
+    const entityType = String(row?.entityType || '').trim().toLowerCase();
+    const entityId = String(row?.entityId || '').trim();
+    if (!entityType || !entityId) return;
+    const tabKey = this.mapEntityTypeToTabKey(entityType);
+    this.openDrawer(tabKey, {
+      entityId,
+      name: String(row?.entityName || row?.name || entityId),
+      direction: String(row?.direction || 'receivable').trim().toLowerCase(),
+      totalDue: Number(row?.totalDue ?? row?.amountDue ?? 0),
+      totalPaid: Number(row?.totalPaid ?? row?.amountPaid ?? 0),
+      totalBalance: Number(row?.totalBalance ?? row?.balance ?? 0),
+      status: this.normalizeStatus(row?.status, 'summary')
+    });
+  }
+
+  canOpenInvoice(row: any): boolean {
+    const invoiceId = String(row?.invoiceId || '').trim();
+    const referenceNo = String(row?.referenceNo || '').trim();
+    return Boolean(invoiceId) || /^INV-/i.test(referenceNo);
+  }
+
+  openInvoiceFromRow(row: any): void {
+    const invoiceId = String(row?.invoiceId || '').trim();
+    const referenceNo = String(row?.referenceNo || '').trim();
+    const params = new URLSearchParams();
+    if (invoiceId) {
+      params.set('invoiceId', invoiceId);
+    } else if (referenceNo) {
+      params.set('q', referenceNo);
+    }
+    const query = params.toString();
+    const target = `/home/Invoiced${query ? `?${query}` : ''}`;
+    window.location.assign(target);
   }
 }

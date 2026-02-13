@@ -115,7 +115,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   pickupSource = 'branch';
 
   // Delivery
-  deliveryType: 'branch' | 'hub' | 'consignee' | 'different' = 'different';
+  deliveryType: 'branch' | 'hub' | 'consignee' | 'different' = 'consignee';
   deliveryTypeName: string = '';
   deliveryName = '';
   deliveryAddress = '';
@@ -691,7 +691,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.pickupLocationId = null;
     this.pickupPreviousSender = '';
     this.pickupSource = 'branch';
-    this.deliveryType = 'different';
+    this.deliveryType = 'consignee';
     this.deliveryTypeName = '';
     this.deliveryBranch = '';
     this.deliveryHub = '';
@@ -1600,18 +1600,49 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.updateReceiverCreditAvailability();
       return;
     }
-    this.deliveryType = 'different';
-    this.deliveryTypeName = 'Out for delivery too';
     this.deliveryBranch = '';
     this.deliveryHub = '';
+    this.deliveryHubLocationIndex = '';
+    this.setDeliveryToConsignee();
+  }
+
+  onDeliveryDifferentToggle(event: any) {
+    const enabled = Boolean(event?.target?.checked);
+    if (enabled) {
+      this.deliveryType = 'different';
+      this.deliveryTypeName = 'Out for delivery too';
+      const preferredReceiver = this.deliveryPreviousReceiver || (this.consigneeTab === 'consignee' ? this.consignee : '');
+      if (preferredReceiver) {
+        this.deliveryPreviousReceiver = preferredReceiver;
+        this.onDeliveryPreviousReceiverSelect(preferredReceiver);
+      } else {
+        this.deliveryName = '';
+        this.deliveryAddress = '';
+        this.deliveryPhone = '';
+        this.deliveryPincode = '';
+        this.deliveryLocationIndex = '';
+        this.deliveryLocationId = null;
+        this.deliveryID = null;
+        this.onRouteChange();
+        this.updateReceiverCreditAvailability();
+      }
+      return;
+    }
+    this.setDeliveryToConsignee();
+  }
+
+  private setDeliveryToConsignee() {
+    this.deliveryType = 'consignee';
+    this.deliveryTypeName = 'Out for delivery too';
     this.deliveryPreviousReceiver = '';
     this.deliveryLocationIndex = '';
     this.deliveryLocationId = null;
-    this.deliveryID = null;
     this.deliveryName = '';
     this.deliveryAddress = '';
     this.deliveryPhone = '';
     this.deliveryPincode = '';
+    this.deliveryID = null;
+    this.updateDeliveryFromConsignee();
     this.onRouteChange();
     this.updateReceiverCreditAvailability();
   }
@@ -2021,7 +2052,10 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.consigneeAddress = c.address;
       this.consigneePhone = c.phoneNum;
       this.consigneeId = c._id;
-      if (!this.deliveryPreviousReceiver || this.deliveryPreviousReceiver === this.lastConsigneeName) {
+      if (
+        this.deliveryType === 'different' &&
+        (!this.deliveryPreviousReceiver || this.deliveryPreviousReceiver === this.lastConsigneeName)
+      ) {
         this.deliveryPreviousReceiver = name;
         this.onDeliveryPreviousReceiverSelect(this.deliveryPreviousReceiver);
       }
@@ -2162,7 +2196,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.consigneeAddress = g.address;
       this.consigneePhone = g.phoneNum;
       this.consigneeId = g._id || null;
-      if (this.deliveryPreviousReceiver === this.lastConsigneeName) {
+      if (this.deliveryType === 'different' && this.deliveryPreviousReceiver === this.lastConsigneeName) {
         this.deliveryPreviousReceiver = '';
       }
       if (this.deliveryType === 'consignee') {

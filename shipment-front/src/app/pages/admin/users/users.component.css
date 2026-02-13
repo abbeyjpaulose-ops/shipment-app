@@ -18,6 +18,14 @@
   color: #1e3a8a;
 }
 
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .page-header p {
   margin: 6px 0 0;
   color: #6b7280;
@@ -48,6 +56,29 @@
 .stat-card strong {
   font-size: 16px;
   color: #0f172a;
+}
+
+.view-switch {
+  display: flex;
+  gap: 8px;
+  margin: 0;
+  flex-wrap: wrap;
+}
+
+.view-switch-btn {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  color: #374151;
+}
+
+.view-switch-btn.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
 }
 
 .filters {
@@ -123,6 +154,12 @@
   color: #111827;
 }
 
+.tab-subtitle {
+  margin: 0 0 12px;
+  color: #64748b;
+  font-size: 12px;
+}
+
 .table-wrap {
   overflow-x: auto;
   border: 1px solid #e5e7eb;
@@ -169,15 +206,30 @@ th {
   display: inline-block;
   padding: 4px 10px;
   border-radius: 999px;
-  background: #e0f2fe;
-  color: #0369a1;
+  background: #f1f5f9;
+  color: #334155;
   font-size: 12px;
   text-transform: capitalize;
 }
 
-.status-pill.overdue {
-  background: #fee2e2;
-  color: #991b1b;
+.status-pill.status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.status-pill.status-paid {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-pill.status-posted {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-pill.status-voided {
+  background: #e2e8f0;
+  color: #475569;
 }
 
 .empty-state {
@@ -360,6 +412,12 @@ th {
 .status-pill.voided {
   background: #e2e8f0;
   color: #475569;
+}
+
+.table-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .danger-outline {

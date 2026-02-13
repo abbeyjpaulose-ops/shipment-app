@@ -189,42 +189,56 @@
             </div>
             <div class="panel soft">
               <div class="panel-body">
-                <div class="inline-actions">
+                <div class="delivery-toggle-row">
                   <span class="muted">Delivery Point</span>
-                  <label class="toggle-inline">
-                    <input
-                      type="checkbox"
-                      [checked]="deliveryType === 'branch'"
-                      (change)="onDeliverySelfPickupToggle($event)">
-                    <span class="toggle-track">
-                      <span class="toggle-thumb"></span>
-                    </span>
-                    <span>{{ deliveryType === 'branch' ? 'Customer Self Pickup' : 'Out for delivery too' }}</span>
-                  </label>
+                  <div class="delivery-toggle-controls">
+                    <label class="toggle-inline">
+                      <input
+                        type="checkbox"
+                        [checked]="deliveryType === 'branch'"
+                        (change)="onDeliverySelfPickupToggle($event)">
+                      <span class="toggle-track">
+                        <span class="toggle-thumb"></span>
+                      </span>
+                      <span>{{ deliveryType === 'branch' ? 'Customer Self Pickup' : 'Out for delivery too' }}</span>
+                    </label>
+                    <label class="toggle-inline" *ngIf="deliveryType !== 'branch'">
+                      <input
+                        type="checkbox"
+                        [checked]="deliveryType === 'different'"
+                        (change)="onDeliveryDifferentToggle($event)">
+                      <span class="toggle-track">
+                        <span class="toggle-thumb"></span>
+                      </span>
+                      <span>Use different delivery point</span>
+                    </label>
+                  </div>
                 </div>
                 <ng-container *ngIf="deliveryType !== 'branch'">
-                  <div class="inline-actions">
-                    <button class="tiny-btn" (click)="openClientModal()">+ New/Edit Client</button>
-                  </div>
-                  <label>Client Name
-                    <select [(ngModel)]="deliveryPreviousReceiver" (change)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
-                      <option value="">Select client</option>
-                      <option *ngFor="let c of clientList" [value]="c.clientName">
-                        {{ formatClientOption(c) }}
-                      </option>
-                    </select>
-                  </label>
-                  <label>Delivery Address
-                    <select
-                      [(ngModel)]="deliveryLocationIndex"
-                      (change)="onDeliverySelectedLocationSelect(deliveryLocationIndex)"
-                      [disabled]="!deliveryPreviousReceiver">
-                      <option value="">Select address</option>
-                      <option *ngFor="let loc of getDeliverySelectedClientLocations(); let i = index" [value]="i">
-                        {{ formatLocation(loc) }}
-                      </option>
-                    </select>
-                  </label>
+                  <ng-container *ngIf="deliveryType === 'different'">
+                    <div class="inline-actions">
+                      <button class="tiny-btn" (click)="openClientModal()">+ New/Edit Client</button>
+                    </div>
+                    <label>Client Name
+                      <select [(ngModel)]="deliveryPreviousReceiver" (change)="onDeliveryPreviousReceiverSelect(deliveryPreviousReceiver)">
+                        <option value="">Select client</option>
+                        <option *ngFor="let c of clientList" [value]="c.clientName">
+                          {{ formatClientOption(c) }}
+                        </option>
+                      </select>
+                    </label>
+                    <label>Delivery Address
+                      <select
+                        [(ngModel)]="deliveryLocationIndex"
+                        (change)="onDeliverySelectedLocationSelect(deliveryLocationIndex)"
+                        [disabled]="!deliveryPreviousReceiver">
+                        <option value="">Select address</option>
+                        <option *ngFor="let loc of getDeliverySelectedClientLocations(); let i = index" [value]="i">
+                          {{ formatLocation(loc) }}
+                        </option>
+                      </select>
+                    </label>
+                  </ng-container>
                 </ng-container>
               </div>
               <div class="field-display" *ngIf="deliveryType !== 'branch'">
