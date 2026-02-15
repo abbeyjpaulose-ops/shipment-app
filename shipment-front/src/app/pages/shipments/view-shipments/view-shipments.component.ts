@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -33,7 +33,7 @@ export class ViewShipmentsComponent implements OnInit {
   filterConsignor: string = '';
   activeTab: 'all' | 'received' = 'all';
 
-  selectedShipment: any | null = null;   // ✅ for modal popup
+  selectedShipment: any | null = null;   // âœ… for modal popup
   selectedShipmentManifestId: string | null = null;
   selectedShipmentManifestNumber: string | null = null;
   isEditingConsignment: boolean = false;
@@ -71,7 +71,7 @@ export class ViewShipmentsComponent implements OnInit {
     } else {
       params.originLocId = storedoriginLocId === 'all-hubs' ? 'all' : storedoriginLocId;
     }
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', { params }).subscribe({
+    this.http.get<any[]>('/api/newshipments', { params }).subscribe({
       next: (res: any[]) => {
         const normalized = (res || []).map((shipment) => ({
           ...shipment,
@@ -86,7 +86,7 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   loadReceivedShipments(): void {
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', {
+    this.http.get<any[]>('/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
         originLocId: 'all'
@@ -106,7 +106,7 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   loadBranches(): void {
-    this.http.get<any[]>('http://localhost:3000/api/branches')
+    this.http.get<any[]>('/api/branches')
       .subscribe({
         next: (branches) => {
           this.branches = branches || [];
@@ -116,7 +116,7 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   loadHubs(): void {
-    this.http.get<any[]>('http://localhost:3000/api/hubs')
+    this.http.get<any[]>('/api/hubs')
       .subscribe({
         next: (hubs) => {
           this.hubs = hubs || [];
@@ -127,7 +127,7 @@ export class ViewShipmentsComponent implements OnInit {
 
   loadClients(): void {
     if (!this.email) return;
-    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/clients/clientslist?emailId=${this.email}`)
       .subscribe({
         next: (clients) => {
           this.clientList = clients || [];
@@ -138,7 +138,7 @@ export class ViewShipmentsComponent implements OnInit {
 
   loadGuests(): void {
     if (!this.email) return;
-    this.http.get<any[]>(`http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/guests/guestslist?emailId=${this.email}`)
       .subscribe({
         next: (guests) => {
           this.guestList = guests || [];
@@ -160,7 +160,7 @@ export class ViewShipmentsComponent implements OnInit {
       params.originLocId = productsoriginLocId;
     }
 
-    this.http.get<any[]>('http://localhost:3000/api/pkgs/pkglist')
+    this.http.get<any[]>('/api/pkgs/pkglist')
       .subscribe({
         next: (res) => {
           this.pkgList = res || [];
@@ -168,7 +168,7 @@ export class ViewShipmentsComponent implements OnInit {
         error: (err: any) => console.error('Error loading packages:', err)
       });
 
-    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params })
+    this.http.get<any[]>('/api/products/productlist', { params })
       .subscribe({
         next: (res) => {
           this.productList = res || [];
@@ -488,7 +488,7 @@ export class ViewShipmentsComponent implements OnInit {
       if (this.showReturnFinalAmount) {
         updatedConsignment.finalAmount = consignment.returnFinalAmount ?? consignment.finalAmount;
       }
-      this.http.post('http://localhost:3000/api/newshipments/updateConsignment', { updatedConsignment })
+      this.http.post('/api/newshipments/updateConsignment', { updatedConsignment })
         .subscribe({
           next: () => {
             this.loadReceivedShipments();
@@ -964,7 +964,7 @@ export class ViewShipmentsComponent implements OnInit {
       deliveryBranchName: originBranchName || consignment.branch
     });
     this.http.post(
-      'http://localhost:3000/api/newshipments/add?summary=true',
+      '/api/newshipments/add?summary=true',
       payload,
       { headers: { 'Content-Type': 'application/json' } }
     ).subscribe({
@@ -980,7 +980,7 @@ export class ViewShipmentsComponent implements OnInit {
     }
     const username = localStorage.getItem('username') || '';
     this.http.get<{ nextNumber: number }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(username)}&originLocId=${encodeURIComponent(this.getoriginLocIdByName(branchName) || '')}&branch=${encodeURIComponent(branchName)}`
+      `/api/newshipments/nextConsignment?username=${encodeURIComponent(username)}&originLocId=${encodeURIComponent(this.getoriginLocIdByName(branchName) || '')}&branch=${encodeURIComponent(branchName)}`
     ).subscribe({
       next: (res) => {
         const payload = this.buildReturnPayload(consignment, {
@@ -991,7 +991,7 @@ export class ViewShipmentsComponent implements OnInit {
           deliveryBranchName: this.getOriginBranchName(consignment)
         });
         this.http.post(
-          'http://localhost:3000/api/newshipments/add?summary=true',
+          '/api/newshipments/add?summary=true',
           payload,
           { headers: { 'Content-Type': 'application/json' } }
         ).subscribe({
@@ -1002,7 +1002,7 @@ export class ViewShipmentsComponent implements OnInit {
     });
   }
 
-  // ✅ open details modal
+  // âœ… open details modal
   openShipmentDetails(shipment: any): void {
     const enriched = this.enrichShipmentDetails(shipment);
     this.selectedShipment = enriched;
@@ -1031,7 +1031,7 @@ export class ViewShipmentsComponent implements OnInit {
     this.editingShipment.rateUnit = this.editRateUnit;
     const updatedConsignment = this.buildConsignmentUpdatePayload(this.editingShipment);
     this.isSavingConsignment = true;
-    this.http.post('http://localhost:3000/api/newshipments/updateConsignment', { updatedConsignment })
+    this.http.post('/api/newshipments/updateConsignment', { updatedConsignment })
       .subscribe({
         next: (res: any) => {
           const data = res?.data ? this.enrichShipmentDetails(res.data) : this.enrichShipmentDetails(updatedConsignment);
@@ -1448,7 +1448,7 @@ export class ViewShipmentsComponent implements OnInit {
     return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
-  // ✅ close details modal
+  // âœ… close details modal
   closeShipmentDetails(): void {
     this.selectedShipment = null;
     this.selectedShipmentManifestId = null;
@@ -1465,7 +1465,7 @@ export class ViewShipmentsComponent implements OnInit {
 
   private formatCurrency(value: any): string {
     const num = Number(value ?? 0);
-    return `₹${num.toFixed(2)}`;
+    return `â‚¹${num.toFixed(2)}`;
   }
 
   private getBranchAddress(branchName: string): string {
@@ -1675,7 +1675,7 @@ export class ViewShipmentsComponent implements OnInit {
       this.selectedShipmentManifestNumber = null;
       return;
     }
-    this.http.get<any[]>('http://localhost:3000/api/manifests', {
+    this.http.get<any[]>('/api/manifests', {
       params: { consignmentNumber: key }
     }).subscribe({
       next: (manifests: any[]) => {
@@ -1695,5 +1695,6 @@ export class ViewShipmentsComponent implements OnInit {
     return manifestId ? `/manifests/${manifestId}` : '#';
   }
 }
+
 
 

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -43,7 +43,7 @@ export class ReportsComponent implements OnInit {
 
   loadInvoices(): void {
     this.loading = true;
-    this.http.get<any>('http://localhost:3000/api/newshipments/generatedInvoices', {
+    this.http.get<any>('/api/newshipments/generatedInvoices', {
       params: {
         fiscalYear: this.fiscalYearInput || ''
       }
@@ -68,7 +68,7 @@ export class ReportsComponent implements OnInit {
   }
 
   loadFiscalYears(): void {
-    this.http.get<any>('http://localhost:3000/api/newshipments/generatedInvoices/years').subscribe({
+    this.http.get<any>('/api/newshipments/generatedInvoices/years').subscribe({
       next: (res) => {
         this.fiscalYears = Array.isArray(res?.years) ? res.years : [];
       },
@@ -186,7 +186,7 @@ export class ReportsComponent implements OnInit {
     targets.forEach((target) => {
       this.http
         .put<any>(
-          `http://localhost:3000/api/newshipments/generatedInvoices/${target._id}/cancel`,
+          `/api/newshipments/generatedInvoices/${target._id}/cancel`,
           {}
         )
         .subscribe({
@@ -214,7 +214,7 @@ export class ReportsComponent implements OnInit {
     const nextStatus = current === 'paid' ? 'Active' : 'Paid';
     this.paymentUpdatingId = String(inv._id);
     this.http
-      .put<any>(`http://localhost:3000/api/newshipments/generatedInvoices/${inv._id}/payment-status`, {
+      .put<any>(`/api/newshipments/generatedInvoices/${inv._id}/payment-status`, {
         status: nextStatus
       })
       .subscribe({
@@ -348,3 +348,4 @@ export class ReportsComponent implements OnInit {
     }
   }
 }
+

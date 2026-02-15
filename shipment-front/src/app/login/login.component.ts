@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+﻿import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -17,7 +17,7 @@ export class LoginComponent {
   constructor(private http: HttpClient) {}
 
   login() {
-    this.http.post('http://localhost:3000/api/auth/login', {
+    this.http.post('/api/auth/login', {
       username: this.username,
       password: this.password
     }).subscribe({
@@ -63,7 +63,7 @@ export class LoginComponent {
         const proceedOnce = () => {
           if (didProceed) return;
           didProceed = true;
-          this.http.get<any[]>(`http://localhost:3000/api/branches`)
+          this.http.get<any[]>(`/api/branches`)
             .subscribe({
               next: (branches) => {
                 if (!branches || branches.length === 0) {
@@ -78,7 +78,7 @@ export class LoginComponent {
             });
         };
 
-        this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+        this.http.get<any>(`/api/profile?user=${username}&email=${email}`)
           .subscribe({
             next: (data) => {
               const profile = Array.isArray(data) ? data[0] : data;
@@ -100,3 +100,4 @@ export class LoginComponent {
     });
   }
 }
+

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -40,7 +40,7 @@ export class ProfileComponent implements OnInit {
   loadProfile() {
     const email = localStorage.getItem('email'); // set during login
     const username = localStorage.getItem('username'); // set during login
-    this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+    this.http.get<any>(`/api/profile?user=${username}&email=${email}`)
     .subscribe({
       next: (data) => {
         
@@ -74,7 +74,7 @@ export class ProfileComponent implements OnInit {
       email,
       username
     };
-    this.http.post('http://localhost:3000/api/profile/save', payload, {
+    this.http.post('/api/profile/save', payload, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: (res) => {
@@ -95,7 +95,7 @@ export class ProfileComponent implements OnInit {
   backfillBusinessType() {
     const ok = window.confirm('Backfill business type for all profiles?');
     if (!ok) return;
-    this.http.post('http://localhost:3000/api/profile/migrateBusinessType', {}).subscribe({
+    this.http.post('/api/profile/migrateBusinessType', {}).subscribe({
       next: (res) => {
         alert('Business type backfilled for profiles.');
         this.loadProfile();
@@ -122,3 +122,4 @@ export class ProfileComponent implements OnInit {
     };
   }
 }
+

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -89,7 +89,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
 
   loadHubs() {
     const ts = Date.now();
-    this.http.get<any[]>(`http://localhost:3000/api/hubs?ts=${ts}`).subscribe({
+    this.http.get<any[]>(`/api/hubs?ts=${ts}`).subscribe({
       next: (data) => {
         this.hubs = data || [];
         this.buildVehicles();
@@ -100,7 +100,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
 
   loadBranches() {
     const ts = Date.now();
-    this.http.get<any[]>(`http://localhost:3000/api/branches?ts=${ts}`).subscribe({
+    this.http.get<any[]>(`/api/branches?ts=${ts}`).subscribe({
       next: (data) => {
         this.branches = data || [];
         this.buildVehicles();
@@ -115,7 +115,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
       params.entityType = 'branch';
       params.entityId = this.originLocId;
     }
-    this.http.get<any[]>(`http://localhost:3000/api/manifests`, { params }).subscribe({
+    this.http.get<any[]>(`/api/manifests`, { params }).subscribe({
       next: (data) => {
         this.manifests = Array.isArray(data) ? data : [];
         this.buildScheduledVehicleSet();
@@ -270,7 +270,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
 
   toggleBranchStatus(originLocId: string) {
     if (!originLocId) return;
-    this.http.patch(`http://localhost:3000/api/branches/${originLocId}/status`, {}).subscribe({
+    this.http.patch(`/api/branches/${originLocId}/status`, {}).subscribe({
       next: () => this.loadBranches(),
       error: (err) => console.error('Error updating branch status:', err)
     });
@@ -324,8 +324,8 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     const [type, id] = String(this.editLocationValue).split(':');
     if (!type || !id) return;
     const endpoint = this.editLocationVehicle.sourceType === 'hub'
-      ? `http://localhost:3000/api/hubs/${this.editLocationVehicle.sourceId}/vehicle-status`
-      : `http://localhost:3000/api/branches/${this.editLocationVehicle.sourceId}/vehicle-status`;
+      ? `/api/hubs/${this.editLocationVehicle.sourceId}/vehicle-status`
+      : `/api/branches/${this.editLocationVehicle.sourceId}/vehicle-status`;
     this.http.patch(endpoint, {
       vehicleNo: this.editLocationVehicle.vehicleNo,
       vehicleStatus: this.editLocationVehicle.vehicleStatus || 'online',
@@ -397,7 +397,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     }
 
     const calls = consignmentNumbers.map((consignmentNumber) =>
-      this.http.get<any[]>(`http://localhost:3000/api/newshipments/getConsignment`, {
+      this.http.get<any[]>(`/api/newshipments/getConsignment`, {
         params: { consignmentNumber }
       })
     );
@@ -597,7 +597,7 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     if (!id || !nextVehicle) return;
     if (nextVehicle === String(manifest?.vehicleNo || '').trim()) return;
     this.isUpdatingManifestVehicle = true;
-    this.http.patch(`http://localhost:3000/api/manifests/${id}/vehicle`, {
+    this.http.patch(`/api/manifests/${id}/vehicle`, {
       vehicleNo: nextVehicle
     }).subscribe({
       next: () => {
@@ -612,3 +612,4 @@ export class BranchVehiclesComponent implements OnInit, OnDestroy {
     });
   }
 }
+

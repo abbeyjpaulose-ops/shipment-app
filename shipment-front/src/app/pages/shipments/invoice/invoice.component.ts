@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -45,7 +45,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   showPreInvoicePreview = false;
   preInvoicePreviewHtml: SafeHtml = '';
 
-  editingInvoice: any = null;   // �o. Track the invoice being edited
+  editingInvoice: any = null;   // ï¿½o. Track the invoice being edited
   showEditPopup: boolean = false;
   showGenerateInvoicePopup: boolean = false;
   generateInvoiceSource: 'preInvoiced' | 'preInvoices' = 'preInvoiced';
@@ -83,7 +83,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   }
 
   private loadBranches(onDone?: () => void) {
-    this.http.get<any[]>('http://localhost:3000/api/branches').subscribe({
+    this.http.get<any[]>('/api/branches').subscribe({
       next: (branches) => {
         this.branches = Array.isArray(branches) ? branches : [];
         if (onDone) onDone();
@@ -96,7 +96,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
   }
 
   private loadHubs(onDone?: () => void) {
-    this.http.get<any[]>('http://localhost:3000/api/hubs').subscribe({
+    this.http.get<any[]>('/api/hubs').subscribe({
       next: (hubs) => {
         this.hubs = Array.isArray(hubs) ? hubs : [];
         this.hubById = new Map();
@@ -116,7 +116,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   private loadClients(onDone?: () => void) {
     const originLocId = localStorage.getItem('originLocId') || this.originLocId || 'all';
-    this.http.get<any[]>('http://localhost:3000/api/clients/clientslist', {
+    this.http.get<any[]>('/api/clients/clientslist', {
       params: { originLocId }
     }).subscribe({
       next: (clients) => {
@@ -140,7 +140,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     const email = localStorage.getItem('email') || '';
     const username = localStorage.getItem('username') || '';
     if (!email && !username) return;
-    this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+    this.http.get<any>(`/api/profile?user=${username}&email=${email}`)
       .subscribe({
         next: (data) => {
           const profile = Array.isArray(data) ? data[0] : data;
@@ -165,7 +165,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     const originLocIdParam = (hasBranchSelection && (!this.isObjectId(storedOriginLocId) || hasHubsForBranch))
       ? 'all'
       : storedOriginLocId;
-    this.http.get<any>('http://localhost:3000/api/newshipments', {
+    this.http.get<any>('/api/newshipments', {
       params: {
         username: localStorage.getItem('username') || '',
         originLocId: originLocIdParam
@@ -173,8 +173,8 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (res) => {
         const raw = Array.isArray(res) ? res : (res?.value || []);
-        // �o. Only show shipments with status 'Delivered'
-        //onsole.log('�Y"� IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
+        // ï¿½o. Only show shipments with status 'Delivered'
+        //onsole.log('ï¿½Y"ï¿½ IIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIInvoices loaded:', res);
                 const normalized = (raw || []).map((s: any) => ({
           ...s,
           _normalizedStatus: this.normalizeStatus(s?.shipmentStatus)
@@ -187,7 +187,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
         console.log('A??,f??A? Filtered Delivered consignments:', this.filteredDelivered);
         console.log('A??,f??A? Filtered Pre-Invoiced consignments:', this.filteredPreInvoiced);
       },
-      error: (err) => console.error('�O Error loading invoices:', err)
+      error: (err) => console.error('ï¿½O Error loading invoices:', err)
     });
   }
 
@@ -211,7 +211,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       this.filteredPreInvoices = [];
       return;
     }
-    this.http.get<any>('http://localhost:3000/api/newshipments/preInvoices', {
+    this.http.get<any>('/api/newshipments/preInvoices', {
       params: { originLocId: originLocIdParam }
     }).subscribe({
       next: (res) => {
@@ -230,7 +230,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
 
   loadGeneratedInvoices() {
     this.generatedInvoiceLoading = true;
-    this.http.get<any>('http://localhost:3000/api/newshipments/generatedInvoices')
+    this.http.get<any>('/api/newshipments/generatedInvoices')
       .subscribe({
         next: (res) => {
           const list = Array.isArray(res?.invoices)
@@ -662,7 +662,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       <div class="summary-row">
         <div class="notes-block">
           <div class="note-line">-Interest @ 18 % will be charged if not paid within 7 days of Invoice date.</div>
-          <div class="note-line">-Please Draw Cheque/DD in favour of “${companyName}”.</div>
+          <div class="note-line">-Please Draw Cheque/DD in favour of â€œ${companyName}â€.</div>
           <div class="note-line">-Note: We are Registered under GST/GTA.Vide Notification No:13/2017 GST.GST @${businessType} % to be paid by Consignor/conginee as this comes under Reverse Charge Mechanism (RCM)</div>
         </div>
         <div class="totals-block">
@@ -902,7 +902,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     this.selectedInvoice = null;
   }
 
-  // �o. Function to mark selected Delivered consignments as Invoiced
+  // ï¿½o. Function to mark selected Delivered consignments as Invoiced
   invoiceSelected() {
     const selectedConsignments = this.filteredDelivered
       .filter(i => i.selected && !this.isInvoicePreInvoiced(i));
@@ -929,7 +929,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       .map((c) => String(c?.consignmentNumber || '').trim())
       .filter(Boolean);
 
-    this.http.post('http://localhost:3000/api/newshipments/preInvoices', {
+    this.http.post('/api/newshipments/preInvoices', {
       consignmentNumbers
     }).subscribe({
       next: () => {
@@ -992,7 +992,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       alert('Missing pre-invoice ids.');
       return;
     }
-    this.http.request('delete', 'http://localhost:3000/api/newshipments/preInvoices', {
+    this.http.request('delete', '/api/newshipments/preInvoices', {
       body: { preInvoiceIds }
     }).subscribe({
       next: () => {
@@ -1022,7 +1022,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     selectedConsignments.forEach(consignment => {
       const updatedConsignment = { ...consignment, shipmentStatus: 'Invoiced' };
 
-      this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
+      this.http.put(`/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
         .subscribe({
           next: () => {
             console.log(`Consignment ${consignment.consignmentNumber} updated to Invoiced`);
@@ -1093,7 +1093,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.http.post('http://localhost:3000/api/newshipments/generateInvoices', {
+    this.http.post('/api/newshipments/generateInvoices', {
       consignmentNumbers,
       source,
       preInvoiceIds
@@ -1131,7 +1131,7 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     selectedConsignments.forEach(consignment => {
       const updatedConsignment = { ...consignment, shipmentStatus: ' Cancelled-'+consignment.shipmentStatus };
 
-      this.http.put(`http://localhost:3000/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
+      this.http.put(`/api/newshipments/${consignment.consignmentNumber}`, updatedConsignment)
         .subscribe({
           next: () => {
             console.log(`Consignment ${consignment.consignmentNumber} updated to Invoiced`);
@@ -1257,3 +1257,4 @@ export class InvoiceComponent implements OnInit, OnDestroy {
     }
   }
 }
+

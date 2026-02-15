@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -77,7 +77,7 @@ export class HubComponent implements OnInit, OnDestroy {
   };
 
   loadHubs() {
-    this.http.get<any[]>(`http://localhost:3000/api/hubs`)
+    this.http.get<any[]>(`/api/hubs`)
       .subscribe({
         next: (data) => {
           console.log("Hubs loaded:", data);
@@ -88,7 +88,7 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
   loadBranches() {
-    this.http.get<any[]>(`http://localhost:3000/api/branches`)
+    this.http.get<any[]>(`/api/branches`)
       .subscribe({
         next: (data) => {
           this.branches = data;
@@ -143,7 +143,7 @@ export class HubComponent implements OnInit, OnDestroy {
         delete v.currentBranch;
       });
     });
-    this.http.post('http://localhost:3000/api/hubs/add', payload)
+    this.http.post('/api/hubs/add', payload)
       .subscribe({
         next: () => {
           alert('Hub added successfully!');
@@ -182,7 +182,7 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
 
-  /** 🔹 Add / Remove Address in Add Mode */
+  /** ðŸ”¹ Add / Remove Address in Add Mode */
   addAddress() {
     this.newHub.deliveryAddresses.push({
       location: '',
@@ -195,7 +195,7 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
 
-  /** 🔹 Add / Remove Vehicles in Add Mode */
+  /** ðŸ”¹ Add / Remove Vehicles in Add Mode */
   addVehicle(addrIndex: number) {
     this.newHub.deliveryAddresses[addrIndex].vehicles.push({
       vehicleNo: '', driverPhone: '', vehicleStatus: 'online', currentLocationId: ''
@@ -207,7 +207,7 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
 
-  /** 🔹 Edit Mode */
+  /** ðŸ”¹ Edit Mode */
   editHub(hub: any) {
     this.editingHub = JSON.parse(JSON.stringify(hub)); // Deep clone
     this.ensureVehicleStatuses(this.editingHub);
@@ -249,7 +249,7 @@ export class HubComponent implements OnInit, OnDestroy {
     if (!vehicleNo) return;
     const current = String(vehicle?.vehicleStatus || 'online').trim().toLowerCase();
     const nextStatus = current === 'offline' ? 'online' : 'offline';
-    this.http.patch(`http://localhost:3000/api/hubs/${this.editingHub._id}/vehicle-status`, {
+    this.http.patch(`/api/hubs/${this.editingHub._id}/vehicle-status`, {
       vehicleNo,
       vehicleStatus: nextStatus
     }).subscribe({
@@ -273,7 +273,7 @@ export class HubComponent implements OnInit, OnDestroy {
         delete v.currentBranch;
       });
     });
-    this.http.put(`http://localhost:3000/api/hubs/${this.editingHub._id}`, payload)
+    this.http.put(`/api/hubs/${this.editingHub._id}`, payload)
       .subscribe({
         next: () => {
           this.loadHubs();
@@ -284,10 +284,10 @@ export class HubComponent implements OnInit, OnDestroy {
   }
 
 
-  /** 🔹 Toggle Active/Inactive */
+  /** ðŸ”¹ Toggle Active/Inactive */
   toggleStatus(hub: any) {
     this.http.patch(
-      `http://localhost:3000/api/hubs/${hub._id}/status`,
+      `/api/hubs/${hub._id}/status`,
       { status: hub.status === 'active' ? 'inactive' : 'active' }
     )
       .subscribe(() => this.loadHubs());
@@ -441,3 +441,4 @@ export class HubComponent implements OnInit, OnDestroy {
     return String(value);
   }
 }
+

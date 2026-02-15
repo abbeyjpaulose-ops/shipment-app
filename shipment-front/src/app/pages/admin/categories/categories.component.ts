@@ -1,4 +1,4 @@
-import { CommonModule } from '@angular/common';
+﻿import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
@@ -196,7 +196,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     }
 
     this.savingFuel = true;
-    this.http.post<any>('http://localhost:3000/api/categories/running-costs/fuel', {
+    this.http.post<any>('/api/categories/running-costs/fuel', {
       date: this.selectedDate,
       originLocId: this.getNormalizedoriginLocId(),
       vehicleNo,
@@ -236,7 +236,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     }
 
     this.savingWorkers = true;
-    this.http.post<any>('http://localhost:3000/api/categories/running-costs/workers', {
+    this.http.post<any>('/api/categories/running-costs/workers', {
       date: this.selectedDate,
       originLocId: this.getNormalizedoriginLocId(),
       workType: this.workerForm.workType,
@@ -277,7 +277,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     }
 
     this.savingMaintenance = true;
-    this.http.post<any>('http://localhost:3000/api/categories/running-costs/maintenance', {
+    this.http.post<any>('/api/categories/running-costs/maintenance', {
       date: this.selectedDate,
       originLocId: this.getNormalizedoriginLocId(),
       vehicleNo,
@@ -327,7 +327,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     if (!cancelKey) return;
     this.cancellingRows[cancelKey] = true;
 
-    this.http.post<any>(`http://localhost:3000/api/categories/running-costs/${entryType}/${entryId}/cancel`, {
+    this.http.post<any>(`/api/categories/running-costs/${entryType}/${entryId}/cancel`, {
       date: this.selectedDate,
       originLocId: this.getNormalizedoriginLocId()
     }).subscribe({
@@ -357,7 +357,7 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.infoMessage = '';
 
-    this.http.get<any>('http://localhost:3000/api/categories/running-costs', {
+    this.http.get<any>('/api/categories/running-costs', {
       params: {
         date,
         originLocId: this.getNormalizedoriginLocId()
@@ -432,3 +432,4 @@ export class CategoriesComponent implements OnInit, OnDestroy {
     };
   }
 }
+

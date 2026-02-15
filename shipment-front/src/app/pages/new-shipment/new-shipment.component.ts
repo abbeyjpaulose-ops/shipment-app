@@ -1,4 +1,4 @@
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -270,7 +270,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     const email = localStorage.getItem('email') || '';
     const username = localStorage.getItem('username') || '';
     if (!email && !username) return;
-    this.http.get<any>(`http://localhost:3000/api/profile?user=${username}&email=${email}`)
+    this.http.get<any>(`/api/profile?user=${username}&email=${email}`)
       .subscribe({
         next: (data) => {
           const profile = Array.isArray(data) ? data[0] : data;
@@ -466,25 +466,25 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     // Client list
     const originLocId = localStorage.getItem('originLocId') || 'all';
     const productsoriginLocId = originLocId === 'all-hubs' ? 'all' : originLocId;
-    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?originLocId=${encodeURIComponent(originLocId)}`)
+    this.http.get<any[]>(`/api/clients/clientslist?originLocId=${encodeURIComponent(originLocId)}`)
       .subscribe(res => {
         this.clientList = res;
         this.rebuildRateAddressOptions();
         this.syncBillingDiscount();
         this.updatePaymentModeAvailability();
       });
-    this.http.get<any[]>('http://localhost:3000/api/clients/clientslist?originLocId=all')
+    this.http.get<any[]>('/api/clients/clientslist?originLocId=all')
       .subscribe(res => {
         this.rateAddressClients = res || [];
         this.rebuildRateAddressOptions();
       });
 
     // Guest list
-    this.http.get<any[]>(`http://localhost:3000/api/guests/guestslist`)
+    this.http.get<any[]>(`/api/guests/guestslist`)
       .subscribe(res => this.guestList = res);
 
     // Package list
-    this.http.get<any[]>(`http://localhost:3000/api/pkgs/pkglist`)
+    this.http.get<any[]>(`/api/pkgs/pkglist`)
       .subscribe(res => this.pkgList = res);
 
     // Product list (defaults)
@@ -497,7 +497,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     } else {
       params.originLocId = productsoriginLocId;
     }
-    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params })
+    this.http.get<any[]>('/api/products/productlist', { params })
       .subscribe(res => this.productList = res);
   }
 
@@ -522,7 +522,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   private loadHubDetails() {
-    this.http.get<any[]>('http://localhost:3000/api/hubs')
+    this.http.get<any[]>('/api/hubs')
       .subscribe({
         next: (hubs) => {
           this.hubs = hubs || [];
@@ -598,7 +598,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       applyConsignorDiscount: this.applyConsignorDiscount
     };
     this.http.post<{ finalAmount: number; subtotal?: number; discountAmount?: number }>(
-      'http://localhost:3000/api/newshipments/quote',
+      '/api/newshipments/quote',
       payload
     )
       .subscribe({
@@ -762,7 +762,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
         return;
       }
       this.http.get<{ nextNumber: number, fiscalYear: string }>(
-        `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&originLocId=${encodeURIComponent(hubId)}&originType=hub`
+        `/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&originLocId=${encodeURIComponent(hubId)}&originType=hub`
       ).subscribe({
         next: (res) => {
           this.consignmentNumber = res.nextNumber.toString();
@@ -773,7 +773,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       return;
     }
     this.http.get<{ nextNumber: number, fiscalYear: string }>(
-      `http://localhost:3000/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&originLocId=${encodeURIComponent(originLocId)}&originType=branch`
+      `/api/newshipments/nextConsignment?username=${encodeURIComponent(this.username)}&originLocId=${encodeURIComponent(originLocId)}&originType=branch`
     ).subscribe({
       next: (res) => {
         this.consignmentNumber = res.nextNumber.toString();
@@ -929,7 +929,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     if (shipmentData.branch !== 'All Branches') {
       shipmentData.ewaybills = this.sanitizeEwaybills(shipmentData.ewaybills);
       this.http.post(
-        'http://localhost:3000/api/newshipments/add?summary=true',
+        '/api/newshipments/add?summary=true',
         shipmentData,
         { headers: { 'Content-Type': 'application/json' } }
       ).subscribe({
@@ -1061,7 +1061,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       updates: Array.from(updates.values())
     };
     const postPricing = (pickupId: string, deliveryId: string) =>
-      this.http.post<void>(`http://localhost:3000/api/clients/${clientId}/pricing`, {
+      this.http.post<void>(`/api/clients/${clientId}/pricing`, {
         pickupLocationId: pickupId,
         deliveryLocationId: deliveryId,
         ...payloadBase
@@ -1072,7 +1072,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     ) {
       return postPricing(pickupLocationId, deliveryLocationId);
     }
-    return this.http.get<any[]>('http://localhost:3000/api/branches').pipe(
+    return this.http.get<any[]>('/api/branches').pipe(
       switchMap((branches) => {
         const branchList = branches || [];
         const pickupSource = this.branchDetails ||
@@ -2425,7 +2425,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   }
 
   private loadBranchDetails() {
-    this.http.get<any[]>('http://localhost:3000/api/branches')
+    this.http.get<any[]>('/api/branches')
       .subscribe({
         next: (branches) => {
           this.branches = branches || [];
@@ -2586,7 +2586,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       `deliveryLocationId=${encodeURIComponent(this.deliveryLocationId || '')}`,
       `rateUnit=${encodeURIComponent(this.rateUnit)}`
     ].join('&');
-    this.http.get<any>(`http://localhost:3000/api/pricing/suggestions?${params}&${routeParams}`)
+    this.http.get<any>(`/api/pricing/suggestions?${params}&${routeParams}`)
       .subscribe({
         next: (res) => {
           if (requestKey !== this.suggestionRequestKey) return;
@@ -2740,7 +2740,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   private loadEditableClients(selectId?: string) {
     const originLocId = localStorage.getItem('originLocId') || 'all';
     if (!originLocId || originLocId === 'all') return;
-    this.http.get<any[]>(`http://localhost:3000/api/clients?originLocId=${encodeURIComponent(originLocId)}`)
+    this.http.get<any[]>(`/api/clients?originLocId=${encodeURIComponent(originLocId)}`)
       .subscribe({
         next: (res) => {
           this.editableClientList = res || [];
@@ -2877,7 +2877,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.newProduct.rates = sanitizedRates;
 
     this.newProduct.originLocId = originLocId;
-    this.http.post('http://localhost:3000/api/products/add', this.newProduct, {
+    this.http.post('/api/products/add', this.newProduct, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: () => {
@@ -2915,7 +2915,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     const payload = isAllHubsSelection
       ? { ...this.newClient, products: [] }
       : this.newClient;
-    this.http.post('http://localhost:3000/api/clients/add', payload).subscribe({
+    this.http.post('/api/clients/add', payload).subscribe({
       next: (client: any) => {
         this.clientList = [client, ...this.clientList];
         this.consignor = client.clientName;
@@ -2937,7 +2937,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     const payload = {
       deliveryLocations: (this.editClient.deliveryLocations || []).filter((d: any) => d?.address)
     };
-    this.http.put(`http://localhost:3000/api/clients/${this.selectedEditClientId}`, payload)
+    this.http.put(`/api/clients/${this.selectedEditClientId}`, payload)
       .subscribe({
         next: () => {
           this.showClientModal = false;
@@ -2954,7 +2954,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
       this.guestError = 'Please fill required fields (name, address, phone).';
       return;
     }
-    this.http.post('http://localhost:3000/api/guests/add', this.newGuest).subscribe({
+    this.http.post('/api/guests/add', this.newGuest).subscribe({
       next: (guest: any) => {
         this.guestList = [guest, ...this.guestList];
         if (this.consignorTab === 'guest') {
@@ -2996,6 +2996,7 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.newClient.deliveryLocations.splice(index, 1);
   }
 }
+
 
 
 

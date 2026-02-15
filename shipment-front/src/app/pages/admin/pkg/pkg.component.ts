@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -35,7 +35,7 @@ export class PkgComponent implements OnInit {
 
   loadPkgs() {
     const email = localStorage.getItem('email');
-    this.http.get<any[]>(`http://localhost:3000/api/pkgs?email=${email}`)
+    this.http.get<any[]>(`/api/pkgs?email=${email}`)
       .subscribe({
         next: (data) => {
           this.pkgs = data || [];
@@ -70,7 +70,7 @@ export class PkgComponent implements OnInit {
   }
 
   addPkg() {
-    this.http.post('http://localhost:3000/api/pkgs/add', this.newPkg, {
+    this.http.post('/api/pkgs/add', this.newPkg, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: () => {
@@ -92,7 +92,7 @@ export class PkgComponent implements OnInit {
   }
 
   saveEdit() {
-    this.http.put(`http://localhost:3000/api/pkgs/${this.editingPkg._id}`, this.editingPkg)
+    this.http.put(`/api/pkgs/${this.editingPkg._id}`, this.editingPkg)
       .subscribe(() => {
         this.loadPkgs();
         this.editingPkg = null;
@@ -106,7 +106,7 @@ export class PkgComponent implements OnInit {
   }
 
   toggleStatus(pkg: any) {
-    this.http.patch(`http://localhost:3000/api/pkgs/${pkg._id}/status`, {})
+    this.http.patch(`/api/pkgs/${pkg._id}/status`, {})
       .subscribe(() => this.loadPkgs());
   }
 
@@ -120,3 +120,4 @@ export class PkgComponent implements OnInit {
     };
   }
 }
+

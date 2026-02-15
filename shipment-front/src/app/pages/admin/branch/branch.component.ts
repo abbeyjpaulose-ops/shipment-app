@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -43,7 +43,7 @@ export class BranchComponent implements OnInit {
 
   // Load Branches
   loadBranches() {
-    this.http.get<any[]>(`http://localhost:3000/api/branches`).subscribe({
+    this.http.get<any[]>(`/api/branches`).subscribe({
       next: (data) => {
         this.branches = data;
       },
@@ -52,7 +52,7 @@ export class BranchComponent implements OnInit {
   }
 
   loadHubs() {
-    this.http.get<any[]>(`http://localhost:3000/api/hubs`).subscribe({
+    this.http.get<any[]>(`/api/hubs`).subscribe({
       next: (data) => {
         this.hubs = data;
       },
@@ -121,7 +121,7 @@ export class BranchComponent implements OnInit {
     if (!vehicleNo) return;
     const current = String(vehicle?.vehicleStatus || 'online').trim().toLowerCase();
     const nextStatus = current === 'offline' ? 'online' : 'offline';
-    this.http.patch(`http://localhost:3000/api/branches/${this.editingBranch._id}/vehicle-status`, {
+    this.http.patch(`/api/branches/${this.editingBranch._id}/vehicle-status`, {
       vehicleNo,
       vehicleStatus: nextStatus
     }).subscribe({
@@ -175,7 +175,7 @@ export class BranchComponent implements OnInit {
     };
 
     this.http
-      .post('http://localhost:3000/api/branches/add', payload, {
+      .post('/api/branches/add', payload, {
         headers: { 'Content-Type': 'application/json' }
       })
       .subscribe({
@@ -355,7 +355,7 @@ export class BranchComponent implements OnInit {
         delete vehicle.currentBranch;
       });
     }
-    this.http.put(`http://localhost:3000/api/branches/${this.editingBranch._id}`, payload).subscribe({
+    this.http.put(`/api/branches/${this.editingBranch._id}`, payload).subscribe({
       next: () => {
         alert('Branch updated successfully!');
         this.closeEditBranchPopup();
@@ -370,7 +370,7 @@ export class BranchComponent implements OnInit {
 
   // Toggle Status Active / Inactive
   toggleStatus(branch: any) {
-    this.http.patch(`http://localhost:3000/api/branches/${branch._id}/status`, {}).subscribe(() => {
+    this.http.patch(`/api/branches/${branch._id}/status`, {}).subscribe(() => {
       this.loadBranches();
     });
   }
@@ -386,3 +386,4 @@ export class BranchComponent implements OnInit {
     return fallback.join(', ');
   }
 }
+

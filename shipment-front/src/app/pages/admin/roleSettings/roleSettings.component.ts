@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { NgFor, NgIf } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -45,7 +45,7 @@ export class RoleSettingsComponent implements OnInit {
   }
 
   private loadBranches() {
-    this.http.get<any[]>(`http://localhost:3000/api/branches`)
+    this.http.get<any[]>(`/api/branches`)
       .subscribe({
         next: (data) => {
           this.branches = data || [];
@@ -57,7 +57,7 @@ export class RoleSettingsComponent implements OnInit {
   }
 
   private loadUsers() {
-    this.http.get<any[]>('http://localhost:3000/api/admin/users')
+    this.http.get<any[]>('/api/admin/users')
       .subscribe({
         next: (data) => {
           this.users = data || [];
@@ -93,7 +93,7 @@ export class RoleSettingsComponent implements OnInit {
       originLocIds: this.newUser.branches
     };
 
-    this.http.post('http://localhost:3000/api/admin/users', payload)
+    this.http.post('/api/admin/users', payload)
       .subscribe({
         next: () => {
           this.newUser = {
@@ -149,7 +149,7 @@ export class RoleSettingsComponent implements OnInit {
     };
     if (this.editUser.password) payload.password = this.editUser.password;
 
-    this.http.put(`http://localhost:3000/api/admin/users/${this.editId}`, payload)
+    this.http.put(`/api/admin/users/${this.editId}`, payload)
       .subscribe({
         next: () => {
           this.cancelEdit();
@@ -180,7 +180,7 @@ export class RoleSettingsComponent implements OnInit {
     if (!Number.isFinite(userId)) return;
     if (!confirm('Delete this user?')) return;
 
-    this.http.delete(`http://localhost:3000/api/admin/users/${userId}`)
+    this.http.delete(`/api/admin/users/${userId}`)
       .subscribe({
         next: () => this.loadUsers(),
         error: (err) => alert(err?.error?.message || 'Failed to delete user')
@@ -191,3 +191,4 @@ export class RoleSettingsComponent implements OnInit {
     return !Boolean(row?.isSuperAdminProvisioned);
   }
 }
+

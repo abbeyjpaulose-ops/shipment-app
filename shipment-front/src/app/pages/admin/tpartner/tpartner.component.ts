@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -128,7 +128,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   // Fetch Data
   loadPartners() {
     const requestedoriginLocId = this.getRequestoriginLocId();
-    this.http.get<any[]>(`http://localhost:3000/api/tpartners`, {
+    this.http.get<any[]>(`/api/tpartners`, {
       params: {
         originLocId: requestedoriginLocId
       }
@@ -155,7 +155,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
       alert('Please select a specific branch before adding a transport partner.');
       return;
     }
-    this.http.post('http://localhost:3000/api/tpartners/add', this.newPartner)
+    this.http.post('/api/tpartners/add', this.newPartner)
       .subscribe({
         next: () => {
           alert('Transport Partner added!');
@@ -202,7 +202,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
   }
 
   saveEdit() {
-    this.http.put(`http://localhost:3000/api/tpartners/${this.editing._id}`, this.editing)
+    this.http.put(`/api/tpartners/${this.editing._id}`, this.editing)
       .subscribe(() => {
         alert('Updated Successfully');
         this.editing = null;
@@ -263,13 +263,13 @@ export class TpartnerComponent implements OnInit, OnDestroy {
 
   // Status Toggle
   toggleStatus(p: any) {
-    this.http.patch(`http://localhost:3000/api/tpartners/${p._id}/status`, {})
+    this.http.patch(`/api/tpartners/${p._id}/status`, {})
       .subscribe(() => this.loadPartners());
   }
 
   updateVehicleStatus(p: any, v: any) {
     if (!p?._id || !v?.number) return;
-    this.http.patch(`http://localhost:3000/api/tpartners/${p._id}/vehicle-status`, {
+    this.http.patch(`/api/tpartners/${p._id}/vehicle-status`, {
       vehicleNumber: v.number,
       vehicleStatus: v.vehicleStatus,
       vehicleDailyCost: v.vehicleDailyCost
@@ -334,7 +334,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
     }
 
     candidate.saving = true;
-    this.http.post<any>(`http://localhost:3000/api/tpartners/${partnerId}/daily-payable`, {
+    this.http.post<any>(`/api/tpartners/${partnerId}/daily-payable`, {
       vehicleNumber,
       date: String(candidate.date || this.payableDateFrom || this.payableDateTo || '').trim(),
       amountDue,
@@ -388,7 +388,7 @@ export class TpartnerComponent implements OnInit, OnDestroy {
     }
 
     this.payableCandidatesLoading = true;
-    this.http.get<any>(`http://localhost:3000/api/tpartners/daily-payable-candidates`, {
+    this.http.get<any>(`/api/tpartners/daily-payable-candidates`, {
       params: {
         dateFrom: range.dateFrom,
         dateTo: range.dateTo,
@@ -439,3 +439,4 @@ export class TpartnerComponent implements OnInit, OnDestroy {
     return raw === 'all-hubs' ? 'all' : (raw || 'all');
   }
 }
+

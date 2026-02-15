@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -57,7 +57,7 @@ export class LogsComponent implements OnInit {
     if (this.auditFilters.action) params.action = this.auditFilters.action;
     if (this.auditFilters.user) params.user = this.auditFilters.user;
 
-    this.http.get<any>('http://localhost:3000/api/audit-logs', {
+    this.http.get<any>('/api/audit-logs', {
       headers: new HttpHeaders({ Authorization: `Bearer ${token}` }),
       params
     }).subscribe({
@@ -134,3 +134,4 @@ export class LogsComponent implements OnInit {
     URL.revokeObjectURL(url);
   }
 }
+

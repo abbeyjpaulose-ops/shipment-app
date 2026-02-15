@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -54,7 +54,7 @@ export class ProductComponent implements OnInit {
     const email = localStorage.getItem('email');
     const branch = localStorage.getItem('branch') || '';
     const originLocId = localStorage.getItem('originLocId') || 'all';
-    this.http.get<any[]>(`http://localhost:3000/api/products?email=${email}&originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`)
+    this.http.get<any[]>(`/api/products?email=${email}&originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`)
       .subscribe({
         next: (data) => {
           this.products = data;
@@ -66,9 +66,9 @@ export class ProductComponent implements OnInit {
   loadRateAddressOptions() {
     const branchParams = '?originLocId=all';
     forkJoin({
-      branches: this.http.get<any[]>('http://localhost:3000/api/branches'),
-      hubs: this.http.get<any[]>('http://localhost:3000/api/hubs'),
-      clients: this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist${branchParams}`)
+      branches: this.http.get<any[]>('/api/branches'),
+      hubs: this.http.get<any[]>('/api/hubs'),
+      clients: this.http.get<any[]>(`/api/clients/clientslist${branchParams}`)
     }).subscribe({
       next: ({ branches, hubs, clients }) => {
         const options: Array<{ id: string; label: string }> = [];
@@ -158,7 +158,7 @@ export class ProductComponent implements OnInit {
       return;
     }
     this.ensureRates(this.newProduct);
-    this.http.post('http://localhost:3000/api/products/add', this.newProduct, {
+    this.http.post('/api/products/add', this.newProduct, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: () => {
@@ -179,7 +179,7 @@ export class ProductComponent implements OnInit {
   }
 
   saveEdit() {
-    this.http.put(`http://localhost:3000/api/products/${this.editingProduct._id}`, this.editingProduct)
+    this.http.put(`/api/products/${this.editingProduct._id}`, this.editingProduct)
       .subscribe(() => {
         this.loadProducts();
         this.editingProduct = null;
@@ -193,7 +193,7 @@ export class ProductComponent implements OnInit {
   }
 
   toggleStatus(product: any) {
-    this.http.patch(`http://localhost:3000/api/products/${product._id}/status`, {})
+    this.http.patch(`/api/products/${product._id}/status`, {})
       .subscribe(() => this.loadProducts());
   }
 
@@ -237,3 +237,4 @@ export class ProductComponent implements OnInit {
     }));
   }
 }
+

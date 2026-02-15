@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -76,7 +76,7 @@ export class SuperAdminComponent implements OnInit {
   loadCompanies(): void {
     this.loading = true;
     this.error = '';
-    this.http.get<any>('http://localhost:3000/api/super-admin/companies').subscribe({
+    this.http.get<any>('/api/super-admin/companies').subscribe({
       next: (res) => {
         this.rows = Array.isArray(res?.data) ? res.data : [];
         this.loading = false;
@@ -106,7 +106,7 @@ export class SuperAdminComponent implements OnInit {
       creditDays: Number(this.form.creditDays || 0),
       phoneNumber: this.form.phoneNumber
     };
-    this.http.post<any>('http://localhost:3000/api/super-admin/companies', payload).subscribe({
+    this.http.post<any>('/api/super-admin/companies', payload).subscribe({
       next: () => {
         this.success = 'Company created';
         this.form.email = '';
@@ -134,7 +134,7 @@ export class SuperAdminComponent implements OnInit {
     this.deletingId = row.gstinId;
     this.error = '';
     this.success = '';
-    this.http.delete<any>(`http://localhost:3000/api/super-admin/companies/${row.gstinId}`).subscribe({
+    this.http.delete<any>(`/api/super-admin/companies/${row.gstinId}`).subscribe({
       next: () => {
         this.success = 'Company deleted';
         this.deletingId = null;
@@ -148,7 +148,7 @@ export class SuperAdminComponent implements OnInit {
   }
 
   logout(): void {
-    this.http.post('http://localhost:3000/api/auth/logout', {}).subscribe({
+    this.http.post('/api/auth/logout', {}).subscribe({
       next: () => {
         localStorage.clear();
         window.location.href = '/';
@@ -160,3 +160,4 @@ export class SuperAdminComponent implements OnInit {
     });
   }
 }
+

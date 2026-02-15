@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -102,7 +102,7 @@ export class ClientComponent implements OnInit {
     const effectiveoriginLocId =
       this.cbranch === 'All Hubs' ? 'all-hubs' : this.coriginLocId;
 
-    this.http.get<any[]>(`http://localhost:3000/api/clients?email=${email}&originLocId=${effectiveoriginLocId}`)
+    this.http.get<any[]>(`/api/clients?email=${email}&originLocId=${effectiveoriginLocId}`)
       .subscribe({
         next: (data) => {
           console.log("Clients loaded:", data);
@@ -113,7 +113,7 @@ export class ClientComponent implements OnInit {
   }
 
   loadHubs() {
-    this.http.get<any[]>('http://localhost:3000/api/hubs')
+    this.http.get<any[]>('/api/hubs')
       .subscribe({
         next: (data) => {
           this.hubs = data || [];
@@ -128,7 +128,7 @@ export class ClientComponent implements OnInit {
   loadProducts() {
     const branch = localStorage.getItem('branch') || '';
     const originLocId = localStorage.getItem('originLocId') || 'all';
-    this.http.get<any[]>(`http://localhost:3000/api/products?originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`)
+    this.http.get<any[]>(`/api/products?originLocId=${encodeURIComponent(originLocId)}&branch=${encodeURIComponent(branch)}`)
       .subscribe({
         next: (data) => {
           this.productOptions = data || [];
@@ -140,9 +140,9 @@ export class ClientComponent implements OnInit {
   loadRateAddressOptions() {
     const branchParams = '?originLocId=all';
     forkJoin({
-      branches: this.http.get<any[]>('http://localhost:3000/api/branches'),
-      hubs: this.http.get<any[]>('http://localhost:3000/api/hubs'),
-      clients: this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist${branchParams}`)
+      branches: this.http.get<any[]>('/api/branches'),
+      hubs: this.http.get<any[]>('/api/hubs'),
+      clients: this.http.get<any[]>(`/api/clients/clientslist${branchParams}`)
     }).subscribe({
       next: ({ branches, hubs, clients }) => {
         this.hubs = hubs || [];
@@ -319,7 +319,7 @@ export class ClientComponent implements OnInit {
 
   /** Add Client */
   addClient() {
-    console.log('📤 Sending client data:', this.newClient);
+    console.log('ðŸ“¤ Sending client data:', this.newClient);
 
     this.newClient.branch = localStorage.getItem('branch') || 'All Branches';
     this.newClient.originLocId = localStorage.getItem('originLocId') || 'all';
@@ -343,16 +343,16 @@ export class ClientComponent implements OnInit {
       return;
     }
 
-    this.http.post('http://localhost:3000/api/clients/add', this.newClient, {
+    this.http.post('/api/clients/add', this.newClient, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: (res) => {
-        console.log('✅ Client saved', res);
+        console.log('âœ… Client saved', res);
         alert('Client added successfully!');
         window.location.reload();
       },
       error: (err) => {
-        console.error('❌ Error saving client:', err);
+        console.error('âŒ Error saving client:', err);
         alert('Error: ' + err.error.message);
       }
     });
@@ -364,7 +364,7 @@ export class ClientComponent implements OnInit {
       alert('Please enter a Pin Code for every delivery location.');
       return;
     }
-    this.http.put(`http://localhost:3000/api/clients/${this.editingClient._id}`, this.editingClient)
+    this.http.put(`/api/clients/${this.editingClient._id}`, this.editingClient)
       .subscribe(() => {
         this.loadClients();
         this.closeEditClientPopup();
@@ -373,14 +373,14 @@ export class ClientComponent implements OnInit {
 
   /** Toggle Functions */
   toggleCreditType(client: any) {
-    this.http.patch(`http://localhost:3000/api/clients/${client._id}/credit`, {})
+    this.http.patch(`/api/clients/${client._id}/credit`, {})
       .subscribe(() => this.loadClients());
 
     console.log('Toggled credit type for client:', client._id);
   }
 
   toggleStatus(client: any) {
-    this.http.patch(`http://localhost:3000/api/clients/${client._id}/status`, {})
+    this.http.patch(`/api/clients/${client._id}/status`, {})
       .subscribe(() => this.loadClients());
   }
 
@@ -421,3 +421,4 @@ export class ClientComponent implements OnInit {
     return true;
   }
 }
+

@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
@@ -180,7 +180,7 @@ calculateFinalAmount() {
     }
     const branchParamRaw = this.activeTab === 'stocks' ? originLocId : 'all';
     const branchParam = branchParamRaw === 'all-hubs' ? 'all' : branchParamRaw;
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', {
+    this.http.get<any[]>('/api/newshipments', {
       params: {
         username,
         originLocId: branchParam
@@ -493,7 +493,7 @@ calculateFinalAmount() {
     }
     const manifestId = String(manifest._id || '');
     if (!manifestId) return;
-    this.http.get<any[]>(`http://localhost:3000/api/manifests/${manifestId}/consignments`).subscribe({
+    this.http.get<any[]>(`/api/manifests/${manifestId}/consignments`).subscribe({
       next: (consignments: any[]) => {
         const manifestId = String(manifest._id || '');
         const linkedConsignments = (consignments || []).filter((c) =>
@@ -699,7 +699,7 @@ calculateFinalAmount() {
 
   private loadEligibleConsignments(manifest: any) {
     this.consignmentEditLoading = true;
-    this.http.get<any>(`http://localhost:3000/api/manifests/${manifest._id}/eligible-consignments`, {
+    this.http.get<any>(`/api/manifests/${manifest._id}/eligible-consignments`, {
       }).subscribe({
       next: (res: any) => {
         this.eligibleConsignments = Array.isArray(res?.consignments) ? res.consignments : [];
@@ -764,7 +764,7 @@ calculateFinalAmount() {
         alert('Invalid manifest status.');
         return;
       }
-      updates.push(this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+      updates.push(this.http.put(`/api/manifests/${manifest._id}/status`, {
         status: nextStatus
       }));
     }
@@ -772,7 +772,7 @@ calculateFinalAmount() {
     const nextVehicleNo = String(this.manifestEditVehicleNo || '').trim();
     const currentVehicleNo = String(manifest?.vehicleNo || '').trim();
     if (!isPickup && nextVehicleNo && nextVehicleNo !== currentVehicleNo) {
-      updates.push(this.http.patch(`http://localhost:3000/api/manifests/${manifest._id}/vehicle`, {
+      updates.push(this.http.patch(`/api/manifests/${manifest._id}/vehicle`, {
         vehicleNo: nextVehicleNo
       }));
     }
@@ -782,14 +782,14 @@ calculateFinalAmount() {
     const currentDeliveryId = this.normalizeId(manifest?.deliveryId);
     const deliveryChanged = currentDeliveryType !== deliveryType || currentDeliveryId !== deliveryId;
     if (!isPickup && !isOutForDelivery && deliveryChanged) {
-      updates.push(this.http.patch(`http://localhost:3000/api/manifests/${manifest._id}/delivery`, {
+      updates.push(this.http.patch(`/api/manifests/${manifest._id}/delivery`, {
         deliveryType,
         deliveryId
       }));
     }
 
     if (addShipmentIds.length || removeShipmentIds.length) {
-      updates.push(this.http.patch<any>(`http://localhost:3000/api/manifests/${manifest._id}/consignments`, {
+      updates.push(this.http.patch<any>(`/api/manifests/${manifest._id}/consignments`, {
         addShipmentIds,
         removeShipmentIds
       }));
@@ -852,7 +852,7 @@ calculateFinalAmount() {
     const confirmMsg = `Deliver manifest ${manifest.manifestNumber || ''} for ${consignmentNumbers.length} consignments?`;
     if (!confirm(confirmMsg)) return;
 
-    this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+    this.http.put(`/api/manifests/${manifest._id}/status`, {
       status: 'Completed'
     }).subscribe({
       next: () => {
@@ -879,7 +879,7 @@ calculateFinalAmount() {
     const confirmMsg = `Cancel manifest ${manifest.manifestNumber || ''} for ${consignmentNumbers.length} consignments?`;
     if (!confirm(confirmMsg)) return;
 
-      this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+      this.http.put(`/api/manifests/${manifest._id}/status`, {
         status: 'Cancelled'
       }).subscribe({
         next: () => {
@@ -907,7 +907,7 @@ calculateFinalAmount() {
     const confirmMsg = `Uncancel manifest ${manifest.manifestNumber || ''} for ${consignmentNumbers.length} consignments?`;
     if (!confirm(confirmMsg)) return;
 
-      this.http.put(`http://localhost:3000/api/manifests/${manifest._id}/status`, {
+      this.http.put(`/api/manifests/${manifest._id}/status`, {
         status: 'Scheduled'
       }).subscribe({
         next: () => {
@@ -1072,7 +1072,7 @@ calculateFinalAmount() {
       params.originType = origin.originType;
       params.originLocId = origin.originLocId;
     }
-    this.http.get<any[]>('http://localhost:3000/api/manifests', { params }).subscribe({
+    this.http.get<any[]>('/api/manifests', { params }).subscribe({
       next: (res: any[]) => {
         this.manifests = Array.isArray(res) ? res : [];
         this.selectedManifestIds = new Set();
@@ -1518,7 +1518,7 @@ calculateFinalAmount() {
         currentVehicleOwnerId: null
       };
       return this.http.put(
-        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
+        `/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
         payload
       );
     });
@@ -1596,13 +1596,13 @@ calculateFinalAmount() {
     const manifestUpdates = Object.values(this.manifestEditsById || {});
     const updateManifests$ = manifestUpdates.length
       ? forkJoin(manifestUpdates.map((m: any) =>
-        this.http.put(`http://localhost:3000/api/manifest/${m._id}`, m)
+        this.http.put(`/api/manifest/${m._id}`, m)
       ))
       : of([]);
 
     updateManifests$.subscribe({
       next: () => {
-        this.http.put(`http://localhost:3000/api/newshipments/${payload.consignmentNumber}`, payload)
+        this.http.put(`/api/newshipments/${payload.consignmentNumber}`, payload)
           .subscribe({
             next: () => {
               console.log('?o. Stock updated');
@@ -1788,7 +1788,7 @@ calculateFinalAmount() {
       productRef: product
     };
 
-    this.http.get<any[]>(`http://localhost:3000/api/manifest/by-consignment/${encodeURIComponent(consignmentNumber)}`)
+    this.http.get<any[]>(`/api/manifest/by-consignment/${encodeURIComponent(consignmentNumber)}`)
       .subscribe({
         next: (res: any[]) => {
           this.manifestAdjustments = res || [];
@@ -2090,7 +2090,7 @@ removeRoutePoint(index: number) {
 
 loadBranches() {
   const email = localStorage.getItem('email');
-  this.http.get<any[]>(`http://localhost:3000/api/branches?email=${email}`)
+  this.http.get<any[]>(`/api/branches?email=${email}`)
     .subscribe({
       next: (data) => {
         console.log("Branches loaded:", data);
@@ -2105,7 +2105,7 @@ loadBranches() {
 
 loadHubs() {
   const email = localStorage.getItem('email');
-  this.http.get<any[]>(`http://localhost:3000/api/hubs?email=${email}`)
+  this.http.get<any[]>(`/api/hubs?email=${email}`)
     .subscribe({
       next: (data) => {
         console.log("Hubs loaded:", data);
@@ -2215,7 +2215,7 @@ onRoutePointChange() {
     window.addEventListener('storage', this.onStorageChange);
 
     // Clients list
-    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/clients/clientslist?emailId=${this.email}`)
     .subscribe({
       next: data => this.clientList = data,
       error: err => console.error('Error fetching client list', err),
@@ -2223,7 +2223,7 @@ onRoutePointChange() {
     });
 
     // Guests list
-    this.http.get<any[]>(`http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/guests/guestslist?emailId=${this.email}`)
     .subscribe({
       next: data => this.guestList = data,
       error: err => console.error('Error fetching guest list', err),
@@ -2231,7 +2231,7 @@ onRoutePointChange() {
     });
 
     // Packages list
-    this.http.get<any[]>(`http://localhost:3000/api/pkgs/pkglist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/pkgs/pkglist?emailId=${this.email}`)
     .subscribe({
       next: data => this.pkgList = data,
       error: err => console.error('Error fetching package list', err),
@@ -2250,7 +2250,7 @@ onRoutePointChange() {
       const originLocIdParam = this.originLocId || localStorage.getItem('originLocId') || 'all';
       params.originLocId = originLocIdParam === 'all-hubs' ? 'all' : originLocIdParam;
     }
-    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params })
+    this.http.get<any[]>('/api/products/productlist', { params })
       .subscribe({
       next: data => this.productList = data,
       error: err => console.error('Error fetching product list', err),
@@ -2414,15 +2414,15 @@ private executeDelivery(consignments: any[], onSuccess?: () => void) {
         }
       }
       return this.http.put(
-        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
+        `/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
         payload
     );
   });
 
   completionTargets.forEach((target) => {
     const endpoint = target.ownerType === 'Hub'
-      ? `http://localhost:3000/api/hubs/${target.ownerId}/vehicle-status`
-      : `http://localhost:3000/api/branches/${target.ownerId}/vehicle-status`;
+      ? `/api/hubs/${target.ownerId}/vehicle-status`
+      : `/api/branches/${target.ownerId}/vehicle-status`;
     vehicleUpdates.push(
       this.http.patch(endpoint, {
         vehicleNo: target.vehicleNo,
@@ -2596,6 +2596,7 @@ private buildManifestPrintHtml(manifests: any[]): string {
 }
 
 }
+
 
 
 

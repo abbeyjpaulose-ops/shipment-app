@@ -1,4 +1,4 @@
-import { inject } from '@angular/core';
+﻿import { inject } from '@angular/core';
 import { CanActivateChildFn, Router, UrlTree } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { catchError, map, of } from 'rxjs';
@@ -21,7 +21,7 @@ export const branchRequiredGuard: CanActivateChildFn = (childRoute) => {
   const token = localStorage.getItem('token');
   if (!token) return router.createUrlTree(['/']);
 
-  return http.get<any[]>('http://localhost:3000/api/branches').pipe(
+  return http.get<any[]>('/api/branches').pipe(
     map((branches) => {
       const count = Array.isArray(branches) ? branches.length : 0;
       if (count > 0) return true;
@@ -30,4 +30,5 @@ export const branchRequiredGuard: CanActivateChildFn = (childRoute) => {
     catchError(() => of(router.createUrlTree(['/home', 'Branches']) as UrlTree))
   );
 };
+
 

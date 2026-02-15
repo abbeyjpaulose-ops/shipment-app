@@ -1,5 +1,6 @@
 const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 const SAME_SITE_VALUES = new Set(['strict', 'lax', 'none']);
+const LOCAL_CORS_ORIGINS = ['http://localhost:4200', 'http://127.0.0.1:4200'];
 
 export function isTruthy(value) {
   return TRUE_VALUES.has(String(value || '').trim().toLowerCase());
@@ -73,8 +74,11 @@ export function getAllowedCorsOrigins() {
     .map((origin) => origin.trim())
     .filter(Boolean);
   if (configured.length) return configured;
-  return [
-    'http://localhost:4200',
-    'http://127.0.0.1:4200'
-  ];
+
+  const environment = String(process.env.NODE_ENV || '').trim().toLowerCase();
+  if (environment === 'production') {
+    throw new Error('CORS_ORIGINS must be configured in production');
+  }
+
+  return LOCAL_CORS_ORIGINS;
 }

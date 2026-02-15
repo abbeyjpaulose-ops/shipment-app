@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+﻿import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, provideHttpClient } from '@angular/common/http';
@@ -175,7 +175,7 @@ calculateFinalAmount() {
     } else {
       params.originLocId = branchParam;
     }
-    this.http.get<any[]>('http://localhost:3000/api/newshipments', { params }).subscribe({
+    this.http.get<any[]>('/api/newshipments', { params }).subscribe({
       next: (res: any[]) => {
         console.log('[stocks][load]', {
           originLocId,
@@ -825,7 +825,7 @@ calculateFinalAmount() {
       const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
       const payload = { ...consignment, shipmentStatus: 'Deleted from Stocks' };
       return this.http.put(
-        `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
+        `/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
         payload
       );
     });
@@ -885,7 +885,7 @@ calculateFinalAmount() {
     const manifestUpdates = Object.values(this.manifestEditsById || {});
     const updateManifests$ = manifestUpdates.length
       ? forkJoin(manifestUpdates.map((m: any) =>
-        this.http.put(`http://localhost:3000/api/manifest/${m._id}`, m)
+        this.http.put(`/api/manifest/${m._id}`, m)
       ))
       : of([]);
 
@@ -899,7 +899,7 @@ calculateFinalAmount() {
           shipmentStatus: payload.shipmentStatus
         });
         const shipmentParam = shipmentId ? `?shipmentId=${encodeURIComponent(shipmentId)}` : '';
-        this.http.put(`http://localhost:3000/api/newshipments/${consignmentNumber}${shipmentParam}`, payload)
+        this.http.put(`/api/newshipments/${consignmentNumber}${shipmentParam}`, payload)
           .subscribe({
             next: (res: any) => {
               console.log('[stocks:update] response', {
@@ -1088,7 +1088,7 @@ calculateFinalAmount() {
       productRef: product
     };
 
-    this.http.get<any[]>(`http://localhost:3000/api/manifest/by-consignment/${encodeURIComponent(consignmentNumber)}`)
+    this.http.get<any[]>(`/api/manifest/by-consignment/${encodeURIComponent(consignmentNumber)}`)
       .subscribe({
         next: (res: any[]) => {
           this.manifestAdjustments = res || [];
@@ -1419,7 +1419,7 @@ removeRoutePoint(index: number) {
 
 loadBranches() {
   const email = localStorage.getItem('email');
-  this.http.get<any[]>(`http://localhost:3000/api/branches?email=${email}&vehicleStatusNot=offline`)
+  this.http.get<any[]>(`/api/branches?email=${email}&vehicleStatusNot=offline`)
     .subscribe({
       next: (data) => {
         console.log("Branches loaded:", data);
@@ -1433,7 +1433,7 @@ loadBranches() {
 
 loadHubs() {
   const email = localStorage.getItem('email');
-  this.http.get<any[]>(`http://localhost:3000/api/hubs?email=${email}&vehicleStatusNot=offline`)
+  this.http.get<any[]>(`/api/hubs?email=${email}&vehicleStatusNot=offline`)
     .subscribe({
       next: (data) => {
         console.log("Hubs loaded:", data);
@@ -1459,7 +1459,7 @@ private loadTransportPartners(useAllOrigins = false) {
       transportParams.originLocId = originLocIdFallback === 'all-hubs' ? 'all' : originLocIdFallback;
     }
   }
-  this.http.get<any>(`http://localhost:3000/api/tpartners/tpartnerslist`, { params: transportParams })
+  this.http.get<any>(`/api/tpartners/tpartnerslist`, { params: transportParams })
     .subscribe({
       next: data => this.transportPartners = Array.isArray(data) ? data : (data?.value || []),
       error: err => console.error('Error fetching transport partners', err),
@@ -1819,7 +1819,7 @@ getBranchVehicles(): string[] {
         status: manifestStatus,
         consignments
       };
-      this.http.post<any>('http://localhost:3000/api/manifests', payload).subscribe({
+      this.http.post<any>('/api/manifests', payload).subscribe({
         next: (res) => {
           const manifestNumber = res?.manifest?.manifestNumber || '';
           const reusedManifest = Boolean(res?.reused);
@@ -1859,7 +1859,7 @@ getBranchVehicles(): string[] {
       status: manifestStatus,
       consignments
     };
-    this.http.post<any>('http://localhost:3000/api/manifests', payload).subscribe({
+    this.http.post<any>('/api/manifests', payload).subscribe({
       next: (res) => {
         const manifestNumber = res?.manifest?.manifestNumber || '';
         const reusedManifest = Boolean(res?.reused);
@@ -1935,7 +1935,7 @@ onEditingPaymentModeChange() {
     window.addEventListener('storage', this.onStorageChange);
 
     // Clients list
-    this.http.get<any[]>(`http://localhost:3000/api/clients/clientslist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/clients/clientslist?emailId=${this.email}`)
     .subscribe({
       next: data => this.clientList = data,
       error: err => console.error('Error fetching client list', err),
@@ -1943,7 +1943,7 @@ onEditingPaymentModeChange() {
     });
 
     // Guests list
-    this.http.get<any[]>(`http://localhost:3000/api/guests/guestslist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/guests/guestslist?emailId=${this.email}`)
     .subscribe({
       next: data => this.guestList = data,
       error: err => console.error('Error fetching guest list', err),
@@ -1951,7 +1951,7 @@ onEditingPaymentModeChange() {
     });
 
     // Packages list
-    this.http.get<any[]>(`http://localhost:3000/api/pkgs/pkglist?emailId=${this.email}`)
+    this.http.get<any[]>(`/api/pkgs/pkglist?emailId=${this.email}`)
     .subscribe({
       next: data => this.pkgList = data,
       error: err => console.error('Error fetching package list', err),
@@ -1970,7 +1970,7 @@ onEditingPaymentModeChange() {
       const originLocIdFallback = this.originLocId || localStorage.getItem('originLocId') || 'all';
       productParams.originLocId = originLocIdFallback === 'all-hubs' ? 'all' : originLocIdFallback;
     }
-    this.http.get<any[]>('http://localhost:3000/api/products/productlist', { params: productParams })
+    this.http.get<any[]>('/api/products/productlist', { params: productParams })
     .subscribe({
       next: data => this.productList = data,
       error: err => console.error('Error fetching product list', err),
@@ -2159,7 +2159,7 @@ finalizeManifestation() {
     const shipmentParam = shipmentId ? `?shipmentId=${shipmentId}` : '';
 
     return this.http.put(
-      `http://localhost:3000/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
+      `/api/newshipments/${consignment.consignmentNumber}${shipmentParam}`,
       payload
     );
   });
@@ -2211,7 +2211,7 @@ private updateInternalVehicleStatuses(status: string) {
       const key = `branch:${originLocId}:${vehicleNo}`;
       if (seen.has(key)) return;
       seen.add(key);
-      calls.push(this.http.patch(`http://localhost:3000/api/branches/${originLocId}/vehicle-status`, {
+      calls.push(this.http.patch(`/api/branches/${originLocId}/vehicle-status`, {
         vehicleNo,
         vehicleStatus: status
       }));
@@ -2222,7 +2222,7 @@ private updateInternalVehicleStatuses(status: string) {
       const key = `hub:${hubId}:${vehicleNo}`;
       if (seen.has(key)) return;
       seen.add(key);
-      calls.push(this.http.patch(`http://localhost:3000/api/hubs/${hubId}/vehicle-status`, {
+      calls.push(this.http.patch(`/api/hubs/${hubId}/vehicle-status`, {
         vehicleNo,
         vehicleStatus: status
       }));
@@ -2233,7 +2233,7 @@ private updateInternalVehicleStatuses(status: string) {
         const key = `branch:${originLocId}:${vehicleNo}`;
         if (!seen.has(key)) {
           seen.add(key);
-          calls.push(this.http.patch(`http://localhost:3000/api/branches/${originLocId}/vehicle-status`, {
+          calls.push(this.http.patch(`/api/branches/${originLocId}/vehicle-status`, {
             vehicleNo,
             vehicleStatus: status
           }));
@@ -2246,7 +2246,7 @@ private updateInternalVehicleStatuses(status: string) {
         const key = `hub:${hubId}:${vehicleNo}`;
         if (!seen.has(key)) {
           seen.add(key);
-          calls.push(this.http.patch(`http://localhost:3000/api/hubs/${hubId}/vehicle-status`, {
+          calls.push(this.http.patch(`/api/hubs/${hubId}/vehicle-status`, {
             vehicleNo,
             vehicleStatus: status
           }));
@@ -2352,6 +2352,7 @@ printReceipts() {
 }
 
 }
+
 
 
 

@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+﻿import { Component, HostListener, OnInit } from '@angular/core';
 import { RouterOutlet, RouterLink } from '@angular/router';
 import { NgIf, NgFor } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -34,7 +34,7 @@ export class HomeComponent implements OnInit {
 
   ngOnInit() {
     if (this.isAdmin && this.username) {
-      this.http.get<any[]>(`http://localhost:3000/api/branches/by-user/${this.username}`)
+      this.http.get<any[]>(`/api/branches/by-user/${this.username}`)
         .subscribe(data => {
           const options = (data || [])
             .map((b: any) => ({
@@ -177,7 +177,7 @@ export class HomeComponent implements OnInit {
   private enrichBranchOptionLabels() {
     if (!this.branchOptions.length) return;
 
-    this.http.get<any[]>(`http://localhost:3000/api/branches`).subscribe({
+    this.http.get<any[]>(`/api/branches`).subscribe({
       next: (branches) => {
         const byId = new Map(
           (branches || []).map((b: any) => [String(b?._id || ''), this.getBranchOptionLabel(b)])
@@ -239,7 +239,7 @@ export class HomeComponent implements OnInit {
   }
 
   private performLogout() {
-    this.http.post('http://localhost:3000/api/auth/logout', {}).subscribe({
+    this.http.post('/api/auth/logout', {}).subscribe({
       next: () => {
         localStorage.clear();
         window.location.href = '/';
@@ -251,4 +251,5 @@ export class HomeComponent implements OnInit {
     });
   }
 }
+
 

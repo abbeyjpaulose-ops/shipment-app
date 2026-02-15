@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+﻿import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -138,7 +138,7 @@ export class UsersComponent implements OnInit {
     if (this.summaryDirectionFilter !== 'all') {
       params.direction = this.summaryDirectionFilter;
     }
-    this.http.get<any>('http://localhost:3000/api/payments/summary', { params }).subscribe({
+    this.http.get<any>('/api/payments/summary', { params }).subscribe({
       next: (res) => {
         const data = res?.data || {};
         this.paymentData = {
@@ -168,7 +168,7 @@ export class UsersComponent implements OnInit {
     if (this.transactionDirectionFilter !== 'all') {
       params.direction = this.transactionDirectionFilter;
     }
-    this.http.get<any>('http://localhost:3000/api/payments/transactions', { params }).subscribe({
+    this.http.get<any>('/api/payments/transactions', { params }).subscribe({
       next: (res) => {
         this.allTransactions = Array.isArray(res?.data) ? res.data : [];
         this.transactionListLoading = false;
@@ -191,7 +191,7 @@ export class UsersComponent implements OnInit {
     if (this.paymentDirectionFilter !== 'all') {
       params.direction = this.paymentDirectionFilter;
     }
-    this.http.get<any>('http://localhost:3000/api/payments/records', { params }).subscribe({
+    this.http.get<any>('/api/payments/records', { params }).subscribe({
       next: (res) => {
         this.allPayments = Array.isArray(res?.data) ? res.data : [];
         this.paymentListLoading = false;
@@ -454,7 +454,7 @@ export class UsersComponent implements OnInit {
     const params: Record<string, string> = {};
     if (direction) params.direction = direction;
     this.http
-      .get<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions`, { params })
+      .get<any>(`/api/payments/${entityType}/${entityId}/transactions`, { params })
       .subscribe({
         next: (res) => {
           this.transactions = Array.isArray(res?.transactions) ? res.transactions : [];
@@ -487,7 +487,7 @@ export class UsersComponent implements OnInit {
     this.invoiceOutstandingLoading = true;
     this.invoiceOutstandingError = '';
     this.http
-      .get<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/invoices/outstanding`)
+      .get<any>(`/api/payments/${entityType}/${entityId}/invoices/outstanding`)
       .subscribe({
         next: (res) => {
           const rows = Array.isArray(res?.data) ? res.data : [];
@@ -570,7 +570,7 @@ export class UsersComponent implements OnInit {
         .filter(Boolean);
     }
     this.http
-      .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions`, payload)
+      .post<any>(`/api/payments/${entityType}/${entityId}/transactions`, payload)
       .subscribe({
         next: (res) => {
           if (res?.transaction) {
@@ -605,7 +605,7 @@ export class UsersComponent implements OnInit {
     this.syncError = '';
     this.backfillError = '';
     this.syncLoading = true;
-    this.http.post<any>('http://localhost:3000/api/payments/sync/generated-invoices', {}).subscribe({
+    this.http.post<any>('/api/payments/sync/generated-invoices', {}).subscribe({
       next: () => {
         this.syncLoading = false;
         this.loadPayments();
@@ -627,7 +627,7 @@ export class UsersComponent implements OnInit {
     if (this.backfillLoading) return;
     this.backfillError = '';
     this.backfillLoading = true;
-    this.http.post<any>('http://localhost:3000/api/payments/transactions/backfill-invoice-ids', {})
+    this.http.post<any>('/api/payments/transactions/backfill-invoice-ids', {})
       .subscribe({
         next: (res) => {
           this.backfillLoading = false;
@@ -662,7 +662,7 @@ export class UsersComponent implements OnInit {
     const payload: any = { totalDue };
     if (direction) payload.direction = direction;
     this.http
-      .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/summary/due`, payload)
+      .post<any>(`/api/payments/${entityType}/${entityId}/summary/due`, payload)
       .subscribe({
         next: (res) => {
           if (res?.summary) {
@@ -694,7 +694,7 @@ export class UsersComponent implements OnInit {
     const { entityType, entityId } = this.activeEntity;
     this.transactionsLoading = true;
     this.http
-      .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions/${tx._id}/void`, {
+      .post<any>(`/api/payments/${entityType}/${entityId}/transactions/${tx._id}/void`, {
         voidReason
       })
       .subscribe({
@@ -774,3 +774,4 @@ export class UsersComponent implements OnInit {
     window.location.assign(target);
   }
 }
+
