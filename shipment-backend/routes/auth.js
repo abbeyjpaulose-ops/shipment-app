@@ -6,6 +6,14 @@ import Profile from '../models/Profile.js';
 import AuditLog from '../models/AuditLog.js';
 import Branch from '../models/Branch.js';
 import { requireAuth } from '../middleware/auth.js';
+import {
+  getAuthCookieName,
+  getAuthCookieOptions,
+  getJwtExpiresIn,
+  getJwtSecret,
+  shouldIncludeTokenInBody,
+  shouldSetAuthCookie
+} from '../services/security.js';
 
 const router = express.Router();
 
@@ -20,11 +28,11 @@ router.post('/login', async (req, res) => {
 
     // Admin/company accounts live in User; regular users live in Profile.
     let accountType = 'user';
-    let account = await User.findOne({ username: normalizedUsername });
+    let account = await User.findOne({ username: normalizedUsername }).select('+passwordHash');
 
     if (!account) {
       accountType = 'profile';
-      account = await Profile.findOne({ username: normalizedUsername });
+      account = await Profile.findOne({ username: normalizedUsername }).select('+passwordHash');
     }
 
     if (!account) {
@@ -60,6 +68,13 @@ router.post('/login', async (req, res) => {
       gstin = company?.GSTIN || null;
     }
 
+    let jwtSecret = '';
+    try {
+      jwtSecret = getJwtSecret();
+    } catch (configErr) {
+      return res.status(500).json({ message: configErr.message || 'Authentication configuration error' });
+    }
+
     const token = jwt.sign(
       {
         id: gstinId,
@@ -70,8 +85,8 @@ router.post('/login', async (req, res) => {
         accountType,
         originLocIds
       },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '1h' }
+      jwtSecret,
+      { expiresIn: getJwtExpiresIn() }
     );
 
     try {
@@ -100,7 +115,9 @@ router.post('/login', async (req, res) => {
       branchNames = ['All Branches'];
     } else if (originLocId) {
       const ids = Array.from(new Set([originLocId, ...(originLocIds || [])].map((id) => String(id))));
-      const branches = await Branch.find({ _id: { $in: ids } }).select('_id branchName').lean();
+      const branches = await Branch.find({ _id: { $in: ids }, GSTIN_ID: gstinId })
+        .select('_id branchName')
+        .lean();
       const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
       branchName = branchNameById.get(String(originLocId)) || '';
       branchNames = (originLocIds || [])
@@ -108,8 +125,11 @@ router.post('/login', async (req, res) => {
         .filter(Boolean);
     }
 
-    return res.json({
-      token,
+    if (shouldSetAuthCookie()) {
+      res.cookie(getAuthCookieName(), token, getAuthCookieOptions());
+    }
+
+    const responsePayload = {
       username: account.username,
       role: account.role,
       email: account.email,
@@ -120,9 +140,14 @@ router.post('/login', async (req, res) => {
       branchNames,
       GSTIN_ID: gstinId,
       GSTIN: gstin
-    });
+    };
+    if (shouldIncludeTokenInBody()) {
+      responsePayload.token = token;
+    }
+
+    return res.json(responsePayload);
   } catch (err) {
-    console.error('Error in /login route:', err);
+    console.error('Error in /login route:', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -145,6 +170,16 @@ router.post('/logout', requireAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Audit log write failed:', err.message);
+  }
+
+  if (shouldSetAuthCookie()) {
+    const cookieOptions = getAuthCookieOptions();
+    res.clearCookie(getAuthCookieName(), {
+      path: cookieOptions.path,
+      secure: cookieOptions.secure,
+      sameSite: cookieOptions.sameSite,
+      httpOnly: cookieOptions.httpOnly
+    });
   }
 
   res.json({ success: true });

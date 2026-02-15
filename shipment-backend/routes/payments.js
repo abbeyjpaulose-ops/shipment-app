@@ -3,6 +3,7 @@ import mongoose from 'mongoose';
 import Payment from '../models/Payment/Payment.js';
 import PaymentEntitySummary from '../models/Payment/PaymentEntitySummary.js';
 import PaymentTransaction from '../models/Payment/PaymentTransaction.js';
+import PaymentAllocation from '../models/Payment/PaymentAllocation.js';
 import GeneratedInvoice from '../models/NewShipment/NewShipmentGeneratedInvoice.js';
 import Shipment from '../models/NewShipment/NewShipmentShipment.js';
 import Client from '../models/Client.js';
@@ -51,6 +52,167 @@ function normalizePaymentStatus(raw) {
 
 function formatPaymentStatus(raw) {
   return normalizePaymentStatus(raw) === 'paid' ? 'Paid' : 'Pending';
+}
+
+function normalizeMoney(raw) {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) return 0;
+  return Number(value.toFixed(2));
+}
+
+function getInvoiceTotal(invoiceDoc) {
+  const consignments = Array.isArray(invoiceDoc?.consignments) ? invoiceDoc.consignments : [];
+  const total = consignments.reduce((sum, item) => sum + Number(item?.finalAmount || 0), 0);
+  return normalizeMoney(total);
+}
+
+function canUseInvoiceAllocations(entityType, direction) {
+  return String(entityType || '').trim() === 'client' &&
+    String(direction || '').trim().toLowerCase() === 'receivable';
+}
+
+function normalizeAllocationInput(allocationsRaw) {
+  if (!Array.isArray(allocationsRaw)) return [];
+  const normalized = [];
+  allocationsRaw.forEach((rawItem, idx) => {
+    const amount = Number(rawItem?.amount);
+    const invoiceId = String(rawItem?.invoiceId || '').trim();
+    const invoiceNumberValue = String(rawItem?.invoiceNumber ?? '').trim();
+    const invoiceNumber = invoiceNumberValue ? Number(invoiceNumberValue) : null;
+    const notes = String(rawItem?.notes || '').trim();
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error(`Invalid allocation amount at row ${idx + 1}`);
+    }
+    if (!invoiceId && !Number.isFinite(invoiceNumber)) {
+      throw new Error(`Missing invoice identifier at row ${idx + 1}`);
+    }
+    if (invoiceId && !mongoose.Types.ObjectId.isValid(invoiceId)) {
+      throw new Error(`Invalid invoiceId at row ${idx + 1}`);
+    }
+    normalized.push({
+      amount: normalizeMoney(amount),
+      invoiceId: invoiceId || '',
+      invoiceNumber: Number.isFinite(invoiceNumber) ? Number(invoiceNumber) : null,
+      notes
+    });
+  });
+  return normalized;
+}
+
+async function resolveAndValidateAllocations({
+  gstinId,
+  entityType,
+  entityId,
+  direction,
+  paymentAmount,
+  allocationsRaw
+}) {
+  const normalizedAllocations = normalizeAllocationInput(allocationsRaw);
+  if (!normalizedAllocations.length) return [];
+  if (!canUseInvoiceAllocations(entityType, direction)) {
+    throw new Error('Invoice allocations are allowed only for client receivable payments');
+  }
+
+  const invoiceIds = Array.from(
+    new Set(
+      normalizedAllocations
+        .map((item) => String(item.invoiceId || '').trim())
+        .filter(Boolean)
+    )
+  );
+  const invoiceNumbers = Array.from(
+    new Set(
+      normalizedAllocations
+        .map((item) => item.invoiceNumber)
+        .filter((value) => Number.isFinite(value))
+    )
+  );
+
+  const invoices = await GeneratedInvoice.find({
+    GSTIN_ID: gstinId,
+    billingClientId: entityId,
+    status: { $nin: ['cancelled', 'deleted'] },
+    $or: [
+      ...(invoiceIds.length ? [{ _id: { $in: invoiceIds.map((id) => new mongoose.Types.ObjectId(id)) } }] : []),
+      ...(invoiceNumbers.length ? [{ invoiceNumber: { $in: invoiceNumbers } }] : [])
+    ]
+  })
+    .select('_id invoiceNumber consignments billingClientId')
+    .lean();
+
+  const invoiceById = new Map((invoices || []).map((inv) => [String(inv?._id || ''), inv]));
+  const invoiceByNumber = new Map(
+    (invoices || [])
+      .filter((inv) => Number.isFinite(Number(inv?.invoiceNumber)))
+      .map((inv) => [Number(inv.invoiceNumber), inv])
+  );
+
+  const mergedByInvoiceId = new Map();
+  for (const item of normalizedAllocations) {
+    const byId = item.invoiceId ? invoiceById.get(String(item.invoiceId)) : null;
+    const byNumber = Number.isFinite(item.invoiceNumber) ? invoiceByNumber.get(Number(item.invoiceNumber)) : null;
+    const invoice = byId || byNumber || null;
+    if (!invoice?._id) {
+      throw new Error('One or more allocation invoices not found for this client');
+    }
+    const invoiceId = String(invoice._id);
+    const current = mergedByInvoiceId.get(invoiceId) || {
+      invoiceId,
+      invoiceNumber: Number(invoice.invoiceNumber || 0) || null,
+      amount: 0,
+      notes: []
+    };
+    current.amount = normalizeMoney(current.amount + normalizeMoney(item.amount));
+    if (item.notes) current.notes.push(item.notes);
+    mergedByInvoiceId.set(invoiceId, current);
+  }
+
+  const mergedAllocations = Array.from(mergedByInvoiceId.values());
+  const totalAllocated = normalizeMoney(
+    mergedAllocations.reduce((sum, item) => sum + normalizeMoney(item.amount), 0)
+  );
+  if (totalAllocated > normalizeMoney(paymentAmount) + 0.0001) {
+    throw new Error('Allocated total cannot exceed payment amount');
+  }
+
+  const allocationAgg = await PaymentAllocation.aggregate([
+    {
+      $match: {
+        GSTIN_ID: gstinId,
+        entityType: 'client',
+        entityId: String(entityId),
+        direction: 'receivable',
+        invoiceId: { $in: mergedAllocations.map((item) => new mongoose.Types.ObjectId(item.invoiceId)) },
+        status: { $ne: 'voided' }
+      }
+    },
+    {
+      $group: {
+        _id: '$invoiceId',
+        totalAllocated: { $sum: '$amount' }
+      }
+    }
+  ]);
+  const allocatedByInvoiceId = new Map(
+    (allocationAgg || []).map((row) => [String(row?._id || ''), normalizeMoney(row?.totalAllocated || 0)])
+  );
+
+  for (const item of mergedAllocations) {
+    const invoice = invoiceById.get(String(item.invoiceId));
+    const invoiceTotal = getInvoiceTotal(invoice);
+    const alreadyAllocated = normalizeMoney(allocatedByInvoiceId.get(String(item.invoiceId)) || 0);
+    const outstanding = Math.max(normalizeMoney(invoiceTotal - alreadyAllocated), 0);
+    if (normalizeMoney(item.amount) > outstanding + 0.0001) {
+      throw new Error(`Allocation exceeds outstanding amount for invoice ${invoice?.invoiceNumber || ''}`.trim());
+    }
+  }
+
+  return mergedAllocations.map((item) => ({
+    invoiceId: item.invoiceId,
+    invoiceNumber: item.invoiceNumber,
+    amount: normalizeMoney(item.amount),
+    notes: item.notes.join(' | ')
+  }));
 }
 
 router.get('/summary', requireAuth, async (req, res) => {
@@ -235,6 +397,30 @@ router.get('/transactions', requireAuth, async (req, res) => {
     const transactions = await PaymentTransaction.find(txQuery)
       .sort({ transactionDate: -1, createdAt: -1 })
       .lean();
+    const transactionIds = (transactions || []).map((tx) => tx?._id).filter(Boolean);
+    const allocations = transactionIds.length
+      ? await PaymentAllocation.find({
+          transactionId: { $in: transactionIds }
+        })
+          .select('transactionId invoiceId invoiceNumber amount status voidedAt voidReason notes')
+          .lean()
+      : [];
+    const allocationsByTransactionId = new Map();
+    (allocations || []).forEach((row) => {
+      const key = String(row?.transactionId || '');
+      if (!key) return;
+      const arr = allocationsByTransactionId.get(key) || [];
+      arr.push({
+        invoiceId: row?.invoiceId || null,
+        invoiceNumber: Number(row?.invoiceNumber || 0) || null,
+        amount: Number(row?.amount || 0),
+        status: row?.status || 'posted',
+        voidedAt: row?.voidedAt || null,
+        voidReason: row?.voidReason || '',
+        notes: row?.notes || ''
+      });
+      allocationsByTransactionId.set(key, arr);
+    });
 
     const entityIdsByType = Object.fromEntries(
       ENTITY_TYPES.map((entityType) => [entityType, new Set()])
@@ -285,7 +471,8 @@ router.get('/transactions', requireAuth, async (req, res) => {
           status: tx.status || 'posted',
           voidedAt: tx.voidedAt || null,
           voidReason: tx.voidReason || '',
-          createdAt: tx.createdAt || null
+          createdAt: tx.createdAt || null,
+          allocations: allocationsByTransactionId.get(String(tx._id || '')) || []
         };
       })
       .filter(Boolean);
@@ -406,6 +593,114 @@ router.post('/sync/generated-invoices', requireAuth, requireAdmin, async (req, r
   }
 });
 
+router.get('/:entityType/:entityId/invoices/outstanding', requireAuth, async (req, res) => {
+  try {
+    const gstinId = Number(req.user.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const entityType = String(req.params.entityType || '').trim();
+    const entityId = String(req.params.entityId || '').trim();
+    if (entityType !== 'client') {
+      return res.status(400).json({ message: 'Invoice outstanding is supported only for client entityType' });
+    }
+    if (!entityId) return res.status(400).json({ message: 'Missing entityId' });
+
+    const hasObjectIdFormat = mongoose.Types.ObjectId.isValid(entityId);
+    const clientMatch = hasObjectIdFormat
+      ? {
+          $or: [
+            { billingClientId: new mongoose.Types.ObjectId(entityId) },
+            { $expr: { $eq: [{ $toString: '$billingClientId' }, entityId] } }
+          ]
+        }
+      : { $expr: { $eq: [{ $toString: '$billingClientId' }, entityId] } };
+
+    const invoices = await GeneratedInvoice.find({
+      GSTIN_ID: gstinId,
+      ...clientMatch,
+      status: { $nin: ['cancelled', 'deleted'] }
+    })
+      .select('_id invoiceNumber invoiceCode invoiceDisplayNumber consignments createdAt updatedAt status')
+      .sort({ invoiceNumber: -1, createdAt: -1 })
+      .lean();
+
+    if (!invoices.length) {
+      return res.json({
+        data: [],
+        summary: {
+          invoiceCount: 0,
+          totalDue: 0,
+          totalAllocated: 0,
+          totalBalance: 0
+        }
+      });
+    }
+
+    const invoiceIds = invoices.map((inv) => inv._id).filter(Boolean);
+    const allocationAgg = await PaymentAllocation.aggregate([
+      {
+        $match: {
+          GSTIN_ID: gstinId,
+          entityType: 'client',
+          entityId: String(entityId),
+          direction: 'receivable',
+          invoiceId: { $in: invoiceIds },
+          status: { $ne: 'voided' }
+        }
+      },
+      {
+        $group: {
+          _id: '$invoiceId',
+          totalAllocated: { $sum: '$amount' }
+        }
+      }
+    ]);
+    const allocatedByInvoiceId = new Map(
+      (allocationAgg || []).map((row) => [String(row?._id || ''), normalizeMoney(row?.totalAllocated || 0)])
+    );
+
+    const mappedInvoices = (invoices || []).map((invoice) => {
+      const invoiceId = String(invoice?._id || '');
+      const invoiceTotal = getInvoiceTotal(invoice);
+      const allocated = normalizeMoney(allocatedByInvoiceId.get(invoiceId) || 0);
+      const balance = Math.max(normalizeMoney(invoiceTotal - allocated), 0);
+      const status = balance <= 0 ? 'Paid' : allocated > 0 ? 'Partially Paid' : 'Pending';
+      return {
+        invoiceId,
+        invoiceNumber: Number(invoice?.invoiceNumber || 0) || null,
+        invoiceCode: invoice?.invoiceCode || '',
+        invoiceDisplayNumber: invoice?.invoiceDisplayNumber || '',
+        totalDue: invoiceTotal,
+        totalAllocated: allocated,
+        totalBalance: balance,
+        status,
+        createdAt: invoice?.createdAt || null,
+        updatedAt: invoice?.updatedAt || null
+      };
+    });
+    const data = mappedInvoices.filter((row) => Number(row?.totalBalance || 0) > 0.0001);
+
+    const summary = data.reduce(
+      (acc, row) => {
+        acc.totalDue = normalizeMoney(acc.totalDue + Number(row?.totalDue || 0));
+        acc.totalAllocated = normalizeMoney(acc.totalAllocated + Number(row?.totalAllocated || 0));
+        acc.totalBalance = normalizeMoney(acc.totalBalance + Number(row?.totalBalance || 0));
+        return acc;
+      },
+      {
+        invoiceCount: data.length,
+        totalDue: 0,
+        totalAllocated: 0,
+        totalBalance: 0
+      }
+    );
+
+    return res.json({ data, summary });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+});
+
 router.get('/:entityType/:entityId/transactions', requireAuth, async (req, res) => {
   try {
     const gstinId = Number(req.user.id);
@@ -464,6 +759,34 @@ router.get('/:entityType/:entityId/transactions', requireAuth, async (req, res) 
           .sort({ transactionDate: -1, createdAt: -1 })
           .lean()
       : [];
+    const transactionIds = (transactions || []).map((tx) => tx?._id).filter(Boolean);
+    const allocations = transactionIds.length
+      ? await PaymentAllocation.find({
+          transactionId: { $in: transactionIds }
+        })
+          .select('transactionId invoiceId invoiceNumber amount status voidedAt voidReason notes')
+          .lean()
+      : [];
+    const allocationsByTransactionId = new Map();
+    (allocations || []).forEach((row) => {
+      const key = String(row?.transactionId || '');
+      if (!key) return;
+      const arr = allocationsByTransactionId.get(key) || [];
+      arr.push({
+        invoiceId: row?.invoiceId || null,
+        invoiceNumber: Number(row?.invoiceNumber || 0) || null,
+        amount: Number(row?.amount || 0),
+        status: row?.status || 'posted',
+        voidedAt: row?.voidedAt || null,
+        voidReason: row?.voidReason || '',
+        notes: row?.notes || ''
+      });
+      allocationsByTransactionId.set(key, arr);
+    });
+    const transactionsWithAllocations = (transactions || []).map((tx) => ({
+      ...tx,
+      allocations: allocationsByTransactionId.get(String(tx?._id || '')) || []
+    }));
 
     const totalDue = payments.length
       ? (payments || []).reduce((sum, p) => sum + Number(p?.amountDue || 0), 0)
@@ -493,7 +816,7 @@ router.get('/:entityType/:entityId/transactions', requireAuth, async (req, res) 
     res.json({
       payment,
       summary,
-      transactions
+      transactions: transactionsWithAllocations
     });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -606,6 +929,7 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     const method = String(req.body?.method || '').trim();
     const referenceNo = String(req.body?.referenceNo || '').trim();
     const notes = String(req.body?.notes || '').trim();
+    const allocationsRaw = req.body?.allocations;
     const transactionDate = new Date(req.body?.transactionDate || '');
 
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -615,6 +939,14 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     if (Number.isNaN(transactionDate.getTime())) {
       return res.status(400).json({ message: 'Invalid transactionDate' });
     }
+    const allocations = await resolveAndValidateAllocations({
+      gstinId,
+      entityType,
+      entityId,
+      direction,
+      paymentAmount: amount,
+      allocationsRaw
+    });
 
     let summary = await PaymentEntitySummary.findOne({
       GSTIN_ID: gstinId,
@@ -670,8 +1002,17 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     if (notes) payment.notes = notes;
     await payment.save();
 
+    const requestedInvoiceIdRaw = String(req.body?.invoiceId || '').trim();
+    const requestedInvoiceId = requestedInvoiceIdRaw && mongoose.Types.ObjectId.isValid(requestedInvoiceIdRaw)
+      ? new mongoose.Types.ObjectId(requestedInvoiceIdRaw)
+      : null;
+    const transactionInvoiceId = allocations.length === 1
+      ? new mongoose.Types.ObjectId(String(allocations[0].invoiceId))
+      : requestedInvoiceId;
+
     const transaction = await PaymentTransaction.create({
       paymentId: payment._id,
+      ...(transactionInvoiceId ? { invoiceId: transactionInvoiceId } : {}),
       direction: payment.direction || direction,
       amount,
       transactionDate,
@@ -680,6 +1021,24 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
       notes: notes || undefined,
       status: 'posted'
     });
+
+    if (allocations.length) {
+      await PaymentAllocation.insertMany(
+        allocations.map((allocation) => ({
+          GSTIN_ID: gstinId,
+          paymentId: payment._id,
+          transactionId: transaction._id,
+          entityType,
+          entityId,
+          direction: payment.direction || direction,
+          invoiceId: allocation.invoiceId,
+          invoiceNumber: allocation.invoiceNumber || undefined,
+          amount: normalizeMoney(allocation.amount),
+          status: 'posted',
+          notes: allocation.notes || undefined
+        }))
+      );
+    }
 
     const summaryPaid = Number(summary.totalPaid || 0) + amount;
     const summaryDue = Number(summary.totalDue || 0);
@@ -695,7 +1054,8 @@ router.post('/:entityType/:entityId/transactions', requireAuth, async (req, res)
     res.status(201).json({
       payment,
       summary,
-      transaction
+      transaction,
+      allocations
     });
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -736,6 +1096,32 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
     if (!transaction.direction && payment.direction) transaction.direction = payment.direction;
     if (voidReason) transaction.voidReason = voidReason;
     await transaction.save();
+    const allocationRows = await PaymentAllocation.find({
+      transactionId: transaction._id
+    })
+      .select('_id invoiceId')
+      .lean();
+    const allocationInvoiceIds = Array.from(
+      new Set(
+        (allocationRows || [])
+          .map((row) => String(row?.invoiceId || '').trim())
+          .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      )
+    );
+    if (allocationRows.length) {
+      const allocationUpdate = {
+        status: 'voided',
+        voidedAt: new Date()
+      };
+      if (voidReason) allocationUpdate.voidReason = voidReason;
+      await PaymentAllocation.updateMany(
+        {
+          transactionId: transaction._id,
+          status: { $ne: 'voided' }
+        },
+        { $set: allocationUpdate }
+      );
+    }
 
     const amount = Number(transaction.amount || 0);
     const paid = Math.max(Number(payment.amountPaid || 0) - amount, 0);
@@ -771,7 +1157,7 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
       await summary.save();
     }
 
-    let invoice = null;
+    const invoiceIdCandidates = new Set(allocationInvoiceIds);
     const isInvoiceTransaction =
       String(transaction.method || '').trim().toLowerCase() === 'invoice' ||
       Boolean(transaction.invoiceId);
@@ -779,50 +1165,57 @@ router.post('/:entityType/:entityId/transactions/:transactionId/void', requireAu
     if (isInvoiceTransaction) {
       const invoiceId = String(transaction.invoiceId || '').trim();
       if (invoiceId && mongoose.Types.ObjectId.isValid(invoiceId)) {
-        invoice = await GeneratedInvoice.findOne({
-          _id: invoiceId,
-          GSTIN_ID: gstinId
-        });
-      }
-
-      if (!invoice) {
+        invoiceIdCandidates.add(invoiceId);
+      } else {
         const invoiceRef = String(transaction.referenceNo || '').trim();
         const match = invoiceRef.match(/^INV-(\d+)$/i);
         if (match?.[1]) {
-          invoice = await GeneratedInvoice.findOne({
+          const refInvoice = await GeneratedInvoice.findOne({
             GSTIN_ID: gstinId,
             invoiceNumber: Number(match[1]),
             status: { $nin: ['cancelled', 'deleted'] }
           }).sort({ createdAt: -1 });
+          if (refInvoice?._id) {
+            invoiceIdCandidates.add(String(refInvoice._id));
+          }
         }
       }
     }
 
-    if (invoice) {
+    const invoiceIdsToRefresh = Array.from(invoiceIdCandidates)
+      .filter((id) => mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    const invoices = invoiceIdsToRefresh.length
+      ? await GeneratedInvoice.find({
+          _id: { $in: invoiceIdsToRefresh },
+          GSTIN_ID: gstinId
+        })
+      : [];
+    for (const invoice of invoices) {
       const invoiceStatus = String(invoice.status || '').trim().toLowerCase();
-      if (!['cancelled', 'deleted'].includes(invoiceStatus)) {
-        invoice.status = 'Active';
-        await invoice.save();
+      if (['cancelled', 'deleted'].includes(invoiceStatus)) continue;
+      invoice.status = 'Active';
+      await invoice.save();
 
-        const consignmentNumbers = (invoice.consignments || [])
-          .map((c) => String(c?.consignmentNumber || '').trim())
-          .filter(Boolean);
+      const consignmentNumbers = (invoice.consignments || [])
+        .map((c) => String(c?.consignmentNumber || '').trim())
+        .filter(Boolean);
 
-        if (consignmentNumbers.length) {
-          await Shipment.updateMany(
-            { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
-            { $set: { shipmentStatus: 'Invoiced' } }
-          );
-        }
+      if (consignmentNumbers.length) {
+        await Shipment.updateMany(
+          { GSTIN_ID: gstinId, consignmentNumber: { $in: consignmentNumbers } },
+          { $set: { shipmentStatus: 'Invoiced' } }
+        );
+      }
 
-        const clientIds = invoice.billingClientId ? [String(invoice.billingClientId)] : [];
-        if (clientIds.length) {
-          await syncPaymentsFromGeneratedInvoices(gstinId, clientIds, { preserveStatus: true });
-        }
+      const clientIds = invoice.billingClientId ? [String(invoice.billingClientId)] : [];
+      if (clientIds.length) {
+        await syncPaymentsFromGeneratedInvoices(gstinId, clientIds, { preserveStatus: true });
       }
     }
 
-    res.json({ transaction, payment, summary, invoice });
+    const invoice = invoices[0] || null;
+    res.json({ transaction, payment, summary, invoice, invoices });
   } catch (err) {
     res.status(400).json({ message: err.message });
   }

@@ -78,7 +78,7 @@
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">—</td>
           <td style="padding: 6px; border-bottom: 1px solid #f0f0f0;">
             <button (click)="startEdit(u)">Edit</button>
-            <button (click)="deleteUser(u._id)" style="margin-left: 6px;">Delete</button>
+            <button *ngIf="canDeleteUser(u)" (click)="deleteUser(u._id)" style="margin-left: 6px;">Delete</button>
           </td>
         </ng-container>
 

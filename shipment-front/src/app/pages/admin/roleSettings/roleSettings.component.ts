@@ -186,4 +186,8 @@ export class RoleSettingsComponent implements OnInit {
         error: (err) => alert(err?.error?.message || 'Failed to delete user')
       });
   }
+
+  canDeleteUser(row: any): boolean {
+    return !Boolean(row?.isSuperAdminProvisioned);
+  }
 }

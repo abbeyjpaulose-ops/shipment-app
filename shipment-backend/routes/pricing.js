@@ -114,7 +114,9 @@ router.get('/suggestions', requireAuth, async (req, res) => {
 
     const merged = Array.from(map.values());
 
-    const branch = await Branch.findById(originLocId).select('branchName').lean();
+    const branch = await Branch.findOne({ _id: originLocId, GSTIN_ID: gstinId })
+      .select('branchName')
+      .lean();
     res.json({
       originLocId: originLocId || '',
       branchName: branch?.branchName || '',

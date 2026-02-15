@@ -7,6 +7,14 @@ const counterSchema = new mongoose.Schema({
 
 const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
 
+function hideSensitiveFields(_doc, ret) {
+  if (ret && typeof ret === 'object') {
+    delete ret.passwordHash;
+    delete ret.__v;
+  }
+  return ret;
+}
+
 const ProfileSchema = new mongoose.Schema(
   {
     // Primary key: auto-generated numeric user_id (stored in _id).
@@ -21,12 +29,18 @@ const ProfileSchema = new mongoose.Schema(
     originLocId: { type: mongoose.Schema.Types.ObjectId },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     username: { type: String, required: true, trim: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String, required: true, select: false },
     role: { type: String, default: 'user' },
+    // True for the bootstrap admin profile created by super-admin company setup flow.
+    isSuperAdminProvisioned: { type: Boolean, default: false },
     phoneNumber: { type: String, trim: true },
     businessType: { type: String, trim: true }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { transform: hideSensitiveFields },
+    toObject: { transform: hideSensitiveFields }
+  }
 );
 
 ProfileSchema.pre('validate', function (next) {

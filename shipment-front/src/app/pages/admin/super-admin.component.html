@@ -1,0 +1,103 @@
+<div class="super-admin-page">
+  <header class="page-header">
+    <div>
+      <h2>Super Admin</h2>
+      <p>Create company admin records and delete companies without running CLI scripts.</p>
+    </div>
+    <button type="button" class="ghost" (click)="logout()">Logout</button>
+  </header>
+
+  <section class="card">
+    <h3>Create Company + Admin</h3>
+    <div class="grid">
+      <label>Email
+        <input type="email" [(ngModel)]="form.email" />
+      </label>
+      <label>Username
+        <input type="text" [(ngModel)]="form.username" />
+      </label>
+      <label>Password
+        <input type="password" [(ngModel)]="form.password" />
+      </label>
+      <label>Role
+        <select [(ngModel)]="form.role">
+          <option value="admin">admin</option>
+        </select>
+      </label>
+      <label>GSTIN
+        <input type="text" [(ngModel)]="form.gstin" />
+      </label>
+      <label>Company Name
+        <input type="text" [(ngModel)]="form.companyName" />
+      </label>
+      <label>Billing Address
+        <input type="text" [(ngModel)]="form.billingAddress" />
+      </label>
+      <label>Company Type
+        <input type="text" [(ngModel)]="form.companyType" />
+      </label>
+      <label>Phone Number
+        <input type="text" [(ngModel)]="form.phoneNumber" />
+      </label>
+      <label>Default Tax %
+        <input type="number" step="0.01" [(ngModel)]="form.taxPercent" />
+      </label>
+      <label>Default Credit Days
+        <input type="number" [(ngModel)]="form.creditDays" />
+      </label>
+    </div>
+    <div class="actions">
+      <button type="button" class="primary" [disabled]="saving" (click)="createCompany()">
+        {{ saving ? 'Creating...' : 'Create Company' }}
+      </button>
+    </div>
+  </section>
+
+  <p class="status error" *ngIf="error">{{ error }}</p>
+  <p class="status success" *ngIf="success">{{ success }}</p>
+
+  <section class="card">
+    <h3>Existing Companies</h3>
+    <p class="status" *ngIf="loading">Loading...</p>
+    <div class="table-wrap" *ngIf="!loading">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Company</th>
+            <th>GSTIN</th>
+            <th>Admin Email</th>
+            <th>Profiles</th>
+            <th>Branches</th>
+            <th>Hubs</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of rows">
+            <td>{{ row.gstinId }}</td>
+            <td>{{ row.companyName || '-' }}</td>
+            <td>{{ row.GSTIN || '-' }}</td>
+            <td>{{ row.email || '-' }}</td>
+            <td>{{ row.profileCount }}</td>
+            <td>{{ row.branchCount }}</td>
+            <td>{{ row.hubCount }}</td>
+            <td>
+              <button
+                type="button"
+                class="danger"
+                [disabled]="deletingId === row.gstinId"
+                (click)="deleteCompany(row)"
+              >
+                {{ deletingId === row.gstinId ? 'Deleting...' : 'Delete' }}
+              </button>
+            </td>
+          </tr>
+          <tr *ngIf="!rows.length">
+            <td colspan="8" class="empty">No companies found.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

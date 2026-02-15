@@ -7,6 +7,14 @@ const counterSchema = new mongoose.Schema({
 
 const Counter = mongoose.models.Counter || mongoose.model('Counter', counterSchema);
 
+function hideSensitiveFields(_doc, ret) {
+  if (ret && typeof ret === 'object') {
+    delete ret.passwordHash;
+    delete ret.__v;
+  }
+  return ret;
+}
+
 const UserSchema = new mongoose.Schema(
   {
     // Primary key: auto-generated numeric GSTIN_ID (stored in _id).
@@ -14,11 +22,13 @@ const UserSchema = new mongoose.Schema(
     GSTIN: { type: String, required: true, unique: true, trim: true, uppercase: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true },
     username: { type: String, required: true, trim: true },
-    passwordHash: { type: String, required: true },
+    passwordHash: { type: String, required: true, select: false },
     role: { type: String, default: 'user' },
     companyName: { type: String, trim: true },
     companyType: { type: String, trim: true },
     invoiceSerialScope: { type: String, trim: true, default: 'company' },
+    defaultTaxPercent: { type: Number },
+    defaultCreditDays: { type: Number },
     phoneNumber: { type: String, trim: true },
     billingAddress: { type: String, trim: true },
 
@@ -31,7 +41,11 @@ const UserSchema = new mongoose.Schema(
       referenceId: { type: String }
     }
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { transform: hideSensitiveFields },
+    toObject: { transform: hideSensitiveFields }
+  }
 );
 
 UserSchema.pre('save', async function (next) {

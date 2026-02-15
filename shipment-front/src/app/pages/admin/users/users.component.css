@@ -436,6 +436,57 @@ th {
   font-size: 12px;
 }
 
+.allocation-panel {
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 12px;
+  background: #f8fbff;
+}
+
+.allocation-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: #334155;
+}
+
+.allocation-head strong {
+  color: #1e3a8a;
+}
+
+.allocation-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.allocation-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.allocation-table th,
+.allocation-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.allocation-table th {
+  background: #eff6ff;
+  color: #1e3a8a;
+}
+
+.allocation-table input {
+  width: 120px;
+  max-width: 100%;
+}
+
 .transactions {
   display: flex;
   flex-direction: column;
@@ -467,6 +518,18 @@ th {
   color: #475569;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.tx-allocations {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed #cbd5e1;
+}
+
+.tx-alloc-row {
+  color: #334155;
+  font-size: 12px;
+  margin-top: 2px;
 }
 
 .tx-actions {

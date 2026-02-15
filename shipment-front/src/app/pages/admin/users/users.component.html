@@ -207,7 +207,7 @@
             <td>{{ tx.direction || 'receivable' }}</td>
             <td>{{ formatAmount(tx.amount) }}</td>
             <td>{{ tx.method || '-' }}</td>
-            <td class="muted">{{ tx.referenceNo || '-' }}</td>
+            <td class="muted">{{ formatReference(tx.referenceNo) }}</td>
             <td>
               <span class="status-pill" [ngClass]="getStatusClass(tx.status, 'transaction')">
                 {{ normalizeStatus(tx.status, 'transaction') }}
@@ -262,7 +262,7 @@
             <td>{{ formatEntityType(p.entityType) }}</td>
             <td class="muted">{{ p.entityId || '-' }}</td>
             <td>{{ p.direction || 'receivable' }}</td>
-            <td class="muted">{{ p.referenceNo || '-' }}</td>
+            <td class="muted">{{ formatReference(p.referenceNo) }}</td>
             <td>{{ formatAmount(p.amountDue) }}</td>
             <td>{{ formatAmount(p.amountPaid) }}</td>
             <td>{{ formatAmount(p.balance) }}</td>
@@ -361,6 +361,50 @@
           <textarea rows="2" [(ngModel)]="recordForm.notes"></textarea>
         </label>
       </div>
+      <div class="allocation-panel" *ngIf="isClientReceivableEntity()">
+        <div class="allocation-head">
+          <strong>Invoice Allocation (Optional)</strong>
+          <span>Allocated: {{ formatAmount(getAllocationTotal()) }}</span>
+          <span>Unallocated: {{ formatAmount(getRemainingAfterAllocation()) }}</span>
+        </div>
+        <div class="status" *ngIf="invoiceOutstandingError">{{ invoiceOutstandingError }}</div>
+        <div class="status" *ngIf="invoiceOutstandingLoading">Loading invoices...</div>
+        <div class="allocation-table-wrap" *ngIf="!invoiceOutstandingLoading && invoiceOutstanding.length">
+          <table class="allocation-table">
+            <thead>
+              <tr>
+                <th>Invoice</th>
+                <th>Total</th>
+                <th>Allocated</th>
+                <th>Balance</th>
+                <th>Allocate Now</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let inv of invoiceOutstanding">
+                <td>{{ getInvoiceLabel(inv) }}</td>
+                <td>{{ formatAmount(inv.totalDue) }}</td>
+                <td>{{ formatAmount(inv.totalAllocated) }}</td>
+                <td>{{ formatAmount(inv.totalBalance) }}</td>
+                <td>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    [max]="inv.totalBalance"
+                    [ngModel]="getAllocationInput(inv.invoiceId)"
+                    (ngModelChange)="onAllocationInput(inv.invoiceId, $event)"
+                    placeholder="0"
+                  />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="empty-state" *ngIf="!invoiceOutstandingLoading && !invoiceOutstandingError && !invoiceOutstanding.length">
+          No active invoices found for this client.
+        </div>
+      </div>
       <button type="button" class="primary" (click)="submitPayment()" [disabled]="transactionsLoading">
         {{ transactionsLoading ? 'Saving...' : (isPayableDirection() ? 'Save payout' : 'Save receipt') }}
       </button>
@@ -383,8 +427,14 @@
             <div class="tx-meta">
               {{ formatDate(tx.transactionDate) }} - {{ tx.method || '-' }}
             </div>
-            <div class="tx-ref" *ngIf="tx.referenceNo">Ref: {{ tx.referenceNo }}</div>
+            <div class="tx-ref" *ngIf="tx.referenceNo">Ref: {{ formatReference(tx.referenceNo) }}</div>
             <div class="tx-notes" *ngIf="tx.notes">{{ tx.notes }}</div>
+            <div class="tx-allocations" *ngIf="tx.allocations?.length">
+              <div class="tx-alloc-row" *ngFor="let alloc of tx.allocations">
+                {{ alloc.invoiceNumber ? ('INV-' + alloc.invoiceNumber) : alloc.invoiceId }}:
+                {{ formatAmount(alloc.amount) }}
+              </div>
+            </div>
           </div>
           <div class="tx-actions">
             <span class="status-pill" [class.voided]="(tx.status || '') === 'voided'">

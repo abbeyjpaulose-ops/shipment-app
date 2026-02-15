@@ -50,7 +50,6 @@ export class ProfileComponent implements OnInit {
         if (this.profile?.businessType) {
           localStorage.setItem('companyType', String(this.profile.businessType));
         }
-        console.log("Profile loaded:", this.profile);
       },
       error: (err) => console.error("Error loading products:", err)
     });
@@ -75,12 +74,10 @@ export class ProfileComponent implements OnInit {
       email,
       username
     };
-    console.log("Sending profile data:", payload);
     this.http.post('http://localhost:3000/api/profile/save', payload, {
       headers: { 'Content-Type': 'application/json' }
     }).subscribe({
       next: (res) => {
-        console.log("Profile saved", res);
         if (res) {
           this.profile = res;
         }
@@ -100,7 +97,6 @@ export class ProfileComponent implements OnInit {
     if (!ok) return;
     this.http.post('http://localhost:3000/api/profile/migrateBusinessType', {}).subscribe({
       next: (res) => {
-        console.log('Profile businessType backfilled', res);
         alert('Business type backfilled for profiles.');
         this.loadProfile();
       },
@@ -124,6 +120,5 @@ export class ProfileComponent implements OnInit {
       invoiceSerialScope: 'company'
       //username: localStorage.getItem('username')
     };
-    console.log('Profile cleared locally.');
   }
 }

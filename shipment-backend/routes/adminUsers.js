@@ -2,16 +2,24 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import Profile from '../models/Profile.js';
 import Branch from '../models/Branch.js';
+import User from '../models/User.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+const PROFILE_PUBLIC_FIELDS = '_id GSTIN_ID email username role phoneNumber originLocId originLocIds isSuperAdminProvisioned createdAt updatedAt';
 
 const normalizeEmail = (value) => String(value || '').toLowerCase().trim();
 const normalizeText = (value) => String(value || '').trim();
 const normalizeUsername = (value) => String(value || '').toLowerCase().trim();
 
-async function withBranchNames(records = []) {
-  const data = records.map((rec) => (rec?.toObject ? rec.toObject() : rec));
+async function withBranchNames(records = [], gstinId = null) {
+  const data = records
+    .map((rec) => (rec?.toObject ? rec.toObject() : rec))
+    .map((rec) => {
+      const safe = { ...(rec || {}) };
+      delete safe.passwordHash;
+      return safe;
+    });
   const originLocIds = Array.from(
     new Set(
       data
@@ -21,7 +29,10 @@ async function withBranchNames(records = []) {
     )
   );
   const branches = originLocIds.length
-    ? await Branch.find({ _id: { $in: originLocIds } }).select('_id branchName').lean()
+    ? await Branch.find({
+      _id: { $in: originLocIds },
+      ...(Number.isFinite(gstinId) ? { GSTIN_ID: gstinId } : {})
+    }).select('_id branchName').lean()
     : [];
   const branchNameById = new Map((branches || []).map((b) => [String(b._id), b.branchName || '']));
 
@@ -46,9 +57,26 @@ router.get('/', async (req, res) => {
     const gstinId = Number(req.user.id);
     if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
-    const profiles = await Profile.find({ GSTIN_ID: gstinId }).sort({ _id: 1 }).lean();
-    const withNames = await withBranchNames(profiles);
-    res.json(withNames);
+    const profiles = await Profile.find({ GSTIN_ID: gstinId })
+      .select(PROFILE_PUBLIC_FIELDS)
+      .sort({ _id: 1 })
+      .lean();
+    const company = await User.findById(gstinId).select('email username').lean();
+    const companyEmail = normalizeEmail(company?.email);
+    const companyUsername = normalizeUsername(company?.username);
+
+    const withNames = await withBranchNames(profiles, gstinId);
+    const enriched = (withNames || []).map((row) => {
+      const role = String(row?.role || '').toLowerCase();
+      const emailMatchesCompany = companyEmail && normalizeEmail(row?.email) === companyEmail;
+      const usernameMatchesCompany = companyUsername && normalizeUsername(row?.username) === companyUsername;
+      const isPrimaryAdmin = role === 'admin' && (emailMatchesCompany || usernameMatchesCompany);
+      return {
+        ...row,
+        isSuperAdminProvisioned: Boolean(row?.isSuperAdminProvisioned || isPrimaryAdmin)
+      };
+    });
+    res.json(enriched);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -100,7 +128,8 @@ router.post('/', async (req, res) => {
       phoneNumber
     });
 
-    const [withName] = await withBranchNames([profile]);
+    const safeProfile = await Profile.findById(profile._id).select(PROFILE_PUBLIC_FIELDS);
+    const [withName] = await withBranchNames([safeProfile || profile], gstinId);
     res.status(201).json(withName);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -149,10 +178,10 @@ router.put('/:id', async (req, res) => {
       { _id: userId, GSTIN_ID: gstinId },
       update,
       { new: true }
-    );
+    ).select(PROFILE_PUBLIC_FIELDS);
     if (!profile) return res.status(404).json({ message: 'User not found' });
 
-    const [withName] = await withBranchNames([profile]);
+    const [withName] = await withBranchNames([profile], gstinId);
     res.json(withName);
   } catch (err) {
     res.status(400).json({ message: err.message });
@@ -170,6 +199,18 @@ router.delete('/:id', async (req, res) => {
 
     const profile = await Profile.findOne({ _id: userId, GSTIN_ID: gstinId });
     if (!profile) return res.status(404).json({ message: 'User not found' });
+    const company = await User.findById(gstinId).select('email username').lean();
+    const companyEmail = normalizeEmail(company?.email);
+    const companyUsername = normalizeUsername(company?.username);
+    const isPrimaryAdmin =
+      String(profile?.role || '').toLowerCase() === 'admin' &&
+      (
+        (companyEmail && normalizeEmail(profile?.email) === companyEmail) ||
+        (companyUsername && normalizeUsername(profile?.username) === companyUsername)
+      );
+    if (Boolean(profile.isSuperAdminProvisioned || isPrimaryAdmin)) {
+      return res.status(400).json({ message: 'Cannot delete super-admin provisioned admin user' });
+    }
     if (normalizeEmail(profile.email) === normalizeEmail(req.user.email)) {
       return res.status(400).json({ message: 'Cannot delete your own admin user' });
     }

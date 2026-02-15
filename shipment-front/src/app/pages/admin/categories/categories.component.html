@@ -1,1 +1,299 @@
-<h2>Running cost</h2>
+<div class="cost-page">
+  <div class="cost-header">
+    <div>
+      <h2>Running Cost</h2>
+      <p class="subtitle">Track daily fuel, worker wages, and maintenance by branch vehicle.</p>
+    </div>
+    <div class="header-controls">
+      <label class="field">
+        <span>Date</span>
+        <input type="date" [(ngModel)]="selectedDate" (change)="onDateChange()">
+      </label>
+      <div class="branch-chip">{{ branch }}</div>
+    </div>
+  </div>
+
+  <div class="tab-strip">
+    <button type="button" [class.active]="activeTab === 'summary'" (click)="setTab('summary')">Summary</button>
+    <button type="button" [class.active]="activeTab === 'fuel'" (click)="setTab('fuel')">Fuel</button>
+    <button type="button" [class.active]="activeTab === 'workers'" (click)="setTab('workers')">Workers</button>
+    <button type="button" [class.active]="activeTab === 'maintenance'" (click)="setTab('maintenance')">Maintenance</button>
+  </div>
+
+  <div class="notice info" *ngIf="infoMessage">{{ infoMessage }}</div>
+  <div class="notice error" *ngIf="errorMessage">{{ errorMessage }}</div>
+  <div class="notice info" *ngIf="isLoading">Loading...</div>
+
+  <section *ngIf="activeTab === 'summary'" class="tab-content">
+    <div class="summary-grid">
+      <div class="summary-card">
+        <div class="label">Fuel</div>
+        <div class="value">{{ formatMoney(summary.fuelTotal) }}</div>
+        <div class="meta">{{ summary.fuelCount }} entries</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Workers</div>
+        <div class="value">{{ formatMoney(summary.workersTotal) }}</div>
+        <div class="meta">{{ summary.workersCount }} entries</div>
+      </div>
+      <div class="summary-card">
+        <div class="label">Maintenance</div>
+        <div class="value">{{ formatMoney(summary.maintenanceTotal) }}</div>
+        <div class="meta">{{ summary.maintenanceCount }} entries</div>
+      </div>
+      <div class="summary-card grand">
+        <div class="label">Grand Total</div>
+        <div class="value">{{ formatMoney(summary.grandTotal) }}</div>
+        <div class="meta">For {{ selectedDate }}</div>
+      </div>
+    </div>
+
+    <div class="summary-lists">
+      <div class="list-card">
+        <h3>Fuel</h3>
+        <div class="empty" *ngIf="!fuelEntries.length">No fuel entries for this day.</div>
+        <div class="list-item" *ngFor="let item of fuelEntries">
+          <span>
+            {{ item.vehicleNo }} ({{ item.fuelType }})
+            <span class="cancelled-text" *ngIf="isEntryCancelled(item)">Cancelled</span>
+          </span>
+          <span [class.cancelled-amount]="isEntryCancelled(item)">{{ formatMoney(item.amount) }}</span>
+        </div>
+      </div>
+      <div class="list-card">
+        <h3>Workers</h3>
+        <div class="empty" *ngIf="!workerEntries.length">No worker wage entries for this day.</div>
+        <div class="list-item" *ngFor="let item of workerEntries">
+          <span>
+            {{ item.workType }} ({{ item.workersCount }} workers)
+            <span class="cancelled-text" *ngIf="isEntryCancelled(item)">Cancelled</span>
+          </span>
+          <span [class.cancelled-amount]="isEntryCancelled(item)">{{ formatMoney(item.totalAmount) }}</span>
+        </div>
+      </div>
+      <div class="list-card">
+        <h3>Maintenance</h3>
+        <div class="empty" *ngIf="!maintenanceEntries.length">No maintenance entries for this day.</div>
+        <div class="list-item" *ngFor="let item of maintenanceEntries">
+          <span>
+            {{ item.vehicleNo }} ({{ item.maintenanceType }})
+            <span class="cancelled-text" *ngIf="isEntryCancelled(item)">Cancelled</span>
+          </span>
+          <span [class.cancelled-amount]="isEntryCancelled(item)">{{ formatMoney(item.amount) }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section *ngIf="activeTab === 'fuel'" class="tab-content">
+    <h3>Daily Petrol / Diesel</h3>
+    <div class="form-grid">
+      <label class="field">
+        <span>Vehicle</span>
+        <select [(ngModel)]="fuelForm.vehicleNo" [disabled]="!hasScopedBranch || !vehicleOptions.length">
+          <option value="" disabled>Select vehicle</option>
+          <option *ngFor="let vehicleNo of vehicleOptions" [value]="vehicleNo">{{ vehicleNo }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Fuel Type</span>
+        <select [(ngModel)]="fuelForm.fuelType">
+          <option value="diesel">Diesel</option>
+          <option value="petrol">Petrol</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Amount</span>
+        <input type="number" min="0" step="0.01" [(ngModel)]="fuelForm.amount" placeholder="0">
+      </label>
+      <label class="field field-wide">
+        <span>Notes</span>
+        <input [(ngModel)]="fuelForm.notes" placeholder="Optional note">
+      </label>
+    </div>
+    <button class="primary-btn" type="button" [disabled]="savingFuel" (click)="submitFuel()">
+      {{ savingFuel ? 'Saving...' : 'Add Fuel Charge' }}
+    </button>
+
+    <div class="table-wrap">
+      <table class="entry-table">
+        <thead>
+          <tr>
+            <th>Vehicle</th>
+            <th>Fuel</th>
+            <th>Amount</th>
+            <th>Notes</th>
+            <th>Added</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of fuelEntries" [class.cancelled-row]="isEntryCancelled(item)">
+            <td>{{ item.vehicleNo }}</td>
+            <td>{{ item.fuelType }}</td>
+            <td>{{ formatMoney(item.amount) }}</td>
+            <td>{{ item.notes || '-' }}</td>
+            <td>{{ formatDateTime(item.createdAt) }}</td>
+            <td class="action-cell">
+              <button
+                *ngIf="!isEntryCancelled(item)"
+                type="button"
+                class="row-action-btn danger"
+                [disabled]="isCancelling('fuel', item._id)"
+                (click)="cancelEntry('fuel', item)">
+                {{ isCancelling('fuel', item._id) ? 'Cancelling...' : 'Delete' }}
+              </button>
+              <span *ngIf="isEntryCancelled(item)" class="cancelled-text">Cancelled</span>
+            </td>
+          </tr>
+          <tr *ngIf="!fuelEntries.length">
+            <td colspan="6" class="empty-row">No fuel entries for this day.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section *ngIf="activeTab === 'workers'" class="tab-content">
+    <h3>Loading / Unloading Wages</h3>
+    <div class="form-grid">
+      <label class="field">
+        <span>Work Type</span>
+        <select [(ngModel)]="workerForm.workType">
+          <option value="loading">Loading</option>
+          <option value="unloading">Unloading</option>
+          <option value="both">Both</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Workers Count</span>
+        <input type="number" min="0" step="1" [(ngModel)]="workerForm.workersCount" placeholder="0">
+      </label>
+      <label class="field">
+        <span>Wage / Worker</span>
+        <input type="number" min="0" step="0.01" [(ngModel)]="workerForm.wagePerWorker" placeholder="0">
+      </label>
+      <label class="field">
+        <span>Preview Total</span>
+        <input [value]="formatMoney(workerPreviewTotal)" disabled>
+      </label>
+      <label class="field field-wide">
+        <span>Notes</span>
+        <input [(ngModel)]="workerForm.notes" placeholder="Optional note">
+      </label>
+    </div>
+    <button class="primary-btn" type="button" [disabled]="savingWorkers" (click)="submitWorkers()">
+      {{ savingWorkers ? 'Saving...' : 'Add Worker Wages' }}
+    </button>
+
+    <div class="table-wrap">
+      <table class="entry-table">
+        <thead>
+          <tr>
+            <th>Work Type</th>
+            <th>Workers</th>
+            <th>Wage / Worker</th>
+            <th>Total</th>
+            <th>Notes</th>
+            <th>Added</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of workerEntries" [class.cancelled-row]="isEntryCancelled(item)">
+            <td>{{ item.workType }}</td>
+            <td>{{ item.workersCount }}</td>
+            <td>{{ formatMoney(item.wagePerWorker) }}</td>
+            <td>{{ formatMoney(item.totalAmount) }}</td>
+            <td>{{ item.notes || '-' }}</td>
+            <td>{{ formatDateTime(item.createdAt) }}</td>
+            <td class="action-cell">
+              <button
+                *ngIf="!isEntryCancelled(item)"
+                type="button"
+                class="row-action-btn danger"
+                [disabled]="isCancelling('workers', item._id)"
+                (click)="cancelEntry('workers', item)">
+                {{ isCancelling('workers', item._id) ? 'Cancelling...' : 'Delete' }}
+              </button>
+              <span *ngIf="isEntryCancelled(item)" class="cancelled-text">Cancelled</span>
+            </td>
+          </tr>
+          <tr *ngIf="!workerEntries.length">
+            <td colspan="7" class="empty-row">No worker entries for this day.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section *ngIf="activeTab === 'maintenance'" class="tab-content">
+    <h3>Vehicle Maintenance</h3>
+    <div class="form-grid">
+      <label class="field">
+        <span>Vehicle</span>
+        <select [(ngModel)]="maintenanceForm.vehicleNo" [disabled]="!hasScopedBranch || !vehicleOptions.length">
+          <option value="" disabled>Select vehicle</option>
+          <option *ngFor="let vehicleNo of vehicleOptions" [value]="vehicleNo">{{ vehicleNo }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Type</span>
+        <select [(ngModel)]="maintenanceForm.maintenanceType">
+          <option value="service">Service</option>
+          <option value="breakdown-repair">Breakdown Repair</option>
+          <option value="other">Other</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>Amount</span>
+        <input type="number" min="0" step="0.01" [(ngModel)]="maintenanceForm.amount" placeholder="0">
+      </label>
+      <label class="field field-wide">
+        <span>Notes</span>
+        <input [(ngModel)]="maintenanceForm.notes" placeholder="Optional note">
+      </label>
+    </div>
+    <button class="primary-btn" type="button" [disabled]="savingMaintenance" (click)="submitMaintenance()">
+      {{ savingMaintenance ? 'Saving...' : 'Add Maintenance Cost' }}
+    </button>
+
+    <div class="table-wrap">
+      <table class="entry-table">
+        <thead>
+          <tr>
+            <th>Vehicle</th>
+            <th>Type</th>
+            <th>Amount</th>
+            <th>Notes</th>
+            <th>Added</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of maintenanceEntries" [class.cancelled-row]="isEntryCancelled(item)">
+            <td>{{ item.vehicleNo }}</td>
+            <td>{{ item.maintenanceType }}</td>
+            <td>{{ formatMoney(item.amount) }}</td>
+            <td>{{ item.notes || '-' }}</td>
+            <td>{{ formatDateTime(item.createdAt) }}</td>
+            <td class="action-cell">
+              <button
+                *ngIf="!isEntryCancelled(item)"
+                type="button"
+                class="row-action-btn danger"
+                [disabled]="isCancelling('maintenance', item._id)"
+                (click)="cancelEntry('maintenance', item)">
+                {{ isCancelling('maintenance', item._id) ? 'Cancelling...' : 'Delete' }}
+              </button>
+              <span *ngIf="isEntryCancelled(item)" class="cancelled-text">Cancelled</span>
+            </td>
+          </tr>
+          <tr *ngIf="!maintenanceEntries.length">
+            <td colspan="6" class="empty-row">No maintenance entries for this day.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

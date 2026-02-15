@@ -45,6 +45,17 @@ export class LoginComponent {
         if (Array.isArray(originLocIds)) {
           localStorage.setItem('originLocIds', JSON.stringify(originLocIds));
         }
+
+        const normalizedRole = String(role || '').trim().toLowerCase();
+        if (normalizedRole === 'super-admin') {
+          localStorage.removeItem('branches');
+          localStorage.removeItem('branch');
+          localStorage.removeItem('originLocId');
+          localStorage.removeItem('originLocIds');
+          window.location.href = '/super-admin';
+          return;
+        }
+
         localStorage.setItem('branch', 'All Branches');
         localStorage.setItem('originLocId', 'all');
 

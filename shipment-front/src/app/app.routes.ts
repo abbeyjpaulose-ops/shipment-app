@@ -29,14 +29,19 @@ import { LogsComponent } from './pages/settings/logs/logs.component';
 import { ChangePassComponent } from './pages/profile/changePass/changePass.component';
 import { RolesComponent } from './pages/profile/roles/roles.component';
 import { branchRequiredGuard } from './guards/branch-required.guard';
+import { superAdminGuard } from './guards/super-admin.guard';
+import { homeAccessGuard } from './guards/home-access.guard';
+import { SuperAdminComponent } from './pages/admin/super-admin.component';
 
 
 
 export const routes: Routes = [
   { path: '', component: LoginComponent },
+  { path: 'super-admin', component: SuperAdminComponent, canActivate: [superAdminGuard] },
   {
     path: 'home',
     component: HomeComponent, 
+    canActivate: [homeAccessGuard],
     canActivateChild: [branchRequiredGuard],
     children: [
       { path: 'dashboard', component: DashboardComponent },

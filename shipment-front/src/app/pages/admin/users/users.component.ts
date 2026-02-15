@@ -60,6 +60,10 @@ export class UsersComponent implements OnInit {
   transactions: any[] = [];
   transactionsLoading = false;
   transactionsError = '';
+  invoiceOutstanding: any[] = [];
+  invoiceOutstandingLoading = false;
+  invoiceOutstandingError = '';
+  invoiceAllocationDraft: Record<string, string> = {};
   recordForm = {
     amount: '',
     transactionDate: '',
@@ -288,6 +292,16 @@ export class UsersComponent implements OnInit {
     return raw.charAt(0).toUpperCase() + raw.slice(1);
   }
 
+  formatReference(value: any): string {
+    const raw = String(value || '').trim();
+    const code = raw.toUpperCase();
+    if (!code) return '-';
+    if (code === 'RC-FUEL') return 'Running Cost - Fuel';
+    if (code === 'RC-WORKERS') return 'Running Cost - Workers';
+    if (code === 'RC-MAINTENANCE') return 'Running Cost - Maintenance';
+    return raw;
+  }
+
   normalizeStatus(value: any, context: 'summary' | 'transaction' | 'payment'): string {
     const raw = String(value || '').trim().toLowerCase();
     if (context === 'transaction') {
@@ -320,6 +334,51 @@ export class UsersComponent implements OnInit {
       month: 'short',
       year: 'numeric'
     });
+  }
+
+  isClientReceivableEntity(): boolean {
+    const entityType = String(this.activeEntity?.entityType || '').trim().toLowerCase();
+    return entityType === 'client' && !this.isPayableDirection();
+  }
+
+  getInvoiceLabel(row: any): string {
+    const invoiceNumber = Number(row?.invoiceNumber || 0);
+    const display = String(row?.invoiceDisplayNumber || '').trim();
+    const code = String(row?.invoiceCode || '').trim();
+    if (display) return display;
+    if (code) return code;
+    if (Number.isFinite(invoiceNumber) && invoiceNumber > 0) return `INV-${invoiceNumber}`;
+    return String(row?.invoiceId || '');
+  }
+
+  getAllocationInput(invoiceId: any): string {
+    const key = String(invoiceId || '').trim();
+    return key ? String(this.invoiceAllocationDraft[key] || '') : '';
+  }
+
+  onAllocationInput(invoiceId: any, value: any): void {
+    const key = String(invoiceId || '').trim();
+    if (!key) return;
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      delete this.invoiceAllocationDraft[key];
+      return;
+    }
+    this.invoiceAllocationDraft[key] = String(parsed);
+  }
+
+  getAllocationTotal(): number {
+    return Object.values(this.invoiceAllocationDraft).reduce((sum, raw) => {
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value <= 0) return sum;
+      return sum + value;
+    }, 0);
+  }
+
+  getRemainingAfterAllocation(): number {
+    const amount = Number(this.recordForm.amount || 0);
+    if (!Number.isFinite(amount) || amount <= 0) return 0;
+    return Math.max(amount - this.getAllocationTotal(), 0);
   }
 
   getActiveDirection(): 'receivable' | 'payable' {
@@ -362,10 +421,15 @@ export class UsersComponent implements OnInit {
     this.dueAmount = String(row?.totalDue ?? '');
     this.dueError = '';
     this.recordError = '';
+    this.invoiceOutstanding = [];
+    this.invoiceOutstandingError = '';
+    this.invoiceOutstandingLoading = false;
+    this.invoiceAllocationDraft = {};
     if (!this.recordForm.transactionDate) {
       this.recordForm.transactionDate = this.formatDateInput(new Date());
     }
     this.loadTransactions();
+    this.loadInvoiceOutstanding();
   }
 
   closeDrawer(): void {
@@ -376,6 +440,10 @@ export class UsersComponent implements OnInit {
     this.transactionsError = '';
     this.recordError = '';
     this.dueError = '';
+    this.invoiceOutstanding = [];
+    this.invoiceOutstandingError = '';
+    this.invoiceOutstandingLoading = false;
+    this.invoiceAllocationDraft = {};
   }
 
   loadTransactions(): void {
@@ -407,6 +475,54 @@ export class UsersComponent implements OnInit {
       });
   }
 
+  loadInvoiceOutstanding(): void {
+    if (!this.activeEntity || !this.isClientReceivableEntity()) {
+      this.invoiceOutstanding = [];
+      this.invoiceOutstandingError = '';
+      this.invoiceOutstandingLoading = false;
+      this.invoiceAllocationDraft = {};
+      return;
+    }
+    const { entityType, entityId } = this.activeEntity;
+    this.invoiceOutstandingLoading = true;
+    this.invoiceOutstandingError = '';
+    this.http
+      .get<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/invoices/outstanding`)
+      .subscribe({
+        next: (res) => {
+          const rows = Array.isArray(res?.data) ? res.data : [];
+          const serverMessage = String(res?.message || '').trim();
+          this.invoiceOutstanding = rows;
+          this.invoiceOutstandingError = !rows.length && serverMessage ? serverMessage : '';
+          const nextDraft: Record<string, string> = {};
+          rows.forEach((row: any) => {
+            const key = String(row?.invoiceId || '').trim();
+            if (!key) return;
+            const existing = Number(this.invoiceAllocationDraft[key]);
+            if (!Number.isFinite(existing) || existing <= 0) return;
+            const balance = Number(row?.totalBalance || 0);
+            const clamped = Math.min(existing, Math.max(balance, 0));
+            if (clamped > 0) nextDraft[key] = String(clamped);
+          });
+          this.invoiceAllocationDraft = nextDraft;
+          this.invoiceOutstandingLoading = false;
+        },
+        error: (err) => {
+          console.error('Error loading invoice outstanding:', err);
+          this.invoiceOutstanding = [];
+          const rawError = err?.error;
+          const serverMessage = String(rawError?.message || '').trim();
+          const textError = typeof rawError === 'string' ? rawError : '';
+          const endpointMissing = /Cannot\s+GET\s+\/api\/payments\/.+\/invoices\/outstanding/i.test(textError);
+          this.invoiceOutstandingError = serverMessage ||
+            (endpointMissing ? 'Invoice outstanding endpoint unavailable. Restart backend server.' : '') ||
+            'Failed to load invoice outstanding.';
+          this.invoiceOutstandingLoading = false;
+          this.invoiceAllocationDraft = {};
+        }
+      });
+  }
+
   submitPayment(): void {
     if (!this.activeEntity || this.transactionsLoading) return;
     const amount = Number(this.recordForm.amount || 0);
@@ -424,6 +540,12 @@ export class UsersComponent implements OnInit {
       return;
     }
 
+    const allocationTotal = this.getAllocationTotal();
+    if (allocationTotal > amount + 0.0001) {
+      this.recordError = 'Allocated total cannot exceed payment amount.';
+      return;
+    }
+
     this.transactionsLoading = true;
     const payload: any = {
       amount,
@@ -434,6 +556,19 @@ export class UsersComponent implements OnInit {
     };
     const { entityType, entityId, direction } = this.activeEntity;
     if (direction) payload.direction = direction;
+    if (this.isClientReceivableEntity() && allocationTotal > 0) {
+      payload.allocations = (this.invoiceOutstanding || [])
+        .map((row) => {
+          const invoiceId = String(row?.invoiceId || '').trim();
+          const value = Number(this.invoiceAllocationDraft[invoiceId]);
+          if (!invoiceId || !Number.isFinite(value) || value <= 0) return null;
+          return {
+            invoiceId,
+            amount: value
+          };
+        })
+        .filter(Boolean);
+    }
     this.http
       .post<any>(`http://localhost:3000/api/payments/${entityType}/${entityId}/transactions`, payload)
       .subscribe({
@@ -450,9 +585,11 @@ export class UsersComponent implements OnInit {
           this.recordForm.amount = '';
           this.recordForm.referenceNo = '';
           this.recordForm.notes = '';
+          this.invoiceAllocationDraft = {};
           this.recordError = '';
           this.transactionsLoading = false;
           this.loadPayments();
+          this.loadInvoiceOutstanding();
         },
         error: (err) => {
           console.error('Error recording payment:', err);
@@ -538,6 +675,7 @@ export class UsersComponent implements OnInit {
           this.dueError = '';
           this.transactionsLoading = false;
           this.loadPayments();
+          this.loadInvoiceOutstanding();
         },
         error: (err) => {
           console.error('Error updating due amount:', err);
@@ -617,12 +755,13 @@ export class UsersComponent implements OnInit {
 
   canOpenInvoice(row: any): boolean {
     const invoiceId = String(row?.invoiceId || '').trim();
+    const allocationInvoiceId = String(row?.allocations?.[0]?.invoiceId || '').trim();
     const referenceNo = String(row?.referenceNo || '').trim();
-    return Boolean(invoiceId) || /^INV-/i.test(referenceNo);
+    return Boolean(invoiceId || allocationInvoiceId) || /^INV-/i.test(referenceNo);
   }
 
   openInvoiceFromRow(row: any): void {
-    const invoiceId = String(row?.invoiceId || '').trim();
+    const invoiceId = String(row?.invoiceId || row?.allocations?.[0]?.invoiceId || '').trim();
     const referenceNo = String(row?.referenceNo || '').trim();
     const params = new URLSearchParams();
     if (invoiceId) {

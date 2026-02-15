@@ -5,6 +5,7 @@ import AuditLog from '../models/AuditLog.js';
 import { requireAdmin, requireAuth } from '../middleware/auth.js';
 
 const router = express.Router();
+const PROFILE_PUBLIC_FIELDS = '_id GSTIN_ID email username role phoneNumber businessType originLocId originLocIds isSuperAdminProvisioned createdAt updatedAt';
 
 async function recordAuditLog(payload) {
   try {
@@ -48,6 +49,59 @@ function normalizeInvoiceSerialScope(value) {
   return '';
 }
 
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeUsername(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function normalizeProfileId(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sanitizeProfileData(profile) {
+  const safe = profile?.toObject ? profile.toObject() : { ...(profile || {}) };
+  delete safe.passwordHash;
+  return safe;
+}
+
+function pickProfileUpdate(rawBody = {}, { allowIdentity = false, allowRoleAndScope = false } = {}) {
+  const update = {};
+  if (allowIdentity) {
+    if (rawBody.email !== undefined) update.email = normalizeEmail(rawBody.email);
+    if (rawBody.username !== undefined) update.username = normalizeUsername(rawBody.username);
+  }
+  if (allowRoleAndScope) {
+    if (rawBody.role !== undefined) update.role = String(rawBody.role || '').trim() || 'user';
+    if (rawBody.originLocId !== undefined) {
+      update.originLocId = String(rawBody.originLocId || '').trim() || null;
+    }
+    if (rawBody.originLocIds !== undefined) {
+      update.originLocIds = Array.isArray(rawBody.originLocIds)
+        ? rawBody.originLocIds.map((id) => String(id || '').trim()).filter(Boolean)
+        : [];
+      if (update.originLocIds.length && !update.originLocId) {
+        update.originLocId = update.originLocIds[0];
+      }
+    }
+  }
+  if (rawBody.phoneNumber !== undefined || rawBody.mobile !== undefined) {
+    update.phoneNumber = String(rawBody.phoneNumber ?? rawBody.mobile ?? '').trim();
+  }
+  if (rawBody.businessType !== undefined) {
+    update.businessType = String(rawBody.businessType || '').trim();
+  }
+
+  delete update.passwordHash;
+  delete update.GSTIN_ID;
+  delete update.isSuperAdminProvisioned;
+  delete update._id;
+  return update;
+}
+
 function toCompanyTypeLabel(value) {
   const info = normalizeBusinessType(value);
   if (info.value === '5') return 'Goods Transport Agency (GTA)';
@@ -59,24 +113,37 @@ function toCompanyTypeLabel(value) {
 // Create or update profile
 router.post('/save', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const invoiceSerialScope = normalizeInvoiceSerialScope(req.body?.invoiceSerialScope);
-    console.log('📥 Incoming profile data:', req.body);
+    const gstinId = Number(req.user?.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
 
-    // Upsert: if profile exists for email, update; otherwise create new
-    const profile = await Profile.findOneAndUpdate(
-      { email: req.body.email },
-      req.body,
-      { new: true, upsert: true }
-    );
+    const invoiceSerialScope = normalizeInvoiceSerialScope(req.body?.invoiceSerialScope);
+    const targetEmail = normalizeEmail(req.body?.email || req.user?.email);
+    const targetUsername = normalizeUsername(req.body?.username || req.user?.username);
+    const profileFilter = {
+      GSTIN_ID: gstinId,
+      $or: [
+        ...(targetEmail ? [{ email: targetEmail }] : []),
+        ...(targetUsername ? [{ username: targetUsername }] : [])
+      ]
+    };
+
+    const profileUpdate = pickProfileUpdate(req.body, { allowIdentity: true });
+    let profile = null;
+    if (profileFilter.$or.length && Object.keys(profileUpdate).length) {
+      profile = await Profile.findOneAndUpdate(profileFilter, profileUpdate, { new: true })
+        .select(PROFILE_PUBLIC_FIELDS);
+    } else if (profileFilter.$or.length) {
+      profile = await Profile.findOne(profileFilter).select(PROFILE_PUBLIC_FIELDS);
+    }
 
     if (req.body.businessType) {
       const nextType = toCompanyTypeLabel(req.body.businessType);
-      const company = await User.findById(req.user.id).lean();
+      const company = await User.findById(gstinId).lean();
       const prevType = String(company?.companyType || '').trim();
       if (nextType && nextType !== prevType) {
-        await User.findByIdAndUpdate(req.user.id, { companyType: nextType });
+        await User.findByIdAndUpdate(gstinId, { companyType: nextType });
         await recordAuditLog({
-          GSTIN_ID: Number(req.user.id),
+          GSTIN_ID: gstinId,
           actorUserId: Number(req.user.userId),
           actorUsername: req.user.username,
           actorEmail: req.user.email,
@@ -90,27 +157,28 @@ router.post('/save', requireAuth, requireAdmin, async (req, res) => {
       }
     }
 
-    await User.findByIdAndUpdate(req.user.id, {
+    await User.findByIdAndUpdate(gstinId, {
       email: String(req.body.email || '').trim() || undefined,
       phoneNumber: String(req.body.mobile || '').trim() || undefined,
       billingAddress: String(req.body.address || '').trim() || undefined,
       ...(invoiceSerialScope ? { invoiceSerialScope } : {})
     });
 
-    const company = await User.findById(req.user.id).lean();
+    const company = await User.findById(gstinId).lean();
     const companyTypeInfo = normalizeBusinessType(company?.companyType);
     const resolvedSerialScope =
       normalizeInvoiceSerialScope(profile?.invoiceSerialScope || company?.invoiceSerialScope) ||
       'company';
+
     res.status(201).json({
-      ...profile.toObject(),
-      businessType: profile.businessType || companyTypeInfo.value || '',
+      ...sanitizeProfileData(profile),
+      businessType: profile?.businessType || companyTypeInfo.value || '',
       businessTypeLabel: companyTypeInfo.label || '',
       invoiceSerialScope: resolvedSerialScope,
       gstin: company?.GSTIN || ''
     });
   } catch (err) {
-    console.error('❌ Error saving profile:', err.message);
+    console.error('Error saving profile:', err.message);
     res.status(400).json({ message: err.message });
   }
 });
@@ -118,37 +186,42 @@ router.post('/save', requireAuth, requireAdmin, async (req, res) => {
 // Get profile by email
 router.get('/', requireAuth, async (req, res) => {
   try {
-    const username = String(req.query.user || req.query.username || req.params.username || '').trim();
-    const email = String(req.query.email || '').trim(); // frontend will send ?email=user@example.com
-    const query = username ? { username } : email ? { email } : {};
-    const profiles = await Profile.find(query).sort({ createdAt: -1 }).lean();
     const gstinId = Number(req.user?.id);
-    const company = Number.isFinite(gstinId) ? await User.findById(gstinId).lean() : null;
-    const resolvedSerialScope =
-      normalizeInvoiceSerialScope(company?.invoiceSerialScope) || 'company';
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const username = normalizeUsername(req.query.user || req.query.username || req.params.username || '');
+    const email = normalizeEmail(req.query.email || '');
+    const query = { GSTIN_ID: gstinId };
+    if (username) query.username = username;
+    else if (email) query.email = email;
+
+    const profiles = await Profile.find(query)
+      .select(PROFILE_PUBLIC_FIELDS)
+      .sort({ createdAt: -1 })
+      .lean();
+    const company = await User.findById(gstinId).lean();
+    const resolvedSerialScope = normalizeInvoiceSerialScope(company?.invoiceSerialScope) || 'company';
 
     if (!profiles.length) {
-      const userQuery = username ? { username } : email ? { email } : {};
-      const user = Object.keys(userQuery).length ? await User.findOne(userQuery).lean() : company;
-      if (!user) {
+      if (!company) {
         res.json([]);
         return;
       }
 
-      const companyTypeInfo = normalizeBusinessType(user.companyType);
+      const companyTypeInfo = normalizeBusinessType(company.companyType);
       const fallback = {
-        name: user.username || '',
+        name: company.username || '',
         photo: '',
-        address: user.billingAddress || '',
-        company: user.companyName || '',
-        mobile: user.phoneNumber || '',
-        email: user.email || '',
-        role: user.role || '',
+        address: company.billingAddress || '',
+        company: company.companyName || '',
+        mobile: company.phoneNumber || '',
+        email: company.email || '',
+        role: company.role || '',
         businessType: companyTypeInfo.value || '',
         businessTypeLabel: companyTypeInfo.label || '',
         invoiceSerialScope: resolvedSerialScope,
-        GSTIN_ID: user._id,
-        gstin: user.GSTIN || ''
+        GSTIN_ID: company._id,
+        gstin: company.GSTIN || ''
       };
       res.json([fallback]);
       return;
@@ -156,21 +229,24 @@ router.get('/', requireAuth, async (req, res) => {
 
     const companyTypeInfo = normalizeBusinessType(company?.companyType);
 
-    const enriched = profiles.map((p) => ({
-      ...p,
-      name: p.name || company?.username || '',
-      address: p.address || company?.billingAddress || '',
-      company: p.company || company?.companyName || '',
-      mobile: p.mobile || company?.phoneNumber || '',
-      email: p.email || company?.email || '',
-      role: p.role || company?.role || '',
-      businessType: p.businessType || companyTypeInfo.value || '',
-      businessTypeLabel: companyTypeInfo.label || '',
-      invoiceSerialScope:
-        normalizeInvoiceSerialScope(p.invoiceSerialScope || company?.invoiceSerialScope) ||
-        'company',
-      gstin: company?.GSTIN || ''
-    }));
+    const enriched = profiles.map((p) => {
+      const safe = sanitizeProfileData(p);
+      return {
+        ...safe,
+        name: safe.name || company?.username || '',
+        address: safe.address || company?.billingAddress || '',
+        company: safe.company || company?.companyName || '',
+        mobile: safe.mobile || safe.phoneNumber || company?.phoneNumber || '',
+        email: safe.email || company?.email || '',
+        role: safe.role || company?.role || '',
+        businessType: safe.businessType || companyTypeInfo.value || '',
+        businessTypeLabel: companyTypeInfo.label || '',
+        invoiceSerialScope:
+          normalizeInvoiceSerialScope(safe.invoiceSerialScope || company?.invoiceSerialScope) ||
+          'company',
+        gstin: company?.GSTIN || ''
+      };
+    });
 
     res.json(enriched);
   } catch (err) {
@@ -227,8 +303,34 @@ router.post('/migrateBusinessType', requireAuth, requireAdmin, async (req, res) 
 // Update profile by ID
 router.put('/:id', requireAuth, async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    res.json({ success: true, profile });
+    const gstinId = Number(req.user?.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const profileId = normalizeProfileId(req.params.id);
+    if (!Number.isFinite(profileId)) return res.status(400).json({ message: 'Invalid profile id' });
+
+    const isAdmin = String(req.user?.role || '').trim().toLowerCase() === 'admin';
+    const requesterUserId = Number(req.user?.userId);
+    if (!isAdmin && requesterUserId !== profileId) {
+      return res.status(403).json({ message: 'Profile access denied' });
+    }
+
+    const update = pickProfileUpdate(req.body, {
+      allowIdentity: isAdmin,
+      allowRoleAndScope: isAdmin
+    });
+    if (!Object.keys(update).length) {
+      return res.status(400).json({ message: 'No updatable profile fields provided' });
+    }
+
+    const profile = await Profile.findOneAndUpdate(
+      { _id: profileId, GSTIN_ID: gstinId },
+      update,
+      { new: true }
+    ).select(PROFILE_PUBLIC_FIELDS);
+    if (!profile) return res.status(404).json({ message: 'Profile not found' });
+
+    res.json({ success: true, profile: sanitizeProfileData(profile) });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
@@ -237,8 +339,24 @@ router.put('/:id', requireAuth, async (req, res) => {
 // Delete profile by ID
 router.delete('/:id', requireAuth, requireAdmin, async (req, res) => {
   try {
-    const profile = await Profile.findByIdAndDelete(req.params.id);
+    const gstinId = Number(req.user?.id);
+    if (!Number.isFinite(gstinId)) return res.status(400).json({ message: 'Invalid GSTIN_ID' });
+
+    const profileId = normalizeProfileId(req.params.id);
+    if (!Number.isFinite(profileId)) return res.status(400).json({ message: 'Invalid profile id' });
+    if (Number(req.user?.userId) === profileId) {
+      return res.status(400).json({ message: 'Cannot delete your own profile' });
+    }
+
+    const profile = await Profile.findOne({ _id: profileId, GSTIN_ID: gstinId })
+      .select('isSuperAdminProvisioned')
+      .lean();
     if (!profile) return res.status(404).json({ message: 'Profile not found' });
+    if (Boolean(profile.isSuperAdminProvisioned)) {
+      return res.status(400).json({ message: 'Cannot delete super-admin provisioned profile' });
+    }
+
+    await Profile.deleteOne({ _id: profileId, GSTIN_ID: gstinId });
     res.json({ success: true, message: 'Profile deleted' });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });

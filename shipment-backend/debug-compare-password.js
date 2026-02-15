@@ -13,7 +13,7 @@ const plain = process.argv[3];
 if (!email || !plain) { console.error('Usage: node debug-compare-password.js email plainPassword'); process.exit(1); }
 
 await mongoose.connect(MONGO_URI);
-const user = await User.findOne({ email: email.toLowerCase() });
+const user = await User.findOne({ email: email.toLowerCase() }).select('+passwordHash');
 if (!user) { console.error('User not found'); process.exit(1); }
 console.log('Stored hash:', user.passwordHash);
 const ok = await bcrypt.compare(plain, user.passwordHash);
@@ -24,7 +24,7 @@ process.exit(0);
 const run = async () => {
   await mongoose.connect('mongodb+srv://<your-connection-string>');
 
-  const user = await User.findOne({ email: 'test@example.com' });
+  const user = await User.findOne({ email: 'test@example.com' }).select('+passwordHash');
   console.log('DB User:', user);
 
   const isMatch = await bcrypt.compare('mypassword', user.passwordHash);
