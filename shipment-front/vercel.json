@@ -5,6 +5,10 @@
   "outputDirectory": "dist/shipment-app",
   "rewrites": [
     {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    },
+    {
       "source": "/",
       "destination": "/index.html"
     },
@@ -22,4 +26,3 @@
     }
   ]
 }
-
