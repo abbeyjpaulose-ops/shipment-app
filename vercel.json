@@ -5,7 +5,19 @@
   "outputDirectory": "shipment-front/dist/shipment-app",
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/home",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/home/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/super-admin",
       "destination": "/index.html"
     }
   ]

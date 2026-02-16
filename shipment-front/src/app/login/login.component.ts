@@ -1,7 +1,7 @@
 ﻿import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 
 @Component({
   selector: 'app-login',
@@ -15,6 +15,20 @@ export class LoginComponent {
   password: string = '';
 
   constructor(private http: HttpClient) {}
+
+  private getLoginErrorMessage(err: HttpErrorResponse): string {
+    const backendMessage =
+      typeof err?.error?.message === 'string'
+        ? err.error.message.trim()
+        : '';
+
+    if (backendMessage) return backendMessage;
+    if (err.status === 0) return 'Cannot reach the API server. Check backend deployment and /api routing.';
+    if (err.status === 404) return 'API route not found. Configure production /api routing.';
+    if (err.status === 429) return 'Too many login attempts. Please try again later.';
+    if (err.status >= 500) return 'Server error while logging in. Please try again.';
+    return err.status ? `Login failed (${err.status}).` : 'Login failed.';
+  }
 
   login() {
     this.http.post('/api/auth/login', {
@@ -93,9 +107,9 @@ export class LoginComponent {
             }
           });
       },
-      error: (err) => {
-        console.error(err);
-        alert('Invalid credentials');
+      error: (err: HttpErrorResponse) => {
+        console.error('Login request failed:', err);
+        alert(this.getLoginErrorMessage(err));
       }
     });
   }
