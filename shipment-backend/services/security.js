@@ -2,6 +2,18 @@ const TRUE_VALUES = new Set(['1', 'true', 'yes', 'on']);
 const SAME_SITE_VALUES = new Set(['strict', 'lax', 'none']);
 const LOCAL_CORS_ORIGINS = ['http://localhost:4200', 'http://127.0.0.1:4200'];
 
+export function normalizeOrigin(origin) {
+  const raw = String(origin || '').trim();
+  if (!raw) return '';
+
+  try {
+    const parsed = new URL(raw);
+    return `${parsed.protocol}//${parsed.host}`.toLowerCase();
+  } catch {
+    return raw.replace(/\/+$/, '').toLowerCase();
+  }
+}
+
 export function isTruthy(value) {
   return TRUE_VALUES.has(String(value || '').trim().toLowerCase());
 }
@@ -71,16 +83,20 @@ export function getAuthCookieOptions() {
 export function getAllowedCorsOrigins() {
   const configured = String(process.env.CORS_ORIGINS || '')
     .split(',')
-    .map((origin) => origin.trim())
+    .map((origin) => normalizeOrigin(origin))
     .filter(Boolean);
-  if (configured.length) return configured;
+  const allowed = new Set(configured);
+
+  // Always allow current Vercel deployment origin when available.
+  const vercelUrl = String(process.env.VERCEL_URL || '').trim();
+  if (vercelUrl) {
+    allowed.add(normalizeOrigin(`https://${vercelUrl}`));
+  }
+
+  if (allowed.size) return Array.from(allowed);
 
   const environment = String(process.env.NODE_ENV || '').trim().toLowerCase();
   if (environment === 'production') {
-    const vercelUrl = String(process.env.VERCEL_URL || '').trim();
-    if (vercelUrl) {
-      return [`https://${vercelUrl}`];
-    }
     throw new Error('CORS_ORIGINS must be configured in production');
   }
 

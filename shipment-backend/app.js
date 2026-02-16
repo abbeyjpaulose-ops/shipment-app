@@ -19,7 +19,7 @@ import auditLogsRoutes from './routes/auditLogs.js';
 import paymentsRoutes from './routes/payments.js';
 import manifestRoutes from './routes/manifests.js';
 import superAdminRoutes from './routes/superAdmin.js';
-import { getAllowedCorsOrigins, isTruthy } from './services/security.js';
+import { getAllowedCorsOrigins, isTruthy, normalizeOrigin } from './services/security.js';
 
 dotenv.config();
 
@@ -97,11 +97,12 @@ function isLocalHost(req) {
   return host === 'localhost' || host === '127.0.0.1' || host === '::1';
 }
 
-const allowedOrigins = new Set(getAllowedCorsOrigins());
+const allowedOrigins = new Set(getAllowedCorsOrigins().map((origin) => normalizeOrigin(origin)).filter(Boolean));
 const corsOptions = {
   origin(origin, callback) {
     if (!origin) return callback(null, true);
-    if (allowedOrigins.has(origin)) return callback(null, true);
+    const normalizedOrigin = normalizeOrigin(origin);
+    if (allowedOrigins.has(normalizedOrigin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,

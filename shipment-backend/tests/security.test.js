@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { getAllowedCorsOrigins, isTruthy } from '../services/security.js';
+import { getAllowedCorsOrigins, isTruthy, normalizeOrigin } from '../services/security.js';
 
 const ENV_KEYS = ['NODE_ENV', 'CORS_ORIGINS', 'VERCEL_URL'];
 const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
@@ -22,6 +22,12 @@ function testIsTruthy() {
   assert.equal(isTruthy('false'), false);
   assert.equal(isTruthy('0'), false);
   assert.equal(isTruthy(undefined), false);
+}
+
+function testNormalizeOrigin() {
+  assert.equal(normalizeOrigin('HTTPS://App.Example.com/'), 'https://app.example.com');
+  assert.equal(normalizeOrigin('https://app.example.com/path?q=1'), 'https://app.example.com');
+  assert.equal(normalizeOrigin('https://app.example.com///'), 'https://app.example.com');
 }
 
 function testCorsDefaultsOutsideProduction() {
@@ -57,6 +63,7 @@ function testVercelUrlFallbackInProduction() {
 
 function testConfiguredCorsOriginsAreUsed() {
   process.env.NODE_ENV = 'production';
+  delete process.env.VERCEL_URL;
   process.env.CORS_ORIGINS = 'https://app.example.com, https://admin.example.com';
 
   assert.deepEqual(getAllowedCorsOrigins(), [
@@ -65,12 +72,37 @@ function testConfiguredCorsOriginsAreUsed() {
   ]);
 }
 
+function testConfiguredCorsOriginsAreNormalized() {
+  process.env.NODE_ENV = 'production';
+  delete process.env.VERCEL_URL;
+  process.env.CORS_ORIGINS = 'HTTPS://APP.EXAMPLE.COM/, https://admin.example.com/';
+
+  assert.deepEqual(getAllowedCorsOrigins(), [
+    'https://app.example.com',
+    'https://admin.example.com'
+  ]);
+}
+
+function testConfiguredCorsOriginsIncludeVercelDeploymentOrigin() {
+  process.env.NODE_ENV = 'production';
+  process.env.CORS_ORIGINS = 'https://app.example.com';
+  process.env.VERCEL_URL = 'preview-12345-shipment.vercel.app';
+
+  assert.deepEqual(getAllowedCorsOrigins(), [
+    'https://app.example.com',
+    'https://preview-12345-shipment.vercel.app'
+  ]);
+}
+
 try {
   testIsTruthy();
+  testNormalizeOrigin();
   testCorsDefaultsOutsideProduction();
   testCorsRequiredInProduction();
   testVercelUrlFallbackInProduction();
   testConfiguredCorsOriginsAreUsed();
+  testConfiguredCorsOriginsAreNormalized();
+  testConfiguredCorsOriginsIncludeVercelDeploymentOrigin();
   console.log('security.test.js passed');
 } finally {
   restoreEnv();
