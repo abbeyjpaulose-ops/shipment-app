@@ -1,1 +1,0 @@
-{"ast":null,"code":"import { provideHttpClient } from '@angular/common/http';\nbootstrapApplication(AppComponent, {\n  providers: [provideHttpClient()]\n});","map":null,"metadata":{},"sourceType":"module","externalDependencies":[]}
