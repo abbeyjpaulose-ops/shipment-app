@@ -97,6 +97,16 @@ function isLocalHost(req) {
   return host === 'localhost' || host === '127.0.0.1' || host === '::1';
 }
 
+function mongooseReadyStateLabel(state) {
+  switch (state) {
+    case 0: return 'disconnected';
+    case 1: return 'connected';
+    case 2: return 'connecting';
+    case 3: return 'disconnecting';
+    default: return `unknown(${state})`;
+  }
+}
+
 const allowedOrigins = new Set(getAllowedCorsOrigins().map((origin) => normalizeOrigin(origin)).filter(Boolean));
 const corsOptions = {
   origin(origin, callback) {
@@ -152,9 +162,58 @@ if (!mongoUri) {
   throw new Error('MONGO_URI is not configured');
 }
 
-mongoose.connect(mongoUri)
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection failed:', err.message));
+let mongoConnectPromise = null;
+
+async function ensureMongoConnected() {
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+
+  if (!mongoConnectPromise) {
+    const serverSelectionTimeoutMs = toPositiveInt(
+      process.env.MONGO_SERVER_SELECTION_TIMEOUT_MS,
+      10000
+    );
+    const socketTimeoutMs = toPositiveInt(
+      process.env.MONGO_SOCKET_TIMEOUT_MS,
+      20000
+    );
+
+    mongoConnectPromise = mongoose
+      .connect(mongoUri, {
+        serverSelectionTimeoutMS: serverSelectionTimeoutMs,
+        socketTimeoutMS: socketTimeoutMs
+      })
+      .then(() => {
+        console.log('Connected to MongoDB');
+      })
+      .catch((err) => {
+        mongoConnectPromise = null;
+        throw err;
+      });
+  }
+
+  await mongoConnectPromise;
+}
+
+// Start connecting immediately, but do not block startup.
+ensureMongoConnected().catch((err) => {
+  console.error('MongoDB connection failed:', err.message);
+});
+
+app.use('/api', async (_req, res, next) => {
+  try {
+    await ensureMongoConnected();
+    return next();
+  } catch (err) {
+    console.error(
+      'MongoDB unavailable for request:',
+      err?.message || err,
+      `state=${mongooseReadyStateLabel(mongoose.connection.readyState)}`
+    );
+    return res.status(503).json({ message: 'Database unavailable' });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/branches', branchRoutes);
