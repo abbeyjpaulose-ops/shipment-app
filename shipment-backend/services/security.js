@@ -77,6 +77,10 @@ export function getAllowedCorsOrigins() {
 
   const environment = String(process.env.NODE_ENV || '').trim().toLowerCase();
   if (environment === 'production') {
+    const vercelUrl = String(process.env.VERCEL_URL || '').trim();
+    if (vercelUrl) {
+      return [`https://${vercelUrl}`];
+    }
     throw new Error('CORS_ORIGINS must be configured in production');
   }
 

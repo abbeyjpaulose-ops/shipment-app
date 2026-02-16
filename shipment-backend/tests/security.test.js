@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { getAllowedCorsOrigins, isTruthy } from '../services/security.js';
 
-const ENV_KEYS = ['NODE_ENV', 'CORS_ORIGINS'];
+const ENV_KEYS = ['NODE_ENV', 'CORS_ORIGINS', 'VERCEL_URL'];
 const ORIGINAL_ENV = Object.fromEntries(ENV_KEYS.map((key) => [key, process.env[key]]));
 
 function restoreEnv() {
@@ -37,11 +37,22 @@ function testCorsDefaultsOutsideProduction() {
 function testCorsRequiredInProduction() {
   process.env.NODE_ENV = 'production';
   delete process.env.CORS_ORIGINS;
+  delete process.env.VERCEL_URL;
 
   assert.throws(
     () => getAllowedCorsOrigins(),
     /CORS_ORIGINS must be configured in production/
   );
+}
+
+function testVercelUrlFallbackInProduction() {
+  process.env.NODE_ENV = 'production';
+  delete process.env.CORS_ORIGINS;
+  process.env.VERCEL_URL = 'shipment-app.vercel.app';
+
+  assert.deepEqual(getAllowedCorsOrigins(), [
+    'https://shipment-app.vercel.app'
+  ]);
 }
 
 function testConfiguredCorsOriginsAreUsed() {
@@ -58,6 +69,7 @@ try {
   testIsTruthy();
   testCorsDefaultsOutsideProduction();
   testCorsRequiredInProduction();
+  testVercelUrlFallbackInProduction();
   testConfiguredCorsOriginsAreUsed();
   console.log('security.test.js passed');
 } finally {
