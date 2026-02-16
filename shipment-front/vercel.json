@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "installCommand": "cd .. && npm ci && cd shipment-front && npm ci",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/shipment-app",
+  "rewrites": [
+    {
+      "source": "/",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/home",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/home/(.*)",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/super-admin",
+      "destination": "/index.html"
+    }
+  ]
+}
+
