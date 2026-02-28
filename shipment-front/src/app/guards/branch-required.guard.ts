@@ -18,8 +18,12 @@ export const branchRequiredGuard: CanActivateChildFn = (childRoute) => {
   const childPath = childRoute.routeConfig?.path || '';
   if (ALLOW_WITHOUT_BRANCHES.has(childPath)) return true;
 
-  const token = localStorage.getItem('token');
-  if (!token) return router.createUrlTree(['/']);
+  const token = String(localStorage.getItem('token') || '').trim();
+  const username = String(localStorage.getItem('username') || '').trim();
+  const email = String(localStorage.getItem('email') || '').trim();
+  const role = String(localStorage.getItem('role') || '').trim();
+  const hasSession = Boolean(token || username || email || role);
+  if (!hasSession) return router.createUrlTree(['/']);
 
   return http.get<any[]>('/api/branches').pipe(
     map((branches) => {

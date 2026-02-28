@@ -1,4 +1,4 @@
-﻿import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
@@ -179,22 +179,9 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     action: 'override' | 'suggest';
   }> = [];
 
-  ewaybills = [
-    {
-      number: '',
-      date: this.date,
-      invoices: [
-        {
-          number: '',
-          value: 0,
-          packages: [{ type: '', amount: 0 }],
-          products: [{ type: '', amount: 1, ratePer: 0, instock: 1, intransitstock: 0, deliveredstock: 0 }]
-        }
-      ]
-    }
-  ];
+  ewaybills = this.createDefaultEwaybills();
 
-  charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0, consignorDiscount: 0 };
+  charges = this.createDefaultCharges();
   applyConsignorDiscount = true;
   maxConsignorDiscount = 0;
   finalAmount: number = 0;
@@ -210,7 +197,28 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
   pendingPricingUpdates: Array<{ productName: string; hsnNum?: string; enteredRate: number }> = [];
   retryPricingAfterSave = false;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
+
+  private createDefaultEwaybills() {
+    return [
+      {
+        number: '',
+        date: this.date,
+        invoices: [
+          {
+            number: '',
+            value: 0,
+            packages: [{ type: '', amount: 0 }],
+            products: [{ type: '', amount: 1, ratePer: 0, instock: 1, intransitstock: 0, deliveredstock: 0 }]
+          }
+        ]
+      }
+    ];
+  }
+
+  private createDefaultCharges() {
+    return { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0, consignorDiscount: 0 };
+  }
 
   ngOnInit() {
     if (typeof window === 'undefined') return;
@@ -670,6 +678,24 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
+  getProductTotalCost(product: any): number {
+    const qty = Number(product?.amount) || 0;
+    const rate = Number(product?.ratePer) || 0;
+    return this.roundCurrency(qty * rate);
+  }
+
+  onProductTotalCostChange(product: any, value: any): void {
+    if (!product) return;
+    const total = Math.max(0, Number(value) || 0);
+    let qty = Number(product?.amount) || 0;
+    if (qty <= 0) {
+      qty = 1;
+      product.amount = qty;
+    }
+    product.ratePer = this.roundCurrency(total / qty);
+    this.scheduleQuote();
+  }
+
   resetForm() {
     this.billingType = 'consignor';
     this.billingName = '';
@@ -722,19 +748,11 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.allowAccountCredit = false;
     this.allowReceiverCredit = false;
     this.externalRefId = '';
-    this.ewaybills = [{
-      number: '',
-      date: this.date,
-      invoices: [
-        {
-          number: '',
-          value: 0,
-          packages: [{ type: '', amount: 0 }],
-          products: [{ type: '', amount: 1, ratePer: 0, instock: 1, intransitstock: 0, deliveredstock: 0 }]
-        }
-      ]
-    }];
-    this.charges = { odc: 0, unloading: 0, docket: 0, other: 0, ccc: 0, consignorDiscount: 0 };
+    // Clear first, then recreate, so template-driven controls are rebuilt with blank state.
+    this.ewaybills = [];
+    this.cdr.detectChanges();
+    this.ewaybills = this.createDefaultEwaybills();
+    this.charges = this.createDefaultCharges();
     this.applyConsignorDiscount = true;
       this.maxConsignorDiscount = 0;
       this.finalAmount = 0;
@@ -2996,7 +3014,6 @@ export class NewShipmentComponent implements OnInit, OnDestroy {
     this.newClient.deliveryLocations.splice(index, 1);
   }
 }
-
 
 
 

@@ -4,6 +4,18 @@
   gap: 16px;
 }
 
+.page-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 16px;
+  align-items: start;
+}
+
+.main-column {
+  display: grid;
+  gap: 16px;
+}
+
 .page-header {
   display: flex;
   justify-content: space-between;
@@ -118,4 +130,70 @@ td {
 .empty {
   text-align: center;
   color: #6b7280;
+}
+
+.side-rack {
+  position: sticky;
+  top: 16px;
+}
+
+.side-rack-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.side-rack-header h3 {
+  margin: 0;
+}
+
+.side-rack-list {
+  display: grid;
+  gap: 10px;
+}
+
+.side-rack-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 10px;
+  background: #f9fafb;
+}
+
+.side-rack-item .name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 2px;
+}
+
+.side-rack-item .meta {
+  font-size: 12px;
+  color: #4b5563;
+  line-height: 1.35;
+}
+
+.side-rack-item .password-editor {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.side-rack-item .password-editor input {
+  font-size: 13px;
+}
+
+.side-rack-item .password-editor button {
+  width: 100%;
+}
+
+@media (max-width: 1100px) {
+  .page-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .side-rack {
+    position: static;
+  }
 }

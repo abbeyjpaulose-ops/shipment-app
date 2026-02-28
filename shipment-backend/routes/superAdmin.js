@@ -86,6 +86,55 @@ router.get('/companies', async (_req, res) => {
   }
 });
 
+router.get('/super-admins', async (_req, res) => {
+  try {
+    const rows = await User.find({ role: /^super-admin$/i })
+      .select('_id email username companyName createdAt')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const data = (rows || []).map((row) => ({
+      gstinId: Number(row?._id),
+      email: row?.email || '',
+      username: row?.username || '',
+      companyName: row?.companyName || '',
+      createdAt: row?.createdAt || null
+    }));
+
+    return res.json({ data });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+});
+
+router.patch('/super-admins/:id/password', async (req, res) => {
+  try {
+    const gstinId = Number(req.params.id);
+    if (!Number.isFinite(gstinId)) {
+      return res.status(400).json({ message: 'Invalid super-admin id' });
+    }
+
+    const password = String(req.body?.password || '');
+    if (password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters' });
+    }
+
+    const superAdmin = await User.findById(gstinId).select('_id role').lean();
+    if (!superAdmin) {
+      return res.status(404).json({ message: 'Super-admin account not found' });
+    }
+    if (String(superAdmin.role || '').toLowerCase() !== 'super-admin') {
+      return res.status(400).json({ message: 'Target account is not a super-admin' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await User.updateOne({ _id: gstinId }, { $set: { passwordHash } });
+    return res.json({ message: 'Super-admin password updated' });
+  } catch (err) {
+    return res.status(400).json({ message: err.message });
+  }
+});
+
 router.post('/companies', async (req, res) => {
   try {
     const email = normalizeEmail(req.body?.email);

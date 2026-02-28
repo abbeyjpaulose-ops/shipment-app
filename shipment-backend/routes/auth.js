@@ -19,20 +19,24 @@ const router = express.Router();
 
 router.post('/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    const normalizedUsername = String(username || '').toLowerCase().trim();
-    if (!normalizedUsername || !password) {
-      return res.status(400).json({ message: 'username and password are required' });
+    const normalizedLoginId = String(username || email || '').toLowerCase().trim();
+    if (!normalizedLoginId || !password) {
+      return res.status(400).json({ message: 'username/email and password are required' });
     }
 
     // Admin/company accounts live in User; regular users live in Profile.
     let accountType = 'user';
-    let account = await User.findOne({ username: normalizedUsername }).select('+passwordHash');
+    let account = await User.findOne({
+      $or: [{ username: normalizedLoginId }, { email: normalizedLoginId }]
+    }).select('+passwordHash');
 
     if (!account) {
       accountType = 'profile';
-      account = await Profile.findOne({ username: normalizedUsername }).select('+passwordHash');
+      account = await Profile.findOne({
+        $or: [{ username: normalizedLoginId }, { email: normalizedLoginId }]
+      }).select('+passwordHash');
     }
 
     if (!account) {

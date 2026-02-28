@@ -724,14 +724,14 @@ button.ghost {
 
 .product-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 120px 40px;
   gap: 8px;
   align-items: center;
 }
 
 .product-head {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 120px 40px;
   gap: 8px;
   font-size: 12px;
   font-weight: 700;
@@ -772,6 +772,17 @@ button.ghost {
 
 .product-cell-delete {
   justify-content: flex-start;
+}
+
+.product-cell-total {
+  justify-content: flex-end;
+  font-weight: 600;
+}
+
+.product-cell-total .total-cost-input {
+  width: 100%;
+  max-width: none;
+  text-align: right;
 }
 
 .suggested-rate {

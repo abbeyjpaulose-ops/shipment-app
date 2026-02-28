@@ -1199,6 +1199,24 @@ export class ViewShipmentsComponent implements OnInit {
     return null;
   }
 
+  getProductTotalCost(product: any): number {
+    const qty = this.normalizeAmount(product?.amount);
+    const rate = this.normalizeAmount(product?.ratePer);
+    return this.roundCurrency(qty * rate);
+  }
+
+  onEditProductTotalCostChange(product: any, value: any): void {
+    if (!product) return;
+    const total = this.normalizeAmount(value);
+    let qty = this.normalizeAmount(product?.amount);
+    if (qty <= 0) {
+      qty = 1;
+      product.amount = qty;
+    }
+    product.ratePer = this.roundCurrency(total / qty);
+    this.recalculateEditTotals();
+  }
+
   onEditRateUnitChange(): void {
     if (this.editingShipment) {
       this.editingShipment.rateUnit = this.editRateUnit;

@@ -19,6 +19,14 @@ type CompanyRow = {
   createdAt: string;
 };
 
+type SuperAdminRow = {
+  gstinId: number;
+  email: string;
+  username: string;
+  companyName: string;
+  createdAt: string;
+};
+
 @Component({
   selector: 'app-super-admin',
   standalone: true,
@@ -28,11 +36,15 @@ type CompanyRow = {
 })
 export class SuperAdminComponent implements OnInit {
   loading = false;
+  loadingSuperAdmins = false;
   saving = false;
+  updatingSuperAdminId: number | null = null;
   deletingId: number | null = null;
   error = '';
   success = '';
   rows: CompanyRow[] = [];
+  superAdmins: SuperAdminRow[] = [];
+  superAdminPasswords: Record<number, string> = {};
 
   form = {
     email: '',
@@ -57,6 +69,8 @@ export class SuperAdminComponent implements OnInit {
     const combined = objectMessage || textMessage;
     const endpointMissing =
       /Cannot\s+GET\s+\/api\/super-admin\/companies/i.test(textMessage) ||
+      /Cannot\s+GET\s+\/api\/super-admin\/super-admins/i.test(textMessage) ||
+      /Cannot\s+PATCH\s+\/api\/super-admin\/super-admins\/\d+\/password/i.test(textMessage) ||
       /Cannot\s+POST\s+\/api\/super-admin\/companies/i.test(textMessage) ||
       /Cannot\s+DELETE\s+\/api\/super-admin\/companies/i.test(textMessage) ||
       Number(err?.status) === 404;
@@ -71,6 +85,7 @@ export class SuperAdminComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadCompanies();
+    this.loadSuperAdmins();
   }
 
   loadCompanies(): void {
@@ -84,6 +99,53 @@ export class SuperAdminComponent implements OnInit {
       error: (err) => {
         this.error = this.resolveError(err, 'Failed to load companies');
         this.loading = false;
+      }
+    });
+  }
+
+  loadSuperAdmins(): void {
+    this.loadingSuperAdmins = true;
+    this.http.get<any>('/api/super-admin/super-admins').subscribe({
+      next: (res) => {
+        this.superAdmins = Array.isArray(res?.data) ? res.data : [];
+        const activeIds = new Set(this.superAdmins.map((row) => Number(row?.gstinId)).filter((id) => Number.isFinite(id)));
+        Object.keys(this.superAdminPasswords).forEach((key) => {
+          const id = Number(key);
+          if (!activeIds.has(id)) delete this.superAdminPasswords[id];
+        });
+        this.loadingSuperAdmins = false;
+      },
+      error: (err) => {
+        this.error = this.resolveError(err, 'Failed to load super-admin list');
+        this.loadingSuperAdmins = false;
+      }
+    });
+  }
+
+  updateSuperAdminPassword(row: SuperAdminRow): void {
+    const gstinId = Number(row?.gstinId);
+    if (!Number.isFinite(gstinId)) return;
+    if (this.updatingSuperAdminId !== null) return;
+
+    const password = String(this.superAdminPasswords[gstinId] || '');
+    if (password.length < 6) {
+      this.error = 'Password must be at least 6 characters.';
+      this.success = '';
+      return;
+    }
+
+    this.updatingSuperAdminId = gstinId;
+    this.error = '';
+    this.success = '';
+    this.http.patch<any>(`/api/super-admin/super-admins/${gstinId}/password`, { password }).subscribe({
+      next: () => {
+        this.superAdminPasswords[gstinId] = '';
+        this.success = `Password updated for ${row.username || row.email || 'super-admin'}.`;
+        this.updatingSuperAdminId = null;
+      },
+      error: (err) => {
+        this.error = this.resolveError(err, 'Failed to update super-admin password');
+        this.updatingSuperAdminId = null;
       }
     });
   }

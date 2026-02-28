@@ -406,11 +406,13 @@
                 <span>Product</span>
                 <span>Qty</span>
                 <span>Rate</span>
+                <span>Total Cost</span>
                 <span></span>
               </div>
               <div *ngFor="let product of invoice.products; let p=index" class="product-row">
                 <div class="product-cell product-cell-product">
                   <select [(ngModel)]="product.type" (change)="onProductTypeChange(product)">
+                    <option value="">Select product</option>
                     <option *ngFor="let prod of productList" [value]="prod.productName">
                       {{ prod.hsnNum }} - {{ prod.productName }}
                     </option>
@@ -427,6 +429,16 @@
                     </span>
                   </div>
                 </div>
+                <div class="product-cell product-cell-total">
+                  <input
+                    type="number"
+                    class="total-cost-input"
+                    placeholder="Total Cost"
+                    step="0.01"
+                    min="0"
+                    [ngModel]="getProductTotalCost(product)"
+                    (ngModelChange)="onProductTotalCostChange(product, $event)">
+                </div>
                 <div class="product-cell product-cell-delete">
                   <button *ngIf="p > 0" class="icon-btn" (click)="deleteProduct(e, i, p)" aria-label="Delete product" title="Delete">
                     <i class="fas fa-trash"></i>
@@ -440,6 +452,7 @@
               <div class="subsection-title">Packages</div>
               <div *ngFor="let pkg of invoice.packages; let j=index" class="compact-row">
                 <select [(ngModel)]="pkg.type">
+                  <option value="">Select package</option>
                   <option *ngFor="let p of pkgList" [value]="p.pkgName">{{ p.pkgName }}</option>
                 </select>
                 <input type="number" placeholder="Qty" [(ngModel)]="pkg.amount" (ngModelChange)="scheduleQuote()">

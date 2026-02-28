@@ -697,7 +697,7 @@
 
 .products-section .edit-ewaybills .product-head {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 120px 40px;
   gap: 8px;
   font-size: 12px;
   font-weight: 700;
@@ -708,7 +708,7 @@
 
 .products-section .edit-ewaybills .product-row {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 40px;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 120px 40px;
   gap: 8px;
   align-items: center;
 }
@@ -736,9 +736,55 @@
   justify-content: flex-start;
 }
 
+.products-section .edit-ewaybills .product-cell-total {
+  justify-content: flex-end;
+  font-weight: 600;
+}
+
+.products-section .edit-ewaybills .product-cell-total .total-cost-input {
+  width: 100%;
+  max-width: none;
+  text-align: right;
+}
+
 .products-section .edit-ewaybills .suggested-rate {
   color: #16a34a;
   font-size: 12px;
+  font-weight: 600;
+}
+
+.products-section .view-ewaybills .product-head {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 120px;
+  gap: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin: 6px 0 4px;
+}
+
+.products-section .view-ewaybills .product-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px minmax(180px, 1fr) 120px;
+  gap: 8px;
+  align-items: center;
+}
+
+.products-section .view-ewaybills .product-cell {
+  display: flex;
+  align-items: center;
+}
+
+.products-section .view-ewaybills .product-cell-product input,
+.products-section .view-ewaybills .product-cell-qty input,
+.products-section .view-ewaybills .product-cell-rate .rate-input {
+  width: 100%;
+  max-width: none;
+}
+
+.products-section .view-ewaybills .product-cell-total {
+  justify-content: flex-end;
   font-weight: 600;
 }
 
@@ -972,6 +1018,18 @@
 
   .products-section .edit-ewaybills .product-cell-rate .rate-inline {
     flex-wrap: wrap;
+  }
+
+  .products-section .view-ewaybills .product-row {
+    grid-template-columns: 1fr;
+  }
+
+  .products-section .view-ewaybills .product-head {
+    display: none;
+  }
+
+  .products-section .view-ewaybills .product-cell {
+    width: 100%;
   }
 
   .details-product-list li {
