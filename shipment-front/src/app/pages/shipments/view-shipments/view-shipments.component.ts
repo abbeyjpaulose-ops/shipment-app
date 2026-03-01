@@ -126,8 +126,8 @@ export class ViewShipmentsComponent implements OnInit {
   }
 
   loadClients(): void {
-    if (!this.email) return;
-    this.http.get<any[]>(`/api/clients/clientslist?emailId=${this.email}`)
+    const originLocId = localStorage.getItem('originLocId') || 'all';
+    this.http.get<any[]>(`/api/clients/clientslist?originLocId=${encodeURIComponent(originLocId)}`)
       .subscribe({
         next: (clients) => {
           this.clientList = clients || [];
@@ -1061,6 +1061,60 @@ export class ViewShipmentsComponent implements OnInit {
       ? normalizedEwaybills
       : [{ number: '', date: fallbackDate, invoices: [] }];
     return cloned;
+  }
+
+  formatClientOption(client: any): string {
+    const name = String(client?.clientName || '').trim();
+    if (!name) return '';
+    const suffix = [
+      String(client?.branchName || '').trim(),
+      String(client?.GSTIN || '').trim()
+    ].filter(Boolean);
+    return suffix.length ? `${name} (${suffix.join(' | ')})` : name;
+  }
+
+  onEditConsignorSelect(name: string): void {
+    if (!this.editingShipment) return;
+    const selected = this.resolveClientByIdOrName(null, name);
+    if (!selected) return;
+    this.editingShipment.consignor = selected.clientName || name;
+    this.editingShipment.consignorTab = 'consignor';
+    this.editingShipment.consignorId = selected._id || this.editingShipment.consignorId;
+    this.editingShipment.consignorGST = selected.GSTIN || this.editingShipment.consignorGST || '';
+    this.editingShipment.consignorPhone = selected.phoneNum || this.editingShipment.consignorPhone || '';
+    const address = this.buildClientAddress(selected);
+    if (address) {
+      this.editingShipment.consignorAddress = address;
+    }
+  }
+
+  onEditConsigneeSelect(name: string): void {
+    if (!this.editingShipment) return;
+    const selected = this.resolveClientByIdOrName(null, name);
+    if (!selected) return;
+    this.editingShipment.consignee = selected.clientName || name;
+    this.editingShipment.consigneeTab = 'consignee';
+    this.editingShipment.consigneeId = selected._id || this.editingShipment.consigneeId;
+    this.editingShipment.consigneeGST = selected.GSTIN || this.editingShipment.consigneeGST || '';
+    this.editingShipment.consigneePhone = selected.phoneNum || this.editingShipment.consigneePhone || '';
+    const address = this.buildClientAddress(selected);
+    if (address) {
+      this.editingShipment.consigneeAddress = address;
+    }
+  }
+
+  private buildClientAddress(client: any): string {
+    if (!client) return '';
+    const primaryLocation = Array.isArray(client?.deliveryLocations) ? (client.deliveryLocations[0] || null) : null;
+    const parts = [
+      primaryLocation?.address || primaryLocation?.location || client?.address,
+      primaryLocation?.city || client?.city,
+      primaryLocation?.state || client?.state,
+      primaryLocation?.pinCode || client?.pinCode
+    ]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean);
+    return parts.join(', ');
   }
 
   private getEditDateValue(value: any): string {

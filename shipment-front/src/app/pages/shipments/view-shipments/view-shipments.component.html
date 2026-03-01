@@ -526,7 +526,16 @@
             </div>
             <div class="panel-body">
               <label>Name
-                <input [(ngModel)]="editingShipment.consignor">
+                <input
+                  type="search"
+                  list="edit-consignor-client-list"
+                  [(ngModel)]="editingShipment.consignor"
+                  (ngModelChange)="onEditConsignorSelect(editingShipment.consignor)">
+                <datalist id="edit-consignor-client-list">
+                  <option *ngFor="let c of clientList" [value]="c.clientName">
+                    {{ formatClientOption(c) }}
+                  </option>
+                </datalist>
               </label>
               <label>GST
                 <input [(ngModel)]="editingShipment.consignorGST">
@@ -545,7 +554,16 @@
             </div>
             <div class="panel-body">
               <label>Name
-                <input [(ngModel)]="editingShipment.consignee">
+                <input
+                  type="search"
+                  list="edit-consignee-client-list"
+                  [(ngModel)]="editingShipment.consignee"
+                  (ngModelChange)="onEditConsigneeSelect(editingShipment.consignee)">
+                <datalist id="edit-consignee-client-list">
+                  <option *ngFor="let c of clientList" [value]="c.clientName">
+                    {{ formatClientOption(c) }}
+                  </option>
+                </datalist>
               </label>
               <label>GST
                 <input [(ngModel)]="editingShipment.consigneeGST">
